@@ -7,11 +7,11 @@ import (
 type Type string
 
 const (
-	NotFound      Type = "NOT_FOUND"
-	InvalidInput  Type = "INVALID_INPUT"
-	Internal      Type = "INTERNAL"
-	Unauthorized  Type = "UNAUTHORIZED"
-	Conflict      Type = "CONFLICT"
+	NotFound     Type = "NOT_FOUND"
+	InvalidInput Type = "INVALID_INPUT"
+	Internal     Type = "INTERNAL"
+	Unauthorized Type = "UNAUTHORIZED"
+	Conflict     Type = "CONFLICT"
 )
 
 type Error struct {
@@ -33,4 +33,11 @@ func New(t Type, msg string) error {
 
 func Wrap(t Type, msg string, err error) error {
 	return Error{Type: t, Message: msg, Cause: err}
+}
+
+func Is(err error, t Type) bool {
+	if e, ok := err.(Error); ok {
+		return e.Type == t
+	}
+	return false
 }

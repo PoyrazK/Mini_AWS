@@ -48,6 +48,10 @@ func main() {
 	}
 
 	// 4. Layers (Repo -> Service -> Handler)
+	identityRepo := postgres.NewIdentityRepository(db)
+	identitySvc := services.NewIdentityService(identityRepo)
+	identityHandler := httphandlers.NewIdentityHandler(identitySvc)
+
 	instanceRepo := postgres.NewInstanceRepository(db)
 	instanceSvc := services.NewInstanceService(instanceRepo, dockerAdapter)
 	instanceHandler := httphandlers.NewInstanceHandler(instanceSvc)
@@ -77,7 +81,12 @@ func main() {
 		})
 	})
 
+	// Identity Routes (Public for bootstrapping)
+	r.POST("/auth/keys", identityHandler.CreateKey)
+
+	// Instance Routes (Protected)
 	instanceGroup := r.Group("/instances")
+	instanceGroup.Use(httputil.Auth(identitySvc))
 	{
 		instanceGroup.POST("", instanceHandler.Launch)
 		instanceGroup.GET("", instanceHandler.List)

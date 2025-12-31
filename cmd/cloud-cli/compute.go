@@ -12,17 +12,28 @@ import (
 
 var apiURL = "http://localhost:8080"
 var outputJSON bool
+var apiKey string
 
 var computeCmd = &cobra.Command{
 	Use:   "compute",
 	Short: "Manage compute instances",
 }
 
+func getClient() *resty.Client {
+	client := resty.New()
+	key := apiKey
+	if key == "" {
+		key = os.Getenv("MINIAWS_API_KEY")
+	}
+	client.SetHeader("X-API-Key", key)
+	return client
+}
+
 var listCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all instances",
 	Run: func(cmd *cobra.Command, args []string) {
-		client := resty.New()
+		client := getClient()
 		resp, err := client.R().Get(apiURL + "/instances")
 		if err != nil {
 			fmt.Printf("Error connecting to API: %v\n", err)
@@ -69,7 +80,7 @@ var launchCmd = &cobra.Command{
 		name, _ := cmd.Flags().GetString("name")
 		image, _ := cmd.Flags().GetString("image")
 
-		client := resty.New()
+		client := getClient()
 		resp, err := client.R().
 			SetHeader("Content-Type", "application/json").
 			SetBody(map[string]string{
@@ -98,7 +109,7 @@ var stopCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
-		client := resty.New()
+		client := getClient()
 		resp, err := client.R().Post(apiURL + "/instances/" + id + "/stop")
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
@@ -124,5 +135,6 @@ func init() {
 	launchCmd.MarkFlagRequired("name")
 
 	rootCmd.PersistentFlags().BoolVarP(&outputJSON, "json", "j", false, "Output in JSON format")
+	rootCmd.PersistentFlags().StringVarP(&apiKey, "api-key", "k", "", "API key for authentication")
 	rootCmd.AddCommand(computeCmd)
 }

@@ -1,0 +1,27 @@
+package httputil
+
+import (
+	"github.com/gin-gonic/gin"
+	"github.com/poyraz/cloud/internal/core/ports"
+	"github.com/poyraz/cloud/internal/errors"
+)
+
+func Auth(svc ports.IdentityService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		apiKey := c.GetHeader("X-API-Key")
+		if apiKey == "" {
+			Error(c, errors.New(errors.Unauthorized, "API key required"))
+			c.Abort()
+			return
+		}
+
+		valid, err := svc.ValidateApiKey(c.Request.Context(), apiKey)
+		if err != nil || !valid {
+			Error(c, errors.New(errors.Unauthorized, "invalid API key"))
+			c.Abort()
+			return
+		}
+
+		c.Next()
+	}
+}
