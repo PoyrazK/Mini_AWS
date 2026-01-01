@@ -42,6 +42,11 @@ func main() {
 	}
 	defer db.Close()
 
+	// 3.1 Run Migrations
+	if err := postgres.RunMigrations(ctx, db); err != nil {
+		logger.Warn("failed to run migrations", "error", err)
+	}
+
 	dockerAdapter, err := docker.NewDockerAdapter()
 	if err != nil {
 		logger.Error("failed to initialize docker adapter", "error", err)
