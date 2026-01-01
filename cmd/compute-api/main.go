@@ -56,8 +56,8 @@ func main() {
 	instanceRepo := postgres.NewInstanceRepository(db)
 	vpcRepo := postgres.NewVpcRepository(db)
 
-	vpcSvc := services.NewVpcService(vpcRepo, dockerAdapter)
-	instanceSvc := services.NewInstanceService(instanceRepo, vpcRepo, dockerAdapter)
+	vpcSvc := services.NewVpcService(vpcRepo, dockerAdapter, logger)
+	instanceSvc := services.NewInstanceService(instanceRepo, vpcRepo, dockerAdapter, logger)
 
 	vpcHandler := httphandlers.NewVpcHandler(vpcSvc)
 	instanceHandler := httphandlers.NewInstanceHandler(instanceSvc)

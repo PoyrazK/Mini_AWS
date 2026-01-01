@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -13,12 +14,14 @@ import (
 type VpcService struct {
 	repo   ports.VpcRepository
 	docker ports.DockerClient
+	logger *slog.Logger
 }
 
-func NewVpcService(repo ports.VpcRepository, docker ports.DockerClient) *VpcService {
+func NewVpcService(repo ports.VpcRepository, docker ports.DockerClient, logger *slog.Logger) *VpcService {
 	return &VpcService{
 		repo:   repo,
 		docker: docker,
+		logger: logger,
 	}
 }
 
@@ -40,9 +43,14 @@ func (s *VpcService) CreateVPC(ctx context.Context, name string) (*domain.VPC, e
 
 	if err := s.repo.Create(ctx, vpc); err != nil {
 		// Cleanup Docker network if DB fails
-		_ = s.docker.RemoveNetwork(ctx, dockerNetworkID)
+		s.logger.Error("failed to create VPC in DB, rolling back network", "name", name, "error", err)
+		if rbErr := s.docker.RemoveNetwork(ctx, dockerNetworkID); rbErr != nil {
+			s.logger.Error("failed to rollback network", "network_id", dockerNetworkID, "error", rbErr)
+		}
 		return nil, err
 	}
+
+	s.logger.Info("vpc created", "vpc_id", vpc.ID, "network_id", dockerNetworkID)
 
 	return vpc, nil
 }
@@ -67,8 +75,10 @@ func (s *VpcService) DeleteVPC(ctx context.Context, idOrName string) error {
 
 	// 1. Remove Docker network
 	if err := s.docker.RemoveNetwork(ctx, vpc.NetworkID); err != nil {
+		s.logger.Error("failed to remove docker network", "network_id", vpc.NetworkID, "error", err)
 		return err
 	}
+	s.logger.Info("vpc network removed", "network_id", vpc.NetworkID)
 
 	// 2. Delete from DB
 	return s.repo.Delete(ctx, vpc.ID)

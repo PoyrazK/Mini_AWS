@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"io"
+	"log/slog"
 	"testing"
 
 	"github.com/google/uuid"
@@ -129,7 +130,8 @@ func TestLaunchInstance_Success(t *testing.T) {
 	repo := new(MockRepo)
 	vpcRepo := new(MockVpcRepo)
 	docker := new(MockDocker)
-	svc := NewInstanceService(repo, vpcRepo, docker)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	svc := NewInstanceService(repo, vpcRepo, docker, logger)
 
 	ctx := context.Background()
 	name := "test-inst"
@@ -154,7 +156,8 @@ func TestTerminateInstance_Success(t *testing.T) {
 	repo := new(MockRepo)
 	vpcRepo := new(MockVpcRepo)
 	docker := new(MockDocker)
-	svc := NewInstanceService(repo, vpcRepo, docker)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	svc := NewInstanceService(repo, vpcRepo, docker, logger)
 
 	ctx := context.Background()
 	id := uuid.New()

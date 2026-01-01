@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -17,13 +18,15 @@ type InstanceService struct {
 	repo    ports.InstanceRepository
 	vpcRepo ports.VpcRepository
 	docker  ports.DockerClient
+	logger  *slog.Logger
 }
 
-func NewInstanceService(repo ports.InstanceRepository, vpcRepo ports.VpcRepository, docker ports.DockerClient) *InstanceService {
+func NewInstanceService(repo ports.InstanceRepository, vpcRepo ports.VpcRepository, docker ports.DockerClient, logger *slog.Logger) *InstanceService {
 	return &InstanceService{
 		repo:    repo,
 		vpcRepo: vpcRepo,
 		docker:  docker,
+		logger:  logger,
 	}
 }
 
@@ -59,6 +62,7 @@ func (s *InstanceService) LaunchInstance(ctx context.Context, name, image, ports
 	if vpcID != nil {
 		vpc, err := s.vpcRepo.GetByID(ctx, *vpcID)
 		if err != nil {
+			s.logger.Error("failed to get VPC", "vpc_id", vpcID, "error", err)
 			return nil, err
 		}
 		networkID = vpc.NetworkID
@@ -66,10 +70,13 @@ func (s *InstanceService) LaunchInstance(ctx context.Context, name, image, ports
 
 	containerID, err := s.docker.CreateContainer(ctx, dockerName, image, portList, networkID)
 	if err != nil {
+		s.logger.Error("failed to create docker container", "name", dockerName, "image", image, "error", err)
 		inst.Status = domain.StatusError
 		_ = s.repo.Update(ctx, inst)
 		return nil, errors.Wrap(errors.Internal, "failed to launch container", err)
 	}
+
+	s.logger.Info("container launched", "instance_id", inst.ID, "container_id", containerID)
 
 	// 5. Update status and save ContainerID
 	inst.Status = domain.StatusRunning
@@ -87,8 +94,8 @@ func (s *InstanceService) parseAndValidatePorts(ports string) ([]string, error) 
 	}
 
 	portList := strings.Split(ports, ",")
-	if len(portList) > errors.MaxPortsPerInstance {
-		return nil, errors.New(errors.TooManyPorts, fmt.Sprintf("max %d ports allowed", errors.MaxPortsPerInstance))
+	if len(portList) > domain.MaxPortsPerInstance {
+		return nil, errors.New(errors.TooManyPorts, fmt.Sprintf("max %d ports allowed", domain.MaxPortsPerInstance))
 	}
 
 	for _, p := range portList {
@@ -121,8 +128,10 @@ func (s *InstanceService) StopInstance(ctx context.Context, idOrName string) err
 	}
 
 	if err := s.docker.StopContainer(ctx, target); err != nil {
+		s.logger.Error("failed to stop docker container", "container_id", target, "error", err)
 		return errors.Wrap(errors.Internal, "failed to stop container", err)
 	}
+	s.logger.Info("instance stopped", "instance_id", inst.ID)
 
 	// 3. Update DB
 	inst.Status = domain.StatusStopped
@@ -180,8 +189,11 @@ func (s *InstanceService) TerminateInstance(ctx context.Context, idOrName string
 	} else {
 		// Fallback to Reconstruction for legacy or missing ID
 		dockerName := fmt.Sprintf("miniaws-%s", inst.ID.String()[:8])
-		_ = s.docker.RemoveContainer(ctx, dockerName)
+		if err := s.docker.RemoveContainer(ctx, dockerName); err != nil {
+			s.logger.Warn("failed to remove docker container (reconstructed name)", "name", dockerName, "error", err)
+		}
 	}
+	s.logger.Info("instance terminated", "instance_id", inst.ID)
 
 	// 3. Delete from DB
 	return s.repo.Delete(ctx, inst.ID)

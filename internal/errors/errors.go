@@ -25,12 +25,6 @@ const (
 	InstanceNotRunning Type = "INSTANCE_NOT_RUNNING"
 )
 
-const (
-	MinPort             = 1
-	MaxPort             = 65535
-	MaxPortsPerInstance = 10
-)
-
 type Error struct {
 	Type    Type   `json:"type"`
 	Message string `json:"message"`

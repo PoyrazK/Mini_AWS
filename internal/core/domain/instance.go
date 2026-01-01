@@ -16,6 +16,12 @@ const (
 	StatusDeleted  InstanceStatus = "DELETED"
 )
 
+const (
+	MinPort             = 1
+	MaxPort             = 65535
+	MaxPortsPerInstance = 10
+)
+
 type Instance struct {
 	ID          uuid.UUID      `json:"id"`
 	Name        string         `json:"name"`
