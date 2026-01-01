@@ -16,24 +16,26 @@ import (
 )
 
 type InstanceService struct {
-	repo     ports.InstanceRepository
-	vpcRepo  ports.VpcRepository
-	docker   ports.DockerClient
-	eventSvc ports.EventService
-	logger   *slog.Logger
+	repo       ports.InstanceRepository
+	vpcRepo    ports.VpcRepository
+	volumeRepo ports.VolumeRepository
+	docker     ports.DockerClient
+	eventSvc   ports.EventService
+	logger     *slog.Logger
 }
 
-func NewInstanceService(repo ports.InstanceRepository, vpcRepo ports.VpcRepository, docker ports.DockerClient, eventSvc ports.EventService, logger *slog.Logger) *InstanceService {
+func NewInstanceService(repo ports.InstanceRepository, vpcRepo ports.VpcRepository, volumeRepo ports.VolumeRepository, docker ports.DockerClient, eventSvc ports.EventService, logger *slog.Logger) *InstanceService {
 	return &InstanceService{
-		repo:     repo,
-		vpcRepo:  vpcRepo,
-		docker:   docker,
-		eventSvc: eventSvc,
-		logger:   logger,
+		repo:       repo,
+		vpcRepo:    vpcRepo,
+		volumeRepo: volumeRepo,
+		docker:     docker,
+		eventSvc:   eventSvc,
+		logger:     logger,
 	}
 }
 
-func (s *InstanceService) LaunchInstance(ctx context.Context, name, image, ports string, vpcID *uuid.UUID) (*domain.Instance, error) {
+func (s *InstanceService) LaunchInstance(ctx context.Context, name, image, ports string, vpcID *uuid.UUID, volumes []domain.VolumeAttachment) (*domain.Instance, error) {
 	// 1. Validate ports if provided
 	portList, err := s.parseAndValidatePorts(ports)
 	if err != nil {
@@ -71,7 +73,24 @@ func (s *InstanceService) LaunchInstance(ctx context.Context, name, image, ports
 		networkID = vpc.NetworkID
 	}
 
-	containerID, err := s.docker.CreateContainer(ctx, dockerName, image, portList, networkID, nil)
+	// 5. Process volume attachments
+	var volumeBinds []string
+	var attachedVolumes []*domain.Volume
+	for _, va := range volumes {
+		vol, err := s.getVolumeByIDOrName(ctx, va.VolumeIDOrName)
+		if err != nil {
+			s.logger.Error("failed to get volume", "volume", va.VolumeIDOrName, "error", err)
+			return nil, errors.Wrap(errors.NotFound, fmt.Sprintf("volume %s not found", va.VolumeIDOrName), err)
+		}
+		if vol.Status != domain.VolumeStatusAvailable {
+			return nil, errors.New(errors.InvalidInput, fmt.Sprintf("volume %s is not available", vol.Name))
+		}
+		dockerVolName := "miniaws-vol-" + vol.ID.String()[:8]
+		volumeBinds = append(volumeBinds, fmt.Sprintf("%s:%s", dockerVolName, va.MountPath))
+		attachedVolumes = append(attachedVolumes, vol)
+	}
+
+	containerID, err := s.docker.CreateContainer(ctx, dockerName, image, portList, networkID, volumeBinds)
 	if err != nil {
 		s.logger.Error("failed to create docker container", "name", dockerName, "image", image, "error", err)
 		inst.Status = domain.StatusError
@@ -99,6 +118,9 @@ func (s *InstanceService) LaunchInstance(ctx context.Context, name, image, ports
 		"name":  inst.Name,
 		"image": inst.Image,
 	})
+
+	// 6. Update volume statuses
+	s.updateVolumesAfterLaunch(ctx, attachedVolumes, inst.ID)
 
 	return inst, nil
 }
@@ -283,4 +305,23 @@ func (s *InstanceService) GetInstanceStats(ctx context.Context, idOrName string)
 		MemoryLimitBytes: memLimit,
 		MemoryPercentage: memPercent,
 	}, nil
+}
+
+func (s *InstanceService) getVolumeByIDOrName(ctx context.Context, idOrName string) (*domain.Volume, error) {
+	id, err := uuid.Parse(idOrName)
+	if err == nil {
+		return s.volumeRepo.GetByID(ctx, id)
+	}
+	return s.volumeRepo.GetByName(ctx, idOrName)
+}
+
+func (s *InstanceService) updateVolumesAfterLaunch(ctx context.Context, volumes []*domain.Volume, instanceID uuid.UUID) {
+	for _, vol := range volumes {
+		vol.Status = domain.VolumeStatusInUse
+		vol.InstanceID = &instanceID
+		vol.UpdatedAt = time.Now()
+		if err := s.volumeRepo.Update(ctx, vol); err != nil {
+			s.logger.Warn("failed to update volume status", "volume_id", vol.ID, "error", err)
+		}
+	}
 }

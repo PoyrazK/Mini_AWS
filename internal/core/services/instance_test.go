@@ -157,14 +157,55 @@ func (m *MockDocker) DeleteVolume(ctx context.Context, name string) error {
 	return args.Error(0)
 }
 
+type MockVolumeRepo struct {
+	mock.Mock
+}
+
+func (m *MockVolumeRepo) Create(ctx context.Context, v *domain.Volume) error {
+	args := m.Called(ctx, v)
+	return args.Error(0)
+}
+
+func (m *MockVolumeRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.Volume, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Volume), args.Error(1)
+}
+
+func (m *MockVolumeRepo) GetByName(ctx context.Context, name string) (*domain.Volume, error) {
+	args := m.Called(ctx, name)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Volume), args.Error(1)
+}
+
+func (m *MockVolumeRepo) List(ctx context.Context) ([]*domain.Volume, error) {
+	args := m.Called(ctx)
+	return args.Get(0).([]*domain.Volume), args.Error(1)
+}
+
+func (m *MockVolumeRepo) Update(ctx context.Context, v *domain.Volume) error {
+	args := m.Called(ctx, v)
+	return args.Error(0)
+}
+
+func (m *MockVolumeRepo) Delete(ctx context.Context, id uuid.UUID) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+
 // Tests
 func TestLaunchInstance_Success(t *testing.T) {
 	repo := new(MockRepo)
 	vpcRepo := new(MockVpcRepo)
+	volumeRepo := new(MockVolumeRepo)
 	docker := new(MockDocker)
 	eventSvc := new(MockEventService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	svc := NewInstanceService(repo, vpcRepo, docker, eventSvc, logger)
+	svc := NewInstanceService(repo, vpcRepo, volumeRepo, docker, eventSvc, logger)
 
 	ctx := context.Background()
 	name := "test-inst"
@@ -176,7 +217,7 @@ func TestLaunchInstance_Success(t *testing.T) {
 	repo.On("Update", ctx, mock.AnythingOfType("*domain.Instance")).Return(nil)
 	eventSvc.On("RecordEvent", ctx, "INSTANCE_LAUNCH", mock.Anything, "INSTANCE", mock.Anything).Return(nil)
 
-	inst, err := svc.LaunchInstance(ctx, name, image, ports, nil)
+	inst, err := svc.LaunchInstance(ctx, name, image, ports, nil, nil)
 
 	assert.NoError(t, err)
 	assert.Equal(t, name, inst.Name)
@@ -189,10 +230,11 @@ func TestLaunchInstance_Success(t *testing.T) {
 func TestTerminateInstance_Success(t *testing.T) {
 	repo := new(MockRepo)
 	vpcRepo := new(MockVpcRepo)
+	volumeRepo := new(MockVolumeRepo)
 	docker := new(MockDocker)
 	eventSvc := new(MockEventService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	svc := NewInstanceService(repo, vpcRepo, docker, eventSvc, logger)
+	svc := NewInstanceService(repo, vpcRepo, volumeRepo, docker, eventSvc, logger)
 
 	ctx := context.Background()
 	id := uuid.New()

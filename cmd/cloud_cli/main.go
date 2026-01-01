@@ -186,7 +186,7 @@ func launchInstance() {
 		}
 	}
 
-	inst, err := sdkClient.LaunchInstance(answers.Name, answers.Image, answers.Ports, vpcID)
+	inst, err := sdkClient.LaunchInstance(answers.Name, answers.Image, answers.Ports, vpcID, nil)
 	if err != nil {
 		fmt.Printf("[ERROR] Failed: %v\n", err)
 		return

@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/poyraz/cloud/internal/core/domain"
 	"github.com/poyraz/cloud/internal/core/ports"
 	"github.com/poyraz/cloud/pkg/httputil"
 )
@@ -17,11 +18,17 @@ func NewInstanceHandler(svc ports.InstanceService) *InstanceHandler {
 	return &InstanceHandler{svc: svc}
 }
 
+type VolumeAttachmentRequest struct {
+	VolumeID  string `json:"volume_id"`
+	MountPath string `json:"mount_path"`
+}
+
 type LaunchRequest struct {
-	Name  string `json:"name" binding:"required"`
-	Image string `json:"image" binding:"required"`
-	Ports string `json:"ports"`
-	VpcID string `json:"vpc_id"`
+	Name    string                    `json:"name" binding:"required"`
+	Image   string                    `json:"image" binding:"required"`
+	Ports   string                    `json:"ports"`
+	VpcID   string                    `json:"vpc_id"`
+	Volumes []VolumeAttachmentRequest `json:"volumes"`
 }
 
 func (h *InstanceHandler) Launch(c *gin.Context) {
@@ -41,7 +48,16 @@ func (h *InstanceHandler) Launch(c *gin.Context) {
 		vpcUUID = &id
 	}
 
-	inst, err := h.svc.LaunchInstance(c.Request.Context(), req.Name, req.Image, req.Ports, vpcUUID)
+	// Convert volume attachments
+	var volumes []domain.VolumeAttachment
+	for _, v := range req.Volumes {
+		volumes = append(volumes, domain.VolumeAttachment{
+			VolumeIDOrName: v.VolumeID,
+			MountPath:      v.MountPath,
+		})
+	}
+
+	inst, err := h.svc.LaunchInstance(c.Request.Context(), req.Name, req.Image, req.Ports, vpcUUID, volumes)
 	if err != nil {
 		httputil.Error(c, err)
 		return

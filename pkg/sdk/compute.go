@@ -34,12 +34,18 @@ func (c *Client) GetInstance(idOrName string) (*Instance, error) {
 	return &res.Data, nil
 }
 
-func (c *Client) LaunchInstance(name, image, ports string, vpcID string) (*Instance, error) {
-	body := map[string]string{
-		"name":   name,
-		"image":  image,
-		"ports":  ports,
-		"vpc_id": vpcID,
+type VolumeAttachmentInput struct {
+	VolumeID  string `json:"volume_id"`
+	MountPath string `json:"mount_path"`
+}
+
+func (c *Client) LaunchInstance(name, image, ports string, vpcID string, volumes []VolumeAttachmentInput) (*Instance, error) {
+	body := map[string]interface{}{
+		"name":    name,
+		"image":   image,
+		"ports":   ports,
+		"vpc_id":  vpcID,
+		"volumes": volumes,
 	}
 	var res Response[Instance]
 	if err := c.post("/instances", body, &res); err != nil {

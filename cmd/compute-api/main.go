@@ -61,7 +61,7 @@ func main() {
 	vpcSvc := services.NewVpcService(vpcRepo, dockerAdapter, logger)
 	eventSvc := services.NewEventService(eventRepo, logger)
 	volumeSvc := services.NewVolumeService(volumeRepo, dockerAdapter, eventSvc, logger)
-	instanceSvc := services.NewInstanceService(instanceRepo, vpcRepo, dockerAdapter, eventSvc, logger)
+	instanceSvc := services.NewInstanceService(instanceRepo, vpcRepo, volumeRepo, dockerAdapter, eventSvc, logger)
 
 	vpcHandler := httphandlers.NewVpcHandler(vpcSvc)
 	instanceHandler := httphandlers.NewInstanceHandler(instanceSvc)
