@@ -1,0 +1,82 @@
+package ws
+
+import (
+	"context"
+	"log/slog"
+	"net/http/httptest"
+	"os"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
+	"github.com/poyraz/cloud/internal/core/domain"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+)
+
+type mockIdentityService struct {
+	mock.Mock
+}
+
+func (m *mockIdentityService) GenerateApiKey(ctx context.Context, name string) (*domain.ApiKey, error) {
+	args := m.Called(ctx, name)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.ApiKey), args.Error(1)
+}
+
+func (m *mockIdentityService) ValidateApiKey(ctx context.Context, key string) (bool, error) {
+	args := m.Called(ctx, key)
+	return args.Bool(0), args.Error(1)
+}
+
+func TestWebSocket_Lifecycle(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
+	hub := NewHub(logger)
+	go hub.Run()
+
+	mockId := new(mockIdentityService)
+	handler := NewHandler(hub, mockId, logger)
+
+	r := gin.New()
+	r.GET("/ws", handler.ServeWS)
+
+	server := httptest.NewServer(r)
+	defer server.Close()
+
+	wsURL := "ws" + strings.TrimPrefix(server.URL, "http") + "/ws?api_key=valid-key"
+
+	mockId.On("ValidateApiKey", mock.Anything, "valid-key").Return(true, nil)
+
+	// Connect
+	dialer := websocket.Dialer{}
+	conn, _, err := dialer.Dial(wsURL, nil)
+	assert.NoError(t, err)
+	defer conn.Close()
+
+	// Wait for registration
+	time.Sleep(100 * time.Millisecond)
+	assert.Equal(t, 1, hub.ClientCount())
+
+	// Broadcast event
+	event := &domain.WSEvent{
+		Type:      domain.WSEventInstanceCreated,
+		Timestamp: time.Now(),
+	}
+	hub.BroadcastEvent(event)
+
+	// Read event
+	_, p, err := conn.ReadMessage()
+	assert.NoError(t, err)
+	assert.Contains(t, string(p), "INSTANCE_CREATED")
+
+	// Disconnect
+	conn.Close()
+	time.Sleep(100 * time.Millisecond)
+	assert.Equal(t, 0, hub.ClientCount())
+}
