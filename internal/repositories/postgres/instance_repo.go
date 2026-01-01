@@ -53,6 +53,25 @@ func (r *InstanceRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain
 	return &inst, nil
 }
 
+func (r *InstanceRepository) GetByName(ctx context.Context, name string) (*domain.Instance, error) {
+	query := `
+		SELECT id, name, image, COALESCE(container_id, ''), status, COALESCE(ports, ''), version, created_at, updated_at
+		FROM instances
+		WHERE name = $1
+	`
+	var inst domain.Instance
+	err := r.db.QueryRow(ctx, query, name).Scan(
+		&inst.ID, &inst.Name, &inst.Image, &inst.ContainerID, &inst.Status, &inst.Ports, &inst.Version, &inst.CreatedAt, &inst.UpdatedAt,
+	)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, errors.New(errors.NotFound, fmt.Sprintf("instance name %s not found", name))
+		}
+		return nil, errors.Wrap(errors.Internal, "failed to get instance by name", err)
+	}
+	return &inst, nil
+}
+
 func (r *InstanceRepository) List(ctx context.Context) ([]*domain.Instance, error) {
 	query := `
 		SELECT id, name, image, COALESCE(container_id, ''), status, COALESCE(ports, ''), version, created_at, updated_at

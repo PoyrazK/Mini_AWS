@@ -25,6 +25,9 @@ cloud compute launch --name my-server --image nginx:alpine --port 8080:80
 
 # 5. Upload a file
 cloud storage upload my-bucket README.md
+
+# 6. View logs
+cloud compute logs my-server
 ```
 
 ## 🏗️ Architecture

@@ -131,7 +131,6 @@ var launchCmd = &cobra.Command{
 		fmt.Printf("🚀 Instance launched successfully!\n%s\n", resp.String())
 	},
 }
-
 var stopCmd = &cobra.Command{
 	Use:   "stop [id]",
 	Short: "Stop an instance",
@@ -154,10 +153,33 @@ var stopCmd = &cobra.Command{
 	},
 }
 
+var logsCmd = &cobra.Command{
+	Use:   "logs [id]",
+	Short: "View instance logs",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		id := args[0]
+		client := getClient()
+		resp, err := client.R().Get(apiURL + "/instances/" + id + "/logs")
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			return
+		}
+
+		if resp.IsError() {
+			fmt.Printf("Failed: %s\n", resp.String())
+			return
+		}
+
+		fmt.Print(string(resp.Body()))
+	},
+}
+
 func init() {
 	computeCmd.AddCommand(listCmd)
 	computeCmd.AddCommand(launchCmd)
 	computeCmd.AddCommand(stopCmd)
+	computeCmd.AddCommand(logsCmd)
 
 	launchCmd.Flags().StringP("name", "n", "", "Name of the instance (required)")
 	launchCmd.Flags().StringP("image", "i", "alpine", "Image to use")

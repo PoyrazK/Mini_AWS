@@ -71,7 +71,7 @@ func main() {
 		mode := ""
 		prompt := &survey.Select{
 			Message: "☁️  Cloud CLI Control Panel - What would you like to do?",
-			Options: []string{"List Instances", "Launch Instance", "Stop Instance", "Exit"},
+			Options: []string{"List Instances", "Launch Instance", "Stop Instance", "View Logs", "Exit"},
 		}
 		if err := survey.AskOne(prompt, &mode); err != nil {
 			fmt.Println("Bye!")
@@ -86,6 +86,8 @@ func main() {
 			launchInstance()
 		case "Stop Instance":
 			stopInstance()
+		case "View Logs":
+			viewLogs()
 		case "Exit":
 			fmt.Println("👋 See you in the cloud!")
 			return
@@ -254,4 +256,54 @@ func stopInstance() {
 	}
 
 	fmt.Printf("🛑 Stopping %s...\n", selected)
+}
+
+func viewLogs() {
+	client := getClient()
+	resp, err := client.R().Get(apiURL + "/instances")
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		return
+	}
+
+	var result struct {
+		Data []map[string]interface{} `json:"data"`
+	}
+	json.Unmarshal(resp.Body(), &result)
+
+	var options []string
+	idMap := make(map[string]string)
+
+	for _, inst := range result.Data {
+		id := fmt.Sprintf("%v", inst["id"])
+		name := fmt.Sprintf("%v", inst["name"])
+		display := fmt.Sprintf("%s (%s)", name, id[:8])
+		options = append(options, display)
+		idMap[display] = id
+	}
+
+	if len(options) == 0 {
+		fmt.Println("⚠️  No instances found.")
+		return
+	}
+
+	var selected string
+	prompt := &survey.Select{
+		Message: "Select instance to view logs:",
+		Options: options,
+	}
+	if err := survey.AskOne(prompt, &selected); err != nil {
+		return
+	}
+
+	targetID := idMap[selected]
+	resp, err = client.R().Get(apiURL + "/instances/" + targetID + "/logs")
+	if err != nil || resp.IsError() {
+		fmt.Printf("❌ Failed to fetch logs.\n")
+		return
+	}
+
+	fmt.Println("📜 --- Logs Start ---")
+	fmt.Print(string(resp.Body()))
+	fmt.Println("📜 --- Logs End ---")
 }

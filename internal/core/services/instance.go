@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"io"
 	"strings"
 	"time"
 
@@ -126,4 +127,39 @@ func (s *InstanceService) StopInstance(ctx context.Context, id uuid.UUID) error 
 
 func (s *InstanceService) ListInstances(ctx context.Context) ([]*domain.Instance, error) {
 	return s.repo.List(ctx)
+}
+
+func (s *InstanceService) GetInstanceLogs(ctx context.Context, idOrName string) (string, error) {
+	var inst *domain.Instance
+	var err error
+
+	// 1. Try to parse as UUID
+	id, uuidErr := uuid.Parse(idOrName)
+	if uuidErr == nil {
+		inst, err = s.repo.GetByID(ctx, id)
+	} else {
+		// 2. Fallback to name lookup
+		inst, err = s.repo.GetByName(ctx, idOrName)
+	}
+
+	if err != nil {
+		return "", err
+	}
+
+	if inst.ContainerID == "" {
+		return "", errors.New(errors.InstanceNotRunning, "instance has no active container")
+	}
+
+	stream, err := s.docker.GetLogs(ctx, inst.ContainerID)
+	if err != nil {
+		return "", err
+	}
+	defer stream.Close()
+
+	bytes, err := io.ReadAll(stream)
+	if err != nil {
+		return "", errors.Wrap(errors.Internal, "failed to read logs", err)
+	}
+
+	return string(bytes), nil
 }

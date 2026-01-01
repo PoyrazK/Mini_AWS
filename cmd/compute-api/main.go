@@ -102,6 +102,7 @@ func main() {
 		instanceGroup.POST("", instanceHandler.Launch)
 		instanceGroup.GET("", instanceHandler.List)
 		instanceGroup.POST("/:id/stop", instanceHandler.Stop)
+		instanceGroup.GET("/:id/logs", instanceHandler.GetLogs)
 	}
 
 	// Storage Routes (Protected)

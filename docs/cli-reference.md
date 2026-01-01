@@ -53,6 +53,12 @@ Stop an instance.
 cloud compute stop a1b2c3d4
 ```
 
+### `compute logs <id>`
+View instance logs (supports ID or Name).
+```bash
+cloud compute logs my-server
+```
+
 ---
 
 ## storage

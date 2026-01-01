@@ -11,6 +11,7 @@ import (
 type InstanceRepository interface {
 	Create(ctx context.Context, instance *domain.Instance) error
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.Instance, error)
+	GetByName(ctx context.Context, name string) (*domain.Instance, error)
 	List(ctx context.Context) ([]*domain.Instance, error)
 	Update(ctx context.Context, instance *domain.Instance) error
 	Delete(ctx context.Context, id uuid.UUID) error
@@ -21,4 +22,5 @@ type InstanceService interface {
 	LaunchInstance(ctx context.Context, name, image, ports string) (*domain.Instance, error)
 	StopInstance(ctx context.Context, id uuid.UUID) error
 	ListInstances(ctx context.Context) ([]*domain.Instance, error)
+	GetInstanceLogs(ctx context.Context, idOrName string) (string, error)
 }

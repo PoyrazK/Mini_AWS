@@ -64,3 +64,15 @@ func (h *InstanceHandler) Stop(c *gin.Context) {
 
 	httputil.Success(c, http.StatusOK, gin.H{"message": "instance stop initiated"})
 }
+
+func (h *InstanceHandler) GetLogs(c *gin.Context) {
+	idStr := c.Param("id")
+
+	logs, err := h.svc.GetInstanceLogs(c.Request.Context(), idStr)
+	if err != nil {
+		httputil.Error(c, err)
+		return
+	}
+
+	c.String(http.StatusOK, logs)
+}

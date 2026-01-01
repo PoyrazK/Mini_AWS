@@ -42,6 +42,8 @@ func Error(c *gin.Context, err error) {
 		statusCode = http.StatusNotFound
 	case errors.ObjectTooLarge:
 		statusCode = http.StatusRequestEntityTooLarge
+	case errors.InstanceNotRunning, errors.PortConflict, errors.TooManyPorts:
+		statusCode = http.StatusConflict
 	}
 
 	c.JSON(statusCode, Response{Error: e})

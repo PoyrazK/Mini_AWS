@@ -19,9 +19,10 @@ const (
 	ObjectTooLarge Type = "OBJECT_TOO_LARGE"
 
 	// Networking Errors
-	InvalidPortFormat Type = "INVALID_PORT_FORMAT"
-	PortConflict      Type = "PORT_CONFLICT"
-	TooManyPorts      Type = "TOO_MANY_PORTS"
+	InvalidPortFormat  Type = "INVALID_PORT_FORMAT"
+	PortConflict       Type = "PORT_CONFLICT"
+	TooManyPorts       Type = "TOO_MANY_PORTS"
+	InstanceNotRunning Type = "INSTANCE_NOT_RUNNING"
 )
 
 const (

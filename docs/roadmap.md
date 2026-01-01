@@ -17,6 +17,6 @@ Prioritized using the **RICE** method (Reach, Impact, Confidence, Effort).
 
 ## 🟡 Phase 4: Advanced (In Progress)
 - [x] Port Mapping (access containers via localhost)
-- [ ] Instance Logs (`cloud logs`)
+- [x] Instance Logs (`cloud logs`)
 - [ ] Next.js Web Dashboard
 - [ ] Custom Database Integration

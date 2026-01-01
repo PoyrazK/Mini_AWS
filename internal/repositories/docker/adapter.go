@@ -10,6 +10,7 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/docker/go-connections/nat"
 )
 
@@ -89,4 +90,28 @@ func (a *DockerAdapter) RemoveContainer(ctx context.Context, containerID string)
 		return fmt.Errorf("failed to remove container %s: %w", containerID, err)
 	}
 	return nil
+}
+
+func (a *DockerAdapter) GetLogs(ctx context.Context, containerID string) (io.ReadCloser, error) {
+	options := container.LogsOptions{
+		ShowStdout: true,
+		ShowStderr: true,
+		Tail:       "2000",
+	}
+
+	src, err := a.cli.ContainerLogs(ctx, containerID, options)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get container logs: %w", err)
+	}
+
+	// Use a pipe to clean the stream asynchronously
+	r, w := io.Pipe()
+	go func() {
+		defer w.Close()
+		defer src.Close()
+		// stdcopy demultiplexes docker stream into plain text
+		_, _ = stdcopy.StdCopy(w, w, src)
+	}()
+
+	return r, nil
 }
