@@ -1,0 +1,40 @@
+
+.container {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  box-shadow: 0 0 8px currentColor;
+}
+
+.label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-transform: capitalize;
+}
+
+.running {
+  background-color: var(--accent-green);
+  color: var(--accent-green);
+}
+
+.stopped {
+  background-color: var(--text-tertiary);
+  color: var(--text-tertiary);
+  box-shadow: none;
+}
+
+.pending {
+  background-color: var(--accent-orange);
+  color: var(--accent-orange);
+}
+
+.error {
+  background-color: var(--accent-red);
+  color: var(--accent-red);
+}

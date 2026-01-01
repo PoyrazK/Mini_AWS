@@ -1,0 +1,70 @@
+/* App Store Connect / Light Theme Design System */
+:root {
+  /* Metrics */
+  --sidebar-width: 260px;
+  --header-height: 52px;
+  
+  /* System Greys (Light Mode) */
+  --system-gray-6: #F5F5F7; /* App Background */
+  --system-gray-5: #E5E5E7;
+  --system-gray-4: #D2D2D7; /* Borders */
+  --system-gray-3: #C7C7CC;
+  --system-gray-2: #AEAEB2;
+  --system-gray-1: #8E8E93; /* Secondary Label */
+  
+  /* Semantic Colors */
+  --bg-app: var(--system-gray-6);
+  --bg-material-sidebar: rgba(255, 255, 255, 0.85); /* Subtle translucency */
+  --bg-material-platter: #FFFFFF;
+  
+  --text-primary: #1D1D1F;
+  --text-secondary: #6E6E73;
+  --text-tertiary: #86868B;
+  
+  /* System Accents */
+  --accent-blue: #007AFF;
+  --accent-green: #34C759;
+  --accent-orange: #FF9500;
+  --accent-red: #FF3B30;
+  
+  /* Materials & Effects */
+  --glass-blur-heavy: 50px;
+  --glass-blur-med: 20px;
+  --border-subtle: rgba(0, 0, 0, 0.05);
+  --shadow-platter: 0 2px 8px rgba(0, 0, 0, 0.04);
+  
+  /* Animation */
+  --ease-apple: cubic-bezier(0.2, 0, 0, 1);
+  --duration-normal: 0.3s;
+  --transition-fast: 0.2s ease;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--bg-app);
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  letter-spacing: -0.01em;
+  -webkit-font-smoothing: antialiased;
+  height: 100%;
+  overflow-y: auto;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+/* Material Utilities */
+.material-sidebar {
+  background-color: var(--bg-material-sidebar);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-right: 1px solid #E5E5E5;
+}
+
+.material-platter {
+  background-color: var(--bg-material-platter);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  box-shadow: var(--shadow-platter);
+}
