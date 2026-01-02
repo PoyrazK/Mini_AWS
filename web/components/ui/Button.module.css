@@ -1,0 +1,62 @@
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  font-weight: 500;
+  transition: all var(--transition-fast);
+  cursor: pointer;
+  border: none;
+  font-family: inherit;
+  outline: none;
+}
+
+.button:active {
+  transform: scale(0.98);
+}
+
+/* Variants */
+.primary {
+  background-color: var(--accent-blue); /* System Blue */
+  color: #FFFFFF;
+}
+
+.primary:hover {
+  opacity: 0.85; /* Standard shrink/dim effect */
+}
+
+.secondary {
+  background-color: rgba(0, 0, 0, 0.06); /* Light Grey */
+  color: var(--accent-blue);
+  backdrop-filter: none; /* No glass needed on white */
+}
+
+.secondary:hover {
+  background-color: rgba(0, 0, 0, 0.12); /* Darker Grey */
+}
+
+.ghost {
+  background-color: transparent;
+  color: var(--accent-blue);
+}
+
+.ghost:hover {
+  background-color: rgba(0, 118, 255, 0.1); /* Light Blue Tint */
+}
+
+/* Sizes */
+.sm {
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+.md {
+  padding: 8px 16px;
+  font-size: 14px;
+}
+
+.lg {
+  padding: 12px 24px;
+  font-size: 16px;
+}
