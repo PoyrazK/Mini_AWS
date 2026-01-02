@@ -15,12 +15,19 @@ import (
 )
 
 type AutoScalingWorker struct {
-	repo        ports.AutoScalingRepository
-	instanceSvc ports.InstanceService
-	lbSvc       ports.LBService
-	eventSvc    ports.EventService
-	clock       ports.Clock
+	repo         ports.AutoScalingRepository
+	instanceSvc  ports.InstanceService
+	lbSvc        ports.LBService
+	eventSvc     ports.EventService
+	clock        ports.Clock
+	tickInterval time.Duration
 }
+
+const (
+	defaultTickInterval   = 10 * time.Second
+	maxFailureCount       = 5
+	failureBackoffMinutes = 5
+)
 
 func NewAutoScalingWorker(
 	repo ports.AutoScalingRepository,
@@ -30,17 +37,18 @@ func NewAutoScalingWorker(
 	clock ports.Clock,
 ) *AutoScalingWorker {
 	return &AutoScalingWorker{
-		repo:        repo,
-		instanceSvc: instanceSvc,
-		lbSvc:       lbSvc,
-		eventSvc:    eventSvc,
-		clock:       clock,
+		repo:         repo,
+		instanceSvc:  instanceSvc,
+		lbSvc:        lbSvc,
+		eventSvc:     eventSvc,
+		clock:        clock,
+		tickInterval: defaultTickInterval,
 	}
 }
 
 func (w *AutoScalingWorker) Run(ctx context.Context, wg *sync.WaitGroup) {
 	defer wg.Done()
-	ticker := time.NewTicker(10 * time.Second)
+	ticker := time.NewTicker(w.tickInterval)
 	defer ticker.Stop()
 
 	log.Println("Auto-Scaling Worker started")
@@ -138,12 +146,20 @@ func (w *AutoScalingWorker) reconcileInstances(ctx context.Context, group *domai
 	}
 
 	if current < group.DesiredCount {
+		// Check failure backoff before trying to scale out
+		if w.shouldSkipDueToFailures(group) {
+			return
+		}
+
 		needed := group.DesiredCount - current
 		log.Printf("AutoScaling: Group %s needs %d more instances (Current: %d, Desired: %d)", group.Name, needed, current, group.DesiredCount)
 		for i := 0; i < needed; i++ {
 			if err := w.scaleOut(ctx, group, nil); err != nil {
 				log.Printf("AutoScaling: failed to scale out group %s: %v", group.Name, err)
+				w.recordFailure(ctx, group)
 				break
+			} else {
+				w.resetFailures(ctx, group)
 			}
 		}
 	} else if current > group.DesiredCount {
@@ -296,4 +312,35 @@ func toDynamicPorts(ports string) string {
 		}
 	}
 	return strings.Join(newPorts, ",")
+}
+
+func (w *AutoScalingWorker) shouldSkipDueToFailures(group *domain.ScalingGroup) bool {
+	if group.FailureCount < maxFailureCount {
+		return false
+	}
+	if group.LastFailureAt == nil {
+		return false
+	}
+	backoffEnd := group.LastFailureAt.Add(time.Duration(failureBackoffMinutes) * time.Minute)
+	if w.clock.Now().Before(backoffEnd) {
+		log.Printf("AutoScaling: Group %s is in failure backoff (failures: %d, until: %s)",
+			group.Name, group.FailureCount, backoffEnd.Format(time.RFC3339))
+		return true
+	}
+	return false
+}
+
+func (w *AutoScalingWorker) recordFailure(ctx context.Context, group *domain.ScalingGroup) {
+	group.FailureCount++
+	now := w.clock.Now()
+	group.LastFailureAt = &now
+	w.repo.UpdateGroup(ctx, group)
+}
+
+func (w *AutoScalingWorker) resetFailures(ctx context.Context, group *domain.ScalingGroup) {
+	if group.FailureCount > 0 {
+		group.FailureCount = 0
+		group.LastFailureAt = nil
+		w.repo.UpdateGroup(ctx, group)
+	}
 }

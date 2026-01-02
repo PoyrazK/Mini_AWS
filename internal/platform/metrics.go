@@ -28,4 +28,10 @@ var (
 		Name: "mini_aws_autoscaling_current_instances",
 		Help: "Current instance count per scaling group",
 	}, []string{"scaling_group_id"})
+
+	// Load Balancer metrics
+	LBRequestsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "mini_aws_lb_requests_total",
+		Help: "Total requests proxied by load balancers",
+	}, []string{"lb_id"})
 )

@@ -156,12 +156,14 @@ func (r *AutoScalingRepo) UpdateGroup(ctx context.Context, group *domain.Scaling
 		UPDATE scaling_groups
 		SET desired_count = $1, current_count = $2, status = $3, 
 			min_instances = $4, max_instances = $5,
+			failure_count = $6, last_failure_at = $7,
 			version = version + 1, updated_at = NOW()
-		WHERE id = $6
+		WHERE id = $8
 	`
 	_, err := r.db.Exec(ctx, query,
 		group.DesiredCount, group.CurrentCount, group.Status,
 		group.MinInstances, group.MaxInstances,
+		group.FailureCount, group.LastFailureAt,
 		group.ID,
 	)
 	return err

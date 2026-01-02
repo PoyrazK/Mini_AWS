@@ -35,6 +35,8 @@ type ScalingGroup struct {
 	DesiredCount   int                `json:"desired_count"`
 	CurrentCount   int                `json:"current_count"`
 	Status         ScalingGroupStatus `json:"status"`
+	FailureCount   int                `json:"failure_count"`
+	LastFailureAt  *time.Time         `json:"last_failure_at,omitempty"`
 	Version        int                `json:"version"`
 	CreatedAt      time.Time          `json:"created_at"`
 	UpdatedAt      time.Time          `json:"updated_at"`
