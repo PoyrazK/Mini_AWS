@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/errors"
 )
@@ -21,10 +22,10 @@ func NewVpcRepository(db *pgxpool.Pool) *VpcRepository {
 
 func (r *VpcRepository) Create(ctx context.Context, vpc *domain.VPC) error {
 	query := `
-		INSERT INTO vpcs (id, name, network_id, created_at)
-		VALUES ($1, $2, $3, $4)
+		INSERT INTO vpcs (id, user_id, name, network_id, created_at)
+		VALUES ($1, $2, $3, $4, $5)
 	`
-	_, err := r.db.Exec(ctx, query, vpc.ID, vpc.Name, vpc.NetworkID, vpc.CreatedAt)
+	_, err := r.db.Exec(ctx, query, vpc.ID, vpc.UserID, vpc.Name, vpc.NetworkID, vpc.CreatedAt)
 	if err != nil {
 		return errors.Wrap(errors.Internal, "failed to create vpc", err)
 	}
@@ -32,9 +33,10 @@ func (r *VpcRepository) Create(ctx context.Context, vpc *domain.VPC) error {
 }
 
 func (r *VpcRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.VPC, error) {
-	query := `SELECT id, name, network_id, created_at FROM vpcs WHERE id = $1`
+	userID := appcontext.UserIDFromContext(ctx)
+	query := `SELECT id, user_id, name, network_id, created_at FROM vpcs WHERE id = $1 AND user_id = $2`
 	var vpc domain.VPC
-	err := r.db.QueryRow(ctx, query, id).Scan(&vpc.ID, &vpc.Name, &vpc.NetworkID, &vpc.CreatedAt)
+	err := r.db.QueryRow(ctx, query, id, userID).Scan(&vpc.ID, &vpc.UserID, &vpc.Name, &vpc.NetworkID, &vpc.CreatedAt)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, errors.New(errors.NotFound, fmt.Sprintf("vpc %s not found", id))
@@ -45,9 +47,10 @@ func (r *VpcRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.VPC,
 }
 
 func (r *VpcRepository) GetByName(ctx context.Context, name string) (*domain.VPC, error) {
-	query := `SELECT id, name, network_id, created_at FROM vpcs WHERE name = $1`
+	userID := appcontext.UserIDFromContext(ctx)
+	query := `SELECT id, user_id, name, network_id, created_at FROM vpcs WHERE name = $1 AND user_id = $2`
 	var vpc domain.VPC
-	err := r.db.QueryRow(ctx, query, name).Scan(&vpc.ID, &vpc.Name, &vpc.NetworkID, &vpc.CreatedAt)
+	err := r.db.QueryRow(ctx, query, name, userID).Scan(&vpc.ID, &vpc.UserID, &vpc.Name, &vpc.NetworkID, &vpc.CreatedAt)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, errors.New(errors.NotFound, fmt.Sprintf("vpc name %s not found", name))
@@ -58,8 +61,9 @@ func (r *VpcRepository) GetByName(ctx context.Context, name string) (*domain.VPC
 }
 
 func (r *VpcRepository) List(ctx context.Context) ([]*domain.VPC, error) {
-	query := `SELECT id, name, network_id, created_at FROM vpcs ORDER BY created_at DESC`
-	rows, err := r.db.Query(ctx, query)
+	userID := appcontext.UserIDFromContext(ctx)
+	query := `SELECT id, user_id, name, network_id, created_at FROM vpcs WHERE user_id = $1 ORDER BY created_at DESC`
+	rows, err := r.db.Query(ctx, query, userID)
 	if err != nil {
 		return nil, errors.Wrap(errors.Internal, "failed to list vpcs", err)
 	}
@@ -68,7 +72,7 @@ func (r *VpcRepository) List(ctx context.Context) ([]*domain.VPC, error) {
 	var vpcs []*domain.VPC
 	for rows.Next() {
 		var vpc domain.VPC
-		if err := rows.Scan(&vpc.ID, &vpc.Name, &vpc.NetworkID, &vpc.CreatedAt); err != nil {
+		if err := rows.Scan(&vpc.ID, &vpc.UserID, &vpc.Name, &vpc.NetworkID, &vpc.CreatedAt); err != nil {
 			return nil, errors.Wrap(errors.Internal, "failed to scan vpc", err)
 		}
 		vpcs = append(vpcs, &vpc)
@@ -77,8 +81,9 @@ func (r *VpcRepository) List(ctx context.Context) ([]*domain.VPC, error) {
 }
 
 func (r *VpcRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	query := `DELETE FROM vpcs WHERE id = $1`
-	cmd, err := r.db.Exec(ctx, query, id)
+	userID := appcontext.UserIDFromContext(ctx)
+	query := `DELETE FROM vpcs WHERE id = $1 AND user_id = $2`
+	cmd, err := r.db.Exec(ctx, query, id, userID)
 	if err != nil {
 		return errors.Wrap(errors.Internal, "failed to delete vpc", err)
 	}

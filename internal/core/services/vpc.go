@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
@@ -36,6 +37,7 @@ func (s *VpcService) CreateVPC(ctx context.Context, name string) (*domain.VPC, e
 	// 2. Persist to DB
 	vpc := &domain.VPC{
 		ID:        uuid.New(),
+		UserID:    appcontext.UserIDFromContext(ctx),
 		Name:      name,
 		NetworkID: dockerNetworkID,
 		CreatedAt: time.Now(),
