@@ -60,12 +60,12 @@ func (w *AutoScalingWorker) Run(ctx context.Context, wg *sync.WaitGroup) {
 			return
 		case <-ticker.C:
 			platform.AutoScalingEvaluations.Inc()
-			w.evaluateAllGroups(ctx)
+			w.Evaluate(ctx)
 		}
 	}
 }
 
-func (w *AutoScalingWorker) evaluateAllGroups(ctx context.Context) {
+func (w *AutoScalingWorker) Evaluate(ctx context.Context) {
 	groups, err := w.repo.ListGroups(ctx)
 	if err != nil {
 		log.Printf("AutoScaling: failed to list groups: %v", err)

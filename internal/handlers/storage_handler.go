@@ -21,6 +21,19 @@ func NewStorageHandler(svc ports.StorageService) *StorageHandler {
 	}
 }
 
+// Upload uploads an object to a bucket
+// @Summary Upload an object
+// @Description Uploads a file/object to the specified bucket and key
+// @Tags storage
+// @Accept octet-stream
+// @Produce json
+// @Security ApiKeyAuth
+// @Param bucket path string true "Bucket name"
+// @Param key path string true "Object key"
+// @Param file formData file true "File to upload"
+// @Success 201 {object} domain.Object
+// @Failure 400 {object} httputil.Response
+// @Router /storage/{bucket}/{key} [put]
 func (h *StorageHandler) Upload(c *gin.Context) {
 	bucket := c.Param("bucket")
 	key := c.Param("key")
@@ -40,6 +53,17 @@ func (h *StorageHandler) Upload(c *gin.Context) {
 	httputil.Success(c, http.StatusCreated, obj)
 }
 
+// Download downloads an object from a bucket
+// @Summary Download an object
+// @Description Streams the specified object as an attachment
+// @Tags storage
+// @Produce octet-stream
+// @Security ApiKeyAuth
+// @Param bucket path string true "Bucket name"
+// @Param key path string true "Object key"
+// @Success 200 {file} file "Object content"
+// @Failure 404 {object} httputil.Response
+// @Router /storage/{bucket}/{key} [get]
 func (h *StorageHandler) Download(c *gin.Context) {
 	bucket := c.Param("bucket")
 	key := c.Param("key")
@@ -60,6 +84,16 @@ func (h *StorageHandler) Download(c *gin.Context) {
 	_, _ = io.Copy(c.Writer, reader)
 }
 
+// List returns objects in a bucket
+// @Summary List objects in a bucket
+// @Description Gets a list of all objects within a specific bucket
+// @Tags storage
+// @Produce json
+// @Security ApiKeyAuth
+// @Param bucket path string true "Bucket name"
+// @Success 200 {array} domain.Object
+// @Failure 404 {object} httputil.Response
+// @Router /storage/{bucket} [get]
 func (h *StorageHandler) List(c *gin.Context) {
 	bucket := c.Param("bucket")
 
@@ -72,6 +106,17 @@ func (h *StorageHandler) List(c *gin.Context) {
 	httputil.Success(c, http.StatusOK, objects)
 }
 
+// Delete deletes an object from a bucket
+// @Summary Delete an object
+// @Description Removes an object from the specified bucket
+// @Tags storage
+// @Produce json
+// @Security ApiKeyAuth
+// @Param bucket path string true "Bucket name"
+// @Param key path string true "Object key"
+// @Success 204
+// @Failure 404 {object} httputil.Response
+// @Router /storage/{bucket}/{key} [delete]
 func (h *StorageHandler) Delete(c *gin.Context) {
 	bucket := c.Param("bucket")
 	key := c.Param("key")

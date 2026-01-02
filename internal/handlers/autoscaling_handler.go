@@ -29,6 +29,18 @@ type CreateGroupRequest struct {
 	DesiredCount   int        `json:"desired_count" binding:"required"`
 }
 
+// CreateGroup creates a new scaling group
+// @Summary Create a new scaling group
+// @Description Creates an auto-scaling group for instances
+// @Tags autoscaling
+// @Accept json
+// @Produce json
+// @Security ApiKeyAuth
+// @Param request body CreateGroupRequest true "ASG creation request"
+// @Param Idempotency-Key header string false "Idempotency key"
+// @Success 201 {object} domain.ScalingGroup
+// @Failure 400 {object} httputil.Response
+// @Router /autoscaling/groups [post]
 func (h *AutoScalingHandler) CreateGroup(c *gin.Context) {
 	var req CreateGroupRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -47,6 +59,14 @@ func (h *AutoScalingHandler) CreateGroup(c *gin.Context) {
 	httputil.Success(c, http.StatusCreated, group)
 }
 
+// ListGroups returns all scaling groups
+// @Summary List all scaling groups
+// @Description Gets a list of all auto-scaling groups
+// @Tags autoscaling
+// @Produce json
+// @Security ApiKeyAuth
+// @Success 200 {array} domain.ScalingGroup
+// @Router /autoscaling/groups [get]
 func (h *AutoScalingHandler) ListGroups(c *gin.Context) {
 	groups, err := h.svc.ListGroups(c.Request.Context())
 	if err != nil {
@@ -56,6 +76,16 @@ func (h *AutoScalingHandler) ListGroups(c *gin.Context) {
 	httputil.Success(c, http.StatusOK, groups)
 }
 
+// GetGroup returns scaling group details
+// @Summary Get scaling group details
+// @Description Gets detailed information about a specific auto-scaling group
+// @Tags autoscaling
+// @Produce json
+// @Security ApiKeyAuth
+// @Param id path string true "ASG ID"
+// @Success 200 {object} domain.ScalingGroup
+// @Failure 404 {object} httputil.Response
+// @Router /autoscaling/groups/{id} [get]
 func (h *AutoScalingHandler) GetGroup(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -72,6 +102,16 @@ func (h *AutoScalingHandler) GetGroup(c *gin.Context) {
 	httputil.Success(c, http.StatusOK, group)
 }
 
+// DeleteGroup deletes a scaling group
+// @Summary Delete a scaling group
+// @Description Removes an auto-scaling group
+// @Tags autoscaling
+// @Produce json
+// @Security ApiKeyAuth
+// @Param id path string true "ASG ID"
+// @Success 204
+// @Failure 404 {object} httputil.Response
+// @Router /autoscaling/groups/{id} [delete]
 func (h *AutoScalingHandler) DeleteGroup(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -96,6 +136,18 @@ type CreateASPolicyRequest struct {
 	CooldownSec int     `json:"cooldown_sec" binding:"required"`
 }
 
+// CreatePolicy creates a new scaling policy
+// @Summary Create a new scaling policy
+// @Description Adds a scaling policy to an auto-scaling group
+// @Tags autoscaling
+// @Accept json
+// @Produce json
+// @Security ApiKeyAuth
+// @Param id path string true "ASG ID"
+// @Param request body CreateASPolicyRequest true "Policy creation request"
+// @Success 201 {object} domain.ScalingPolicy
+// @Failure 400 {object} httputil.Response
+// @Router /autoscaling/groups/{id}/policies [post]
 func (h *AutoScalingHandler) CreatePolicy(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -118,6 +170,16 @@ func (h *AutoScalingHandler) CreatePolicy(c *gin.Context) {
 	httputil.Success(c, http.StatusCreated, policy)
 }
 
+// DeletePolicy deletes a scaling policy
+// @Summary Delete a scaling policy
+// @Description Removes a scaling policy
+// @Tags autoscaling
+// @Produce json
+// @Security ApiKeyAuth
+// @Param id path string true "Policy ID"
+// @Success 204
+// @Failure 404 {object} httputil.Response
+// @Router /autoscaling/policies/{id} [delete]
 func (h *AutoScalingHandler) DeletePolicy(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {

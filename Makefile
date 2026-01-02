@@ -1,4 +1,4 @@
-.PHONY: run test build migrate clean stop
+.PHONY: run test test-coverage build migrate clean stop swagger
 
 run: stop
 	docker compose up -d
@@ -9,6 +9,14 @@ stop:
 
 test:
 	go test ./...
+
+test-coverage:
+	go test -coverprofile=coverage.out ./...
+	go tool cover -func=coverage.out
+	@rm coverage.out
+
+swagger:
+	swag init -d cmd/compute-api,internal/handlers -g main.go -o docs/swagger --parseDependency --parseInternal
 
 build:
 	mkdir -p bin

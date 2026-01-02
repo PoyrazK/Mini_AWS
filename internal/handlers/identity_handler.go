@@ -20,6 +20,16 @@ type CreateKeyRequest struct {
 	Name string `json:"name" binding:"required"`
 }
 
+// CreateKey generates a new API key
+// @Summary Create a new API key
+// @Description Bootstraps access by generating an API key for a given name
+// @Tags identity
+// @Accept json
+// @Produce json
+// @Param request body CreateKeyRequest true "Key creation request"
+// @Success 201 {object} domain.ApiKey
+// @Failure 400 {object} httputil.Response
+// @Router /auth/keys [post]
 func (h *IdentityHandler) CreateKey(c *gin.Context) {
 	var req CreateKeyRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

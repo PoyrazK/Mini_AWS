@@ -22,6 +22,14 @@ func NewDashboardHandler(svc ports.DashboardService) *DashboardHandler {
 
 // GetSummary returns resource counts and overview metrics.
 // GET /api/dashboard/summary
+// GetSummary returns resource counts and overview metrics
+// @Summary Get dashboard summary
+// @Description Gets counts for instances, volumes, vpcs, and events
+// @Tags dashboard
+// @Produce json
+// @Security ApiKeyAuth
+// @Success 200 {object} domain.ResourceSummary
+// @Router /api/dashboard/summary [get]
 func (h *DashboardHandler) GetSummary(c *gin.Context) {
 	summary, err := h.svc.GetSummary(c.Request.Context())
 	if err != nil {
@@ -33,6 +41,15 @@ func (h *DashboardHandler) GetSummary(c *gin.Context) {
 
 // GetRecentEvents returns the most recent audit events.
 // GET /api/dashboard/events?limit=10
+// GetRecentEvents returns the most recent audit events
+// @Summary Get recent events
+// @Description Gets a list of the latest audit/status events
+// @Tags dashboard
+// @Produce json
+// @Security ApiKeyAuth
+// @Param limit query int false "Number of events to return" default(10)
+// @Success 200 {array} domain.Event
+// @Router /api/dashboard/events [get]
 func (h *DashboardHandler) GetRecentEvents(c *gin.Context) {
 	limitStr := c.DefaultQuery("limit", "10")
 	limit, err := strconv.Atoi(limitStr)
@@ -53,6 +70,14 @@ func (h *DashboardHandler) GetRecentEvents(c *gin.Context) {
 
 // GetStats returns full dashboard statistics.
 // GET /api/dashboard/stats
+// GetStats returns full dashboard statistics
+// @Summary Get detailed dashboard stats
+// @Description Gets comprehensive counts and aggregated resource information
+// @Tags dashboard
+// @Produce json
+// @Security ApiKeyAuth
+// @Success 200 {object} domain.DashboardStats
+// @Router /api/dashboard/stats [get]
 func (h *DashboardHandler) GetStats(c *gin.Context) {
 	stats, err := h.svc.GetStats(c.Request.Context())
 	if err != nil {
@@ -64,6 +89,13 @@ func (h *DashboardHandler) GetStats(c *gin.Context) {
 
 // StreamEvents sends real-time dashboard updates via SSE.
 // GET /api/dashboard/stream
+// StreamEvents sends real-time dashboard updates via SSE
+// @Summary Stream dashboard updates (SSE)
+// @Description Real-time stream of dashboard summary updates via Server-Sent Events
+// @Tags dashboard
+// @Produce text/event-stream
+// @Security ApiKeyAuth
+// @Router /api/dashboard/stream [get]
 func (h *DashboardHandler) StreamEvents(c *gin.Context) {
 	c.Header("Content-Type", "text/event-stream")
 	c.Header("Cache-Control", "no-cache")

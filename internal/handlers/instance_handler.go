@@ -88,6 +88,18 @@ func isValidResourceName(name string) bool {
 	return true
 }
 
+// Launch launches a new instance
+// @Summary Launch a new instance
+// @Description Creates and starts a new compute instance with optional volumes and VPC
+// @Tags instances
+// @Accept json
+// @Produce json
+// @Security ApiKeyAuth
+// @Param request body LaunchRequest true "Launch request"
+// @Success 201 {object} domain.Instance
+// @Failure 400 {object} httputil.Response
+// @Failure 500 {object} httputil.Response
+// @Router /instances [post]
 func (h *InstanceHandler) Launch(c *gin.Context) {
 	var req LaunchRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -129,6 +141,15 @@ func (h *InstanceHandler) Launch(c *gin.Context) {
 	httputil.Success(c, http.StatusCreated, inst)
 }
 
+// List returns all instances
+// @Summary List all instances
+// @Description Gets a list of all compute instances
+// @Tags instances
+// @Produce json
+// @Security ApiKeyAuth
+// @Success 200 {array} domain.Instance
+// @Failure 500 {object} httputil.Response
+// @Router /instances [get]
 func (h *InstanceHandler) List(c *gin.Context) {
 	instances, err := h.svc.ListInstances(c.Request.Context())
 	if err != nil {
@@ -139,6 +160,17 @@ func (h *InstanceHandler) List(c *gin.Context) {
 	httputil.Success(c, http.StatusOK, instances)
 }
 
+// Stop stops an instance
+// @Summary Stop an instance
+// @Description Initiates a graceful shutdown of a compute instance
+// @Tags instances
+// @Produce json
+// @Security ApiKeyAuth
+// @Param id path string true "Instance ID"
+// @Success 200 {object} httputil.Response
+// @Failure 404 {object} httputil.Response
+// @Failure 500 {object} httputil.Response
+// @Router /instances/{id}/stop [post]
 func (h *InstanceHandler) Stop(c *gin.Context) {
 	idStr := c.Param("id")
 
@@ -150,6 +182,17 @@ func (h *InstanceHandler) Stop(c *gin.Context) {
 	httputil.Success(c, http.StatusOK, gin.H{"message": "instance stop initiated"})
 }
 
+// GetLogs returns instance logs
+// @Summary Get instance logs
+// @Description Gets the console output logs for a compute instance
+// @Tags instances
+// @Produce plain
+// @Security ApiKeyAuth
+// @Param id path string true "Instance ID"
+// @Success 200 {string} string "Logs content"
+// @Failure 404 {object} httputil.Response
+// @Failure 500 {object} httputil.Response
+// @Router /instances/{id}/logs [get]
 func (h *InstanceHandler) GetLogs(c *gin.Context) {
 	idStr := c.Param("id")
 
@@ -162,6 +205,17 @@ func (h *InstanceHandler) GetLogs(c *gin.Context) {
 	c.String(http.StatusOK, logs)
 }
 
+// Get returns instance details
+// @Summary Get instance details
+// @Description Gets detailed information about a specific compute instance
+// @Tags instances
+// @Produce json
+// @Security ApiKeyAuth
+// @Param id path string true "Instance ID"
+// @Success 200 {object} domain.Instance
+// @Failure 404 {object} httputil.Response
+// @Failure 500 {object} httputil.Response
+// @Router /instances/{id} [get]
 func (h *InstanceHandler) Get(c *gin.Context) {
 	idStr := c.Param("id")
 	inst, err := h.svc.GetInstance(c.Request.Context(), idStr)
@@ -173,6 +227,17 @@ func (h *InstanceHandler) Get(c *gin.Context) {
 	httputil.Success(c, http.StatusOK, inst)
 }
 
+// Terminate terminates an instance
+// @Summary Terminate an instance
+// @Description Deletes a compute instance and its associated resources
+// @Tags instances
+// @Produce json
+// @Security ApiKeyAuth
+// @Param id path string true "Instance ID"
+// @Success 200 {object} httputil.Response
+// @Failure 404 {object} httputil.Response
+// @Failure 500 {object} httputil.Response
+// @Router /instances/{id} [delete]
 func (h *InstanceHandler) Terminate(c *gin.Context) {
 	idStr := c.Param("id")
 
@@ -184,6 +249,17 @@ func (h *InstanceHandler) Terminate(c *gin.Context) {
 	httputil.Success(c, http.StatusOK, gin.H{"message": "instance terminated"})
 }
 
+// GetStats returns instance metrics
+// @Summary Get instance stats
+// @Description Gets real-time CPU and Memory usage for a compute instance
+// @Tags instances
+// @Produce json
+// @Security ApiKeyAuth
+// @Param id path string true "Instance ID"
+// @Success 200 {object} domain.InstanceStats
+// @Failure 404 {object} httputil.Response
+// @Failure 500 {object} httputil.Response
+// @Router /instances/{id}/stats [get]
 func (h *InstanceHandler) GetStats(c *gin.Context) {
 	idStr := c.Param("id")
 	stats, err := h.svc.GetInstanceStats(c.Request.Context(), idStr)

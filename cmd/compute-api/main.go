@@ -13,8 +13,11 @@ import (
 	"sync"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 
 	"github.com/gin-gonic/gin"
+	_ "github.com/poyraz/cloud/docs/swagger"
 	"github.com/poyraz/cloud/internal/core/ports"
 	"github.com/poyraz/cloud/internal/core/services"
 	httphandlers "github.com/poyraz/cloud/internal/handlers"
@@ -24,6 +27,25 @@ import (
 	"github.com/poyraz/cloud/internal/repositories/postgres"
 	"github.com/poyraz/cloud/pkg/httputil"
 )
+
+// @title Mini AWS API
+// @version 1.0
+// @description This is the Mini AWS Compute API server.
+// @termsOfService http://swagger.io/terms/
+
+// @contact.name API Support
+// @contact.url http://www.swagger.io/support
+// @contact.email support@swagger.io
+
+// @license.name Apache 2.0
+// @license.url http://www.apache.org/licenses/LICENSE-2.0.html
+
+// @host localhost:8080
+// @BasePath /
+
+// @securityDefinitions.apikey ApiKeyAuth
+// @in header
+// @name X-API-Key
 
 func main() {
 	// 1. Logger
@@ -160,6 +182,7 @@ func main() {
 	})
 
 	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
+	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	// Identity Routes (Public for bootstrapping)
 	r.POST("/auth/keys", identityHandler.CreateKey)

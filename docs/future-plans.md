@@ -86,8 +86,8 @@ internal/
 |---------|---------|--------|
 | `services/` | 19% | **60%** |
 | `handlers/` | 12% | **50%** |
-| `repositories/postgres/` | 0% | **40%** |
-| `pkg/sdk/` | 0% | **50%** |
+| `repositories/postgres/` | 66% | **40%** |
+| `pkg/sdk/` | 51% | **50%** |
 
 ---
 
