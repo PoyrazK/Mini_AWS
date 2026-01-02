@@ -123,8 +123,8 @@ func TestLBProxyAdapter_GenerateNginxConfig(t *testing.T) {
 	t.Run("round-robin config", func(t *testing.T) {
 		conf, err := adapter.generateNginxConfig(ctx, lb, targets)
 		assert.NoError(t, err)
-		assert.Contains(t, conf, "server c1:8080 weight=1;")
-		assert.Contains(t, conf, "server c2:9090 weight=2;")
+		assert.Contains(t, conf, "server miniaws-"+inst1ID.String()[:8]+":8080 weight=1;")
+		assert.Contains(t, conf, "server miniaws-"+inst2ID.String()[:8]+":9090 weight=2;")
 		assert.Contains(t, conf, "listen 80;")
 		assert.NotContains(t, conf, "least_conn;")
 	})
