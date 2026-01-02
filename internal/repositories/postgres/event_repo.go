@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 )
 
@@ -16,19 +17,21 @@ func NewEventRepository(db *pgxpool.Pool) *EventRepository {
 }
 
 func (r *EventRepository) Create(ctx context.Context, e *domain.Event) error {
-	query := `INSERT INTO events (id, action, resource_id, resource_type, metadata, created_at) 
-              VALUES ($1, $2, $3, $4, $5, $6)`
-	_, err := r.db.Exec(ctx, query, e.ID, e.Action, e.ResourceID, e.ResourceType, e.Metadata, e.CreatedAt)
+	query := `INSERT INTO events (id, user_id, action, resource_id, resource_type, metadata, created_at) 
+              VALUES ($1, $2, $3, $4, $5, $6, $7)`
+	_, err := r.db.Exec(ctx, query, e.ID, e.UserID, e.Action, e.ResourceID, e.ResourceType, e.Metadata, e.CreatedAt)
 	return err
 }
 
 func (r *EventRepository) List(ctx context.Context, limit int) ([]*domain.Event, error) {
-	query := `SELECT id, action, resource_id, resource_type, metadata, created_at 
+	userID := appcontext.UserIDFromContext(ctx)
+	query := `SELECT id, user_id, action, resource_id, resource_type, metadata, created_at 
               FROM events 
+              WHERE user_id = $1
               ORDER BY created_at DESC 
-              LIMIT $1`
+              LIMIT $2`
 
-	rows, err := r.db.Query(ctx, query, limit)
+	rows, err := r.db.Query(ctx, query, userID, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -37,7 +40,7 @@ func (r *EventRepository) List(ctx context.Context, limit int) ([]*domain.Event,
 	var events []*domain.Event
 	for rows.Next() {
 		e := &domain.Event{}
-		if err := rows.Scan(&e.ID, &e.Action, &e.ResourceID, &e.ResourceType, &e.Metadata, &e.CreatedAt); err != nil {
+		if err := rows.Scan(&e.ID, &e.UserID, &e.Action, &e.ResourceID, &e.ResourceType, &e.Metadata, &e.CreatedAt); err != nil {
 			return nil, err
 		}
 		events = append(events, e)

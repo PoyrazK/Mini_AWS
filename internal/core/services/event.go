@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
@@ -28,6 +29,7 @@ func (s *EventService) RecordEvent(ctx context.Context, action, resourceID, reso
 
 	event := &domain.Event{
 		ID:           uuid.New(),
+		UserID:       appcontext.UserIDFromContext(ctx),
 		Action:       action,
 		ResourceID:   resourceID,
 		ResourceType: resourceType,
