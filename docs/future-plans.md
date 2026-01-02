@@ -1,6 +1,6 @@
 # Future Plans & Contributing
 
-This document outlines planned features and how you can contribute to Mini AWS.
+This document outlines planned features and how you can contribute to The Cloud.
 
 ---
 
@@ -46,7 +46,7 @@ This document outlines planned features and how you can contribute to Mini AWS.
 ## 🛠️ How to Contribute
 
 ### 1. Pick an Issue
-Choose from "Good First Issue" items above or check [GitHub Issues](https://github.com/PoyrazK/Mini_AWS/issues).
+Choose from "Good First Issue" items above or check [GitHub Issues](https://github.com/PoyrazK/thecloud/issues).
 
 ### 2. Fork & Clone
 ```bash

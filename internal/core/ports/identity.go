@@ -3,7 +3,7 @@ package ports
 import (
 	"context"
 
-	"github.com/poyraz/cloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/core/domain"
 )
 
 type IdentityRepository interface {

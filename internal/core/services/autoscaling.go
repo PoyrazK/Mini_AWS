@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/poyraz/cloud/internal/core/domain"
-	"github.com/poyraz/cloud/internal/core/ports"
-	"github.com/poyraz/cloud/internal/errors"
+	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/core/ports"
+	"github.com/poyrazk/thecloud/internal/errors"
 )
 
 type AutoScalingService struct {

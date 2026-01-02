@@ -46,4 +46,4 @@ tmp/
 # Agent prompts (internal development only)
 
 # Local storage data
-miniaws-data/
+thecloud-data/

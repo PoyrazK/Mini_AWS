@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/poyraz/cloud/internal/core/domain"
-	"github.com/poyraz/cloud/internal/core/ports"
-	"github.com/poyraz/cloud/internal/errors"
+	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/core/ports"
+	"github.com/poyrazk/thecloud/internal/errors"
 )
 
 type VolumeService struct {
@@ -39,7 +39,7 @@ func (s *VolumeService) CreateVolume(ctx context.Context, name string, sizeGB in
 	}
 
 	// 2. Create Docker Volume
-	dockerName := "miniaws-vol-" + vol.ID.String()[:8]
+	dockerName := "thecloud-vol-" + vol.ID.String()[:8]
 	if err := s.docker.CreateVolume(ctx, dockerName); err != nil {
 		s.logger.Error("failed to create docker volume", "name", dockerName, "error", err)
 		return nil, errors.Wrap(errors.Internal, "failed to create volume", err)
@@ -84,7 +84,7 @@ func (s *VolumeService) DeleteVolume(ctx context.Context, idOrName string) error
 	}
 
 	// 1. Delete Docker Volume
-	dockerName := "miniaws-vol-" + vol.ID.String()[:8]
+	dockerName := "thecloud-vol-" + vol.ID.String()[:8]
 	if err := s.docker.DeleteVolume(ctx, dockerName); err != nil {
 		s.logger.Warn("failed to delete docker volume", "name", dockerName, "error", err)
 	}

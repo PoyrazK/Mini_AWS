@@ -2,8 +2,8 @@ package httputil
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/poyraz/cloud/internal/core/ports"
-	"github.com/poyraz/cloud/internal/errors"
+	"github.com/poyrazk/thecloud/internal/core/ports"
+	"github.com/poyrazk/thecloud/internal/errors"
 )
 
 func Auth(svc ports.IdentityService) gin.HandlerFunc {

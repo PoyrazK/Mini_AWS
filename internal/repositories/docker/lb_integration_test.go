@@ -8,7 +8,7 @@ import (
 
 	"github.com/docker/docker/client"
 	"github.com/google/uuid"
-	"github.com/poyraz/cloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/stretchr/testify/assert"
 )
 

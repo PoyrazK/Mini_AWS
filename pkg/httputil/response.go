@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/poyraz/cloud/internal/errors"
+	"github.com/poyrazk/thecloud/internal/errors"
 )
 
 type Meta struct {

@@ -23,17 +23,17 @@ export const Sidebar: React.FC = () => {
     <aside className={`${styles.sidebar} material-sidebar`}>
       <div className={styles.logo}>
         <div className={styles.logoIcon}>☁️</div>
-        <span className={styles.logoText}>Mini AWS</span>
+        <span className={styles.logoText}>The Cloud</span>
       </div>
-      
+
       <nav className={styles.nav}>
         {MENU_ITEMS.map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.href;
-          
+
           return (
-            <Link 
-              key={item.name} 
+            <Link
+              key={item.name}
               href={item.href}
               className={`${styles.navItem} ${isActive ? styles.active : ''}`}
             >
@@ -43,7 +43,7 @@ export const Sidebar: React.FC = () => {
           );
         })}
       </nav>
-      
+
       <div className={styles.footer}>
         <div className={styles.status}>
           <div className={styles.statusDot} />

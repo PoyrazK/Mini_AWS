@@ -10,7 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/poyraz/cloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -18,7 +18,7 @@ import (
 func setupDB(t *testing.T) *pgxpool.Pool {
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
-		dbURL = "postgres://cloud:cloud@localhost:5433/miniaws"
+		dbURL = "postgres://cloud:cloud@localhost:5433/thecloud"
 	}
 
 	ctx := context.Background()

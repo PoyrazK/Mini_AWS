@@ -1,7 +1,7 @@
 # System Architecture
 
 ## Overview
-Mini AWS is built using **Hexagonal Architecture** (also known as Ports and Adapters). This design allows the core business logic to remain isolated from external concerns like the database, HTTP transport, or Docker infrastructure.
+The Cloud is built using **Hexagonal Architecture** (also known as Ports and Adapters). This design allows the core business logic to remain isolated from external concerns like the database, HTTP transport, or Docker infrastructure.
 
 ## High-Level Diagram
 

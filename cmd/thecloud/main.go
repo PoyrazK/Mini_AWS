@@ -11,7 +11,7 @@ var version = "0.1.0"
 
 var rootCmd = &cobra.Command{
 	Use:   "cloud",
-	Short: "Mini AWS Cloud CLI",
+	Short: "The Cloud Cloud CLI",
 	Long:  `A local-first cloud simulator CLI for learning and development.`,
 }
 

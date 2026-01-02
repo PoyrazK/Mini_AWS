@@ -2,7 +2,7 @@
 
 run: stop
 	docker compose up -d
-	go run cmd/compute-api/main.go
+	go run cmd/api/main.go
 
 stop:
 	@fuser -k 8080/tcp 2>/dev/null || true
@@ -16,18 +16,16 @@ test-coverage:
 	@rm coverage.out
 
 swagger:
-	swag init -d cmd/compute-api,internal/handlers -g main.go -o docs/swagger --parseDependency --parseInternal
+	@$(HOME)/go/bin/swag init -d cmd/api,internal/handlers -g main.go -o docs/swagger --parseDependency --parseInternal
 
 build:
 	mkdir -p bin
-	go build -o bin/compute-api cmd/compute-api/main.go
-	go build -o bin/cloud cmd/cloud-cli/*.go
-	go build -o bin/cloud_cli cmd/cloud_cli/main.go
+	go build -o bin/api cmd/api/main.go
+	go build -o bin/thecloud cmd/thecloud/*.go
 
 install: build
 	mkdir -p $(HOME)/.local/bin
-	cp bin/cloud $(HOME)/.local/bin/cloud
-	cp bin/cloud_cli $(HOME)/.local/bin/cloud_cli
+	cp bin/thecloud $(HOME)/.local/bin/thecloud
 	@./scripts/setup_path.sh
 
 setup-path:
@@ -41,7 +39,7 @@ migrate:
 
 migrate-status:
 	@echo "Checking migration status..."
-	@docker compose exec postgres psql -U cloud -d miniaws -c "SELECT * FROM schema_migrations;" 2>/dev/null || echo "No migrations table found"
+	@docker compose exec postgres psql -U cloud -d thecloud -c "SELECT * FROM schema_migrations;" 2>/dev/null || echo "No migrations table found"
 
 clean:
 	rm -rf bin

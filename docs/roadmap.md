@@ -1,4 +1,4 @@
-# Mini AWS Roadmap
+# The Cloud Roadmap
 
 Prioritized using the **RICE** method (Reach, Impact, Confidence, Effort).
 

@@ -1,6 +1,6 @@
 # 💻 Cross-Platform Development Guide
 
-Welcome to the **Mini AWS** operational manual. This guide will help you set up your development environment on **macOS** and **Windows**.
+Welcome to the **The Cloud** operational manual. This guide will help you set up your development environment on **macOS** and **Windows**.
 
 ---
 
@@ -26,14 +26,14 @@ Welcome to the **Mini AWS** operational manual. This guide will help you set up 
 ### 2. Setup
 1.  **Clone the Repository**:
     ```bash
-    git clone https://github.com/PoyrazK/Mini_AWS.git
+    git clone https://github.com/PoyrazK/thecloud.git
     cd Mini_AWS
     ```
 
 2.  **Environment Variables**:
     Create a `.env` file in the root directory:
     ```bash
-    echo "DATABASE_URL=postgres://cloud:password@localhost:5432/miniaws" > .env
+    echo "DATABASE_URL=postgres://cloud:password@localhost:5432/thecloud" > .env
     ```
 
 ### 3. Running the Project
@@ -70,14 +70,14 @@ The `Makefile` works natively on macOS.
 ### 2. Setup
 1.  **Clone the Repository**:
     ```powershell
-    git clone https://github.com/PoyrazK/Mini_AWS.git
+    git clone https://github.com/PoyrazK/thecloud.git
     cd Mini_AWS
     ```
 
 2.  **Environment Variables**:
     Create a `.env` file manually or via PowerShell:
     ```powershell
-    Set-Content .env "DATABASE_URL=postgres://cloud:password@localhost:5432/miniaws"
+    Set-Content .env "DATABASE_URL=postgres://cloud:password@localhost:5432/thecloud"
     ```
 
 ### 3. Running the Project (Manual / PowerShell)

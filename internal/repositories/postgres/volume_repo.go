@@ -5,7 +5,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/poyraz/cloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/core/domain"
 )
 
 type VolumeRepository struct {

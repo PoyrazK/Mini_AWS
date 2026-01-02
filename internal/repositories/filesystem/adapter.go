@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/poyraz/cloud/internal/errors"
+	"github.com/poyrazk/thecloud/internal/errors"
 )
 
 type LocalFileStore struct {

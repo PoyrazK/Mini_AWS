@@ -18,7 +18,7 @@ A logical grouping of target instances. Currently simplified: instances are adde
 The backend instances that process the requests.
 
 ## Architecture
-The Load Balancer in Mini AWS is implemented using a dedicated proxy container (Nginx based) for each Load Balancer resource. This ensures isolation and mimics real cloud infrastructure behavior.
+The Load Balancer in The Cloud is implemented using a dedicated proxy container (Nginx based) for each Load Balancer resource. This ensures isolation and mimics real cloud infrastructure behavior.
 
 ## CLI Commands
 

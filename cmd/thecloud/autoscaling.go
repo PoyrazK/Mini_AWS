@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"github.com/olekukonko/tablewriter"
-	"github.com/poyraz/cloud/pkg/sdk"
+	"github.com/poyrazk/thecloud/pkg/sdk"
 	"github.com/spf13/cobra"
 )
 

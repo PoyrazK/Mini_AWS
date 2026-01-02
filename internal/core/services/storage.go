@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/poyraz/cloud/internal/core/domain"
-	"github.com/poyraz/cloud/internal/core/ports"
+	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/core/ports"
 )
 
 type StorageService struct {
@@ -42,8 +42,8 @@ func (s *StorageService) Upload(ctx context.Context, bucket, key string, r io.Re
 	}
 
 	// Generate ARN
-	// arn:miniaws:storage:local:default:object/<bucket>/<key>
-	obj.ARN = fmt.Sprintf("arn:miniaws:storage:local:default:object/%s/%s", bucket, key)
+	// arn:thecloud:storage:local:default:object/<bucket>/<key>
+	obj.ARN = fmt.Sprintf("arn:thecloud:storage:local:default:object/%s/%s", bucket, key)
 
 	// 3. Save metadata
 	if err := s.repo.SaveMeta(ctx, obj); err != nil {

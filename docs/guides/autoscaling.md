@@ -1,6 +1,6 @@
 # Auto-Scaling Guide
 
-Auto-Scaling in Mini AWS allows you to automatically adjust the number of compute instances in response to changing load. This ensures your applications remain available and performant while optimizing resource usage.
+Auto-Scaling in The Cloud allows you to automatically adjust the number of compute instances in response to changing load. This ensures your applications remain available and performant while optimizing resource usage.
 
 ## Concepts
 

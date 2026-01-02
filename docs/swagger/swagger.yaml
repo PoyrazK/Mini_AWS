@@ -444,12 +444,12 @@ info:
     email: support@swagger.io
     name: API Support
     url: http://www.swagger.io/support
-  description: This is the Mini AWS Compute API server.
+  description: This is The Cloud Compute API server.
   license:
     name: Apache 2.0
     url: http://www.apache.org/licenses/LICENSE-2.0.html
   termsOfService: http://swagger.io/terms/
-  title: Mini AWS API
+  title: The Cloud API
   version: "1.0"
 paths:
   /api/dashboard/events:

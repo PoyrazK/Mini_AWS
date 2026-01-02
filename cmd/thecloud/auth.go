@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/poyraz/cloud/pkg/sdk"
+	"github.com/poyrazk/thecloud/pkg/sdk"
 	"github.com/spf13/cobra"
 )
 
@@ -53,7 +53,7 @@ type Config struct {
 
 func getConfigPath() string {
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".miniaws", "config.json")
+	return filepath.Join(home, ".thecloud", "config.json")
 }
 
 func saveConfig(key string) {

@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/poyraz/cloud/internal/core/domain"
-	"github.com/poyraz/cloud/internal/core/ports"
-	"github.com/poyraz/cloud/internal/errors"
+	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/core/ports"
+	"github.com/poyrazk/thecloud/internal/errors"
 )
 
 type IdentityService struct {
@@ -26,7 +26,7 @@ func (s *IdentityService) GenerateApiKey(ctx context.Context, name string) (*dom
 	if _, err := rand.Read(b); err != nil {
 		return nil, errors.Wrap(errors.Internal, "failed to generate random key", err)
 	}
-	keyStr := "miniaws_" + hex.EncodeToString(b)
+	keyStr := "thecloud_" + hex.EncodeToString(b)
 
 	apiKey := &domain.ApiKey{
 		ID:        uuid.New(),

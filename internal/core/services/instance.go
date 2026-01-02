@@ -11,9 +11,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/poyraz/cloud/internal/core/domain"
-	"github.com/poyraz/cloud/internal/core/ports"
-	"github.com/poyraz/cloud/internal/errors"
+	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/core/ports"
+	"github.com/poyrazk/thecloud/internal/errors"
 )
 
 type InstanceService struct {
@@ -62,7 +62,7 @@ func (s *InstanceService) LaunchInstance(ctx context.Context, name, image, ports
 	}
 
 	// 4. Call Docker to create actual container
-	dockerName := fmt.Sprintf("miniaws-%s", inst.ID.String()[:8])
+	dockerName := fmt.Sprintf("thecloud-%s", inst.ID.String()[:8])
 
 	networkID := ""
 	if vpcID != nil {
@@ -86,7 +86,7 @@ func (s *InstanceService) LaunchInstance(ctx context.Context, name, image, ports
 		if vol.Status != domain.VolumeStatusAvailable {
 			return nil, errors.New(errors.InvalidInput, fmt.Sprintf("volume %s is not available", vol.Name))
 		}
-		dockerVolName := "miniaws-vol-" + vol.ID.String()[:8]
+		dockerVolName := "thecloud-vol-" + vol.ID.String()[:8]
 		volumeBinds = append(volumeBinds, fmt.Sprintf("%s:%s", dockerVolName, va.MountPath))
 		attachedVolumes = append(attachedVolumes, vol)
 	}
@@ -189,7 +189,7 @@ func (s *InstanceService) StopInstance(ctx context.Context, idOrName string) err
 	target := inst.ContainerID
 	if target == "" {
 		// Fallback to Reconstruction
-		target = fmt.Sprintf("miniaws-%s", inst.ID.String()[:8])
+		target = fmt.Sprintf("thecloud-%s", inst.ID.String()[:8])
 	}
 
 	if err := s.docker.StopContainer(ctx, target); err != nil {
@@ -271,7 +271,7 @@ func (s *InstanceService) removeInstanceContainer(ctx context.Context, inst *dom
 	containerID := inst.ContainerID
 	if containerID == "" {
 		// Fallback to Reconstruction for legacy or missing ID
-		containerID = fmt.Sprintf("miniaws-%s", inst.ID.String()[:8])
+		containerID = fmt.Sprintf("thecloud-%s", inst.ID.String()[:8])
 	}
 
 	if err := s.docker.RemoveContainer(ctx, containerID); err != nil {

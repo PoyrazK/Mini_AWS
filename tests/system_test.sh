@@ -6,7 +6,7 @@ GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-echo -e "${BLUE}Starting System Test for Mini AWS...${NC}"
+echo -e "${BLUE}Starting System Test for The Cloud...${NC}"
 
 # 1. Start API in background
 echo "Restarting API..."
@@ -22,7 +22,7 @@ trap "kill $API_PID || true" EXIT
 echo "Bootstrapping API Key..."
 KEY_RESP=$(curl -s -X POST http://localhost:8080/auth/keys -H "Content-Type: application/json" -d '{"name": "test-user"}')
 API_KEY=$(echo $KEY_RESP | grep -oP '"key":"\K[^"]+')
-export MINIAWS_API_KEY=$API_KEY
+export THECLOUD_API_KEY=$API_KEY
 echo "Using Key: $API_KEY"
 
 TEST_NAME="sys-test-$RANDOM"

@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/olekukonko/tablewriter"
-	"github.com/poyraz/cloud/pkg/sdk"
+	"github.com/poyrazk/thecloud/pkg/sdk"
 	"github.com/spf13/cobra"
 )
 
@@ -24,7 +24,7 @@ var computeCmd = &cobra.Command{
 func getClient() *sdk.Client {
 	key := apiKey // 1. Flag
 	if key == "" {
-		key = os.Getenv("MINIAWS_API_KEY") // 2. Env Var
+		key = os.Getenv("THECLOUD_API_KEY") // 2. Env Var
 	}
 	if key == "" {
 		key = loadConfig() // 3. Config File

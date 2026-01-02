@@ -1,6 +1,6 @@
 # Networking Guide
 
-This guide covers networking and port mapping features in Mini AWS.
+This guide covers networking and port mapping features in The Cloud.
 
 ## Port Mapping
 

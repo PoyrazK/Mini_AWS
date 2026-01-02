@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/poyraz/cloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -123,8 +123,8 @@ func TestLBProxyAdapter_GenerateNginxConfig(t *testing.T) {
 	t.Run("round-robin config", func(t *testing.T) {
 		conf, err := adapter.generateNginxConfig(ctx, lb, targets)
 		assert.NoError(t, err)
-		assert.Contains(t, conf, "server miniaws-"+inst1ID.String()[:8]+":8080 weight=1;")
-		assert.Contains(t, conf, "server miniaws-"+inst2ID.String()[:8]+":9090 weight=2;")
+		assert.Contains(t, conf, "server thecloud-"+inst1ID.String()[:8]+":8080 weight=1;")
+		assert.Contains(t, conf, "server thecloud-"+inst2ID.String()[:8]+":9090 weight=2;")
 		assert.Contains(t, conf, "listen 80;")
 		assert.NotContains(t, conf, "least_conn;")
 	})

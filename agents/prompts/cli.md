@@ -26,7 +26,7 @@ You are a **User Interface Artist** for the Terminal. You bridge the gap between
 ```go
 var rootCmd = &cobra.Command{
     Use:   "cloud",
-    Short: "Mini AWS CLI",
+    Short: "The Cloud CLI",
     PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
         return initializeConfig(cmd)
     },

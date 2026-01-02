@@ -1,6 +1,6 @@
-# 🗺️ Mini AWS: Future Roadmap for Agents
+# 🗺️ The Cloud: Future Roadmap for Agents
 
-This document provides a detailed technical roadmap for the remaining phases of the Mini AWS project.
+This document provides a detailed technical roadmap for the remaining phases of the The Cloud project.
 
 ## 🏁 Current State
 - **Phase 5 (Console)**: Backend foundation is complete.
@@ -36,7 +36,7 @@ This document provides a detailed technical roadmap for the remaining phases of 
 
 ## 🛠️ Technical Context for Next Agent
 - **Port Strategy**: Always check `internal/platform/config.go`. Port `5433` is the standard for DB.
-- **Identity**: All non-public routes require the `Authorization: miniaws_<key>` header.
+- **Identity**: All non-public routes require the `Authorization: thecloud_<key>` header.
 - **WebSocket**: Handshake requires `?api_key=...` in the query string.
 - **Migrations**: New `.up.sql` files in `internal/repositories/postgres/migrations/` are auto-applied on startup.
 

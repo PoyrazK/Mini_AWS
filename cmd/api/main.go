@@ -17,20 +17,20 @@ import (
 	ginSwagger "github.com/swaggo/gin-swagger"
 
 	"github.com/gin-gonic/gin"
-	_ "github.com/poyraz/cloud/docs/swagger"
-	"github.com/poyraz/cloud/internal/core/ports"
-	"github.com/poyraz/cloud/internal/core/services"
-	httphandlers "github.com/poyraz/cloud/internal/handlers"
-	"github.com/poyraz/cloud/internal/platform"
-	"github.com/poyraz/cloud/internal/repositories/docker"
-	"github.com/poyraz/cloud/internal/repositories/filesystem"
-	"github.com/poyraz/cloud/internal/repositories/postgres"
-	"github.com/poyraz/cloud/pkg/httputil"
+	_ "github.com/poyrazk/thecloud/docs/swagger"
+	"github.com/poyrazk/thecloud/internal/core/ports"
+	"github.com/poyrazk/thecloud/internal/core/services"
+	httphandlers "github.com/poyrazk/thecloud/internal/handlers"
+	"github.com/poyrazk/thecloud/internal/platform"
+	"github.com/poyrazk/thecloud/internal/repositories/docker"
+	"github.com/poyrazk/thecloud/internal/repositories/filesystem"
+	"github.com/poyrazk/thecloud/internal/repositories/postgres"
+	"github.com/poyrazk/thecloud/pkg/httputil"
 )
 
-// @title Mini AWS API
+// @title The Cloud API
 // @version 1.0
-// @description This is the Mini AWS Compute API server.
+// @description This is The Cloud Compute API server.
 // @termsOfService http://swagger.io/terms/
 
 // @contact.name API Support
@@ -128,7 +128,7 @@ func main() {
 	dashboardHandler := httphandlers.NewDashboardHandler(dashboardSvc)
 
 	// Storage Service
-	fileStore, err := filesystem.NewLocalFileStore("./miniaws-data/local/storage")
+	fileStore, err := filesystem.NewLocalFileStore("./thecloud-data/local/storage")
 	if err != nil {
 		logger.Error("failed to initialize file store", "error", err)
 		os.Exit(1)

@@ -1,6 +1,6 @@
 # Database Guide
 
-This document covers the Data Layer of Mini AWS.
+This document covers the Data Layer of The Cloud.
 
 ## Schema Design
 
@@ -113,7 +113,7 @@ CREATE TABLE metrics_history (
 
 ## Connection Details
 The default connection string for local development is:
-`postgres://cloud:cloud@localhost:5433/miniaws`
+`postgres://cloud:cloud@localhost:5433/thecloud`
 
 Note: The port was changed from `5432` to **`5433`** to avoid conflicts with system-level PostgreSQL installations.
 

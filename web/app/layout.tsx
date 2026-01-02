@@ -6,8 +6,8 @@ import './globals.css';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'EdgePulse - Mini AWS',
-  description: 'Edge-native Observability & AI Incident Response',
+  title: 'The Cloud - Open Source Cloud Platform',
+  description: 'A free, open-source cloud platform that anyone can run, modify, and own.',
 };
 
 export default function RootLayout({

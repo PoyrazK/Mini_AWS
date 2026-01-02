@@ -5,8 +5,8 @@ import (
 	"log/slog"
 	"sync"
 
-	"github.com/poyraz/cloud/internal/core/domain"
-	"github.com/poyraz/cloud/internal/platform"
+	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/platform"
 )
 
 // Hub maintains active WebSocket connections and broadcasts messages.

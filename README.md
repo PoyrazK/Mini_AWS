@@ -1,6 +1,6 @@
-# Mini AWS 🚀
+# The Cloud 🚀
 
-To build the world's best local-first cloud simulator that teaches cloud concepts through practice.
+To build the world's best open-source cloud platform that anyone can run, modify, and own.
 
 ## ✨ Features
 - **Compute**: Docker-based instance management (Launch, Stop, Terminate, Stats)
@@ -16,8 +16,8 @@ To build the world's best local-first cloud simulator that teaches cloud concept
 ## 🚀 Quick Start (Backend)
 ```bash
 # 1. Clone & Setup
-git clone https://github.com/PoyrazK/Mini_AWS.git
-cd Mini_AWS
+git clone https://github.com/PoyrazK/thecloud.git
+cd thecloud
 make run
 
 # 2. Test health (Database + Docker Status)

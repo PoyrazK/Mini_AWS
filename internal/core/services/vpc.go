@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/poyraz/cloud/internal/core/domain"
-	"github.com/poyraz/cloud/internal/core/ports"
+	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/core/ports"
 )
 
 type VpcService struct {
@@ -27,7 +27,7 @@ func NewVpcService(repo ports.VpcRepository, docker ports.DockerClient, logger *
 
 func (s *VpcService) CreateVPC(ctx context.Context, name string) (*domain.VPC, error) {
 	// 1. Create Docker network first
-	networkName := fmt.Sprintf("miniaws-vpc-%s", uuid.New().String()[:8])
+	networkName := fmt.Sprintf("thecloud-vpc-%s", uuid.New().String()[:8])
 	dockerNetworkID, err := s.docker.CreateNetwork(ctx, networkName)
 	if err != nil {
 		return nil, err

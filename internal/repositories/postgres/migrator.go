@@ -15,7 +15,7 @@ var migrationsFS embed.FS
 
 // RunMigrations applies all embedded up migrations.
 // In a real production system, this should track applied migrations in a table.
-// For Mini AWS, we'll use IF NOT EXISTS in SQL to make them idempotent-ish,
+// For The Cloud, we'll use IF NOT EXISTS in SQL to make them idempotent-ish,
 // or just run them and ignore "already exists" errors for simplicity in this MVP.
 func RunMigrations(ctx context.Context, db *pgxpool.Pool) error {
 	entries, err := migrationsFS.ReadDir("migrations")

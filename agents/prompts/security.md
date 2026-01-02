@@ -53,7 +53,7 @@ if !user.HasPermission("compute:create") {
 ### **SOP-001: Security Audit**
 1.  **Static Scan**: Run `gosec ./...`.
 2.  **Dependency Scan**: Run `govulncheck ./...`.
-3.  **Image Scan**: Run `trivy image miniaws/compute`.
+3.  **Image Scan**: Run `trivy image thecloud/compute`.
 
 ### **SOP-002: Incident Response (Leak)**
 1.  **Rotate**: Invalidate the leaked key immediately.

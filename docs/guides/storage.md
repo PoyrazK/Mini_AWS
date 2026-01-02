@@ -1,6 +1,6 @@
 # Storage Guide
 
-This guide shows you how to use the Mini AWS object storage service.
+This guide shows you how to use the The Cloud object storage service.
 
 ## Prerequisites
 - `cloud` CLI installed (`make install`)
@@ -31,7 +31,7 @@ Output:
 ┌─────────┬──────┬─────────────────────┬──────────────────────────────────────────┐
 │   KEY   │ SIZE │     CREATED AT      │                   ARN                    │
 ├─────────┼──────┼─────────────────────┼──────────────────────────────────────────┤
-│ cat.jpg │ 1024 │ 2026-01-01T11:00:00 │ arn:miniaws:storage:local:default:...    │
+│ cat.jpg │ 1024 │ 2026-01-01T11:00:00 │ arn:thecloud:storage:local:default:...    │
 └─────────┴──────┴─────────────────────┴──────────────────────────────────────────┘
 ```
 
@@ -55,5 +55,5 @@ cloud storage delete photos cat.jpg
 
 ## How It Works
 - **Metadata**: Stored in PostgreSQL (`objects` table)
-- **File Bytes**: Stored in `./miniaws-data/local/storage/<bucket>/<key>`
-- **ARN Format**: `arn:miniaws:storage:local:default:object/<bucket>/<key>`
+- **File Bytes**: Stored in `./thecloud-data/local/storage/<bucket>/<key>`
+- **ARN Format**: `arn:thecloud:storage:local:default:object/<bucket>/<key>`

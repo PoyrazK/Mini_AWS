@@ -4,7 +4,7 @@
 Proposed
 
 ## Context
-We need to implement auto-scaling that responds to CPU metrics for the Mini AWS simulator. 
+We need to implement auto-scaling that responds to CPU metrics for the The Cloud simulator. 
 We validated two main approaches:
 1. **Event-driven**: React to metric events in real-time as they are ingested.
 2. **Polling-based**: Periodically evaluate stored metrics and make scaling decisions.

@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/poyraz/cloud/internal/core/domain"
-	"github.com/poyraz/cloud/internal/core/ports"
+	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/core/ports"
 )
 
 type LBWorker struct {

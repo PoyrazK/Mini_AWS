@@ -1,6 +1,6 @@
 # Backend Guide
 
-This document explains the Go backend implementation for the Mini AWS Compute Service.
+This document explains the Go backend implementation for the The Cloud Compute Service.
 
 ## Project Structure (`/internal`)
 

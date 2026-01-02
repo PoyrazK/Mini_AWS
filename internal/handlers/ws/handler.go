@@ -6,7 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
-	"github.com/poyraz/cloud/internal/core/ports"
+	"github.com/poyrazk/thecloud/internal/core/ports"
 )
 
 var upgrader = websocket.Upgrader{

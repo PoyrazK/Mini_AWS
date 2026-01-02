@@ -5,8 +5,8 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/poyraz/cloud/internal/core/ports"
-	"github.com/poyraz/cloud/pkg/httputil"
+	"github.com/poyrazk/thecloud/internal/core/ports"
+	"github.com/poyrazk/thecloud/pkg/httputil"
 )
 
 type EventHandler struct {

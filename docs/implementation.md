@@ -1,7 +1,7 @@
-# Mini AWS System Implementation Guide
+# The Cloud System Implementation Guide
 
 > [!IMPORTANT]
-> This document serves as the single source of truth for the technical implementation of the Mini AWS Compute Service.
+> This document serves as the single source of truth for the technical implementation of the The Cloud Compute Service.
 
 ## 1. System Architecture
 

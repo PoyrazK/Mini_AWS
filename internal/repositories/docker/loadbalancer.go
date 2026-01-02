@@ -16,8 +16,8 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
 	"github.com/google/uuid"
-	"github.com/poyraz/cloud/internal/core/domain"
-	"github.com/poyraz/cloud/internal/core/ports"
+	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/core/ports"
 )
 
 const (
@@ -60,7 +60,7 @@ func (a *LBProxyAdapter) DeployProxy(ctx context.Context, lb *domain.LoadBalance
 	// 3. Create temp config file to mount or use env?
 	// Docker doesn't support mounting strings directly easily without a file.
 	// We'll create a temp directory for LB configs.
-	configPath := filepath.Join("/tmp", "miniaws", "lb", lb.ID.String())
+	configPath := filepath.Join("/tmp", "thecloud", "lb", lb.ID.String())
 	if err := os.MkdirAll(configPath, 0755); err != nil {
 		return "", err
 	}
@@ -128,7 +128,7 @@ func (a *LBProxyAdapter) RemoveProxy(ctx context.Context, lbID uuid.UUID) error 
 	}
 
 	// Cleanup config file
-	configPath := filepath.Join("/tmp", "miniaws", "lb", lbID.String())
+	configPath := filepath.Join("/tmp", "thecloud", "lb", lbID.String())
 	os.RemoveAll(configPath)
 
 	return nil
@@ -141,7 +141,7 @@ func (a *LBProxyAdapter) UpdateProxyConfig(ctx context.Context, lb *domain.LoadB
 		return err
 	}
 
-	configPath := filepath.Join("/tmp", "miniaws", "lb", lb.ID.String(), "nginx.conf")
+	configPath := filepath.Join("/tmp", "thecloud", "lb", lb.ID.String(), "nginx.conf")
 	if err := os.WriteFile(configPath, []byte(config), 0644); err != nil {
 		return err
 	}
@@ -214,7 +214,7 @@ http {
 			continue
 		}
 		// Predictable docker name used by InstanceService
-		host := fmt.Sprintf("miniaws-%s", inst.ID.String()[:8])
+		host := fmt.Sprintf("thecloud-%s", inst.ID.String()[:8])
 		d.Targets = append(d.Targets, targetInfo{
 			ContainerID: host,
 			Port:        t.Port,

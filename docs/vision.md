@@ -1,6 +1,6 @@
-# Mini AWS: Future Vision & Strategy 🛰️
+# The Cloud: Future Vision & Strategy 🛰️
 
-This document outlines the long-term vision for the Mini AWS project, transitioning from a core infrastructure provider to a comprehensive cloud ecosystem.
+This document outlines the long-term vision for the The Cloud project, transitioning from a core infrastructure provider to a comprehensive cloud ecosystem.
 
 ## 🌌 The "Full House" Achievement
 As of Phase 4, we have established the core pillars of a cloud provider:
@@ -14,7 +14,7 @@ As of Phase 4, we have established the core pillars of a cloud provider:
 
 ## 🛤️ The Two-Track Evolution
 
-To bring Mini AWS to the next level, we follow two parallel evolution tracks:
+To bring The Cloud to the next level, we follow two parallel evolution tracks:
 
 ### Track 1: The Visualizer (Console Phase) 🖥️
 **Goal**: Make the cloud accessible and observable via a web interface.
@@ -45,4 +45,4 @@ To bring Mini AWS to the next level, we follow two parallel evolution tracks:
 ---
 
 ## 💡 Why This Matters
-Mini AWS isn't just a tool; it's a **Living Textbook**. Every feature we add is designed to demystify how massive cloud providers operate, providing a zero-cost, local-first playground for engineers to experiment and learn.
+The Cloud isn't just a tool; it's a **Living Textbook**. Every feature we add is designed to demystify how massive cloud providers operate, providing a zero-cost, local-first playground for engineers to experiment and learn.

@@ -1,6 +1,6 @@
 # Cloud Infrastructure Guide
 
-This document covers the infrastructure and DevOps aspects of Mini AWS.
+This document covers the infrastructure and DevOps aspects of The Cloud.
 
 ## The Docker Adapter (`internal/repositories/docker`)
 

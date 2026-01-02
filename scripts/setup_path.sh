@@ -19,7 +19,7 @@ add_to_config() {
     if [ -f "$config_file" ]; then
         if ! grep -Fq "$line" "$config_file"; then
             echo "" >> "$config_file"
-            echo "# Mini AWS CLI PATH" >> "$config_file"
+            echo "# The Cloud CLI PATH" >> "$config_file"
             echo "$line" >> "$config_file"
             echo "✅ Added to $config_file"
             return 0
