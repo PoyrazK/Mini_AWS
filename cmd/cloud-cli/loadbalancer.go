@@ -142,4 +142,41 @@ func init() {
 	lbCmd.AddCommand(lbRmCmd)
 	lbCmd.AddCommand(lbAddTargetCmd)
 	lbCmd.AddCommand(lbRemoveTargetCmd)
+	lbCmd.AddCommand(lbListTargetsCmd)
+}
+
+var lbListTargetsCmd = &cobra.Command{
+	Use:   "targets <lb-id>",
+	Short: "List targets for a load balancer",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		client := getClient()
+		targets, err := client.ListLBTargets(args[0])
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			return
+		}
+
+		if outputJSON {
+			data, _ := json.MarshalIndent(targets, "", "  ")
+			fmt.Println(string(data))
+			return
+		}
+
+		table := tablewriter.NewWriter(os.Stdout)
+		table.Header([]string{"INSTANCE ID", "PORT", "WEIGHT", "HEALTH"})
+		for _, t := range targets {
+			id := t.InstanceID
+			if len(id) > 8 {
+				id = id[:8]
+			}
+			table.Append([]string{
+				id,
+				fmt.Sprintf("%d", t.Port),
+				fmt.Sprintf("%d", t.Weight),
+				t.Health,
+			})
+		}
+		table.Render()
+	},
 }

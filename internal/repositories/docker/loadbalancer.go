@@ -70,6 +70,9 @@ func (a *LBProxyAdapter) DeployProxy(ctx context.Context, lb *domain.LoadBalance
 
 	// 4. Create container
 	containerName := fmt.Sprintf("lb-%s", lb.ID.String())
+	// Cleanup if exists
+	_ = a.cli.ContainerRemove(ctx, containerName, container.RemoveOptions{Force: true})
+
 	cPort := nat.Port(fmt.Sprintf("%d/tcp", lb.Port))
 
 	config_opt := &container.Config{
@@ -91,9 +94,6 @@ func (a *LBProxyAdapter) DeployProxy(ctx context.Context, lb *domain.LoadBalance
 				},
 			},
 		},
-		SecurityOpt: []string{"no-new-privileges:true"},
-		CapDrop:     []string{"ALL"},
-		CapAdd:      []string{"NET_BIND_SERVICE"},
 	}
 
 	// 5. Networking
@@ -146,8 +146,11 @@ func (a *LBProxyAdapter) UpdateProxyConfig(ctx context.Context, lb *domain.LoadB
 		return err
 	}
 
-	// Reload nginx in container
 	containerName := fmt.Sprintf("lb-%s", lb.ID.String())
+	// Try starting container if stopped
+	_ = a.cli.ContainerStart(ctx, containerName, container.StartOptions{})
+
+	// Reload nginx in container
 	execResp, err := a.cli.ContainerExecCreate(ctx, containerName, container.ExecOptions{
 		Cmd: []string{"nginx", "-s", "reload"},
 	})
@@ -160,24 +163,31 @@ func (a *LBProxyAdapter) UpdateProxyConfig(ctx context.Context, lb *domain.LoadB
 
 func (a *LBProxyAdapter) generateNginxConfig(ctx context.Context, lb *domain.LoadBalancer, targets []*domain.LBTarget) (string, error) {
 	tmplRaw := `
+user root;
 events {
     worker_connections 1024;
 }
 
 http {
+    {{if .Targets}}
     upstream backend {
         {{range .Targets}}
         server {{.ContainerID}}:{{.Port}} weight={{.Weight}};
         {{end}}
         {{if .LeastConn}}least_conn;{{end}}
     }
+    {{end}}
 
     server {
         listen {{.Port}};
         location / {
+            {{if .Targets}}
             proxy_pass http://backend;
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
+            {{else}}
+            return 503 "No targets available";
+            {{end}}
         }
     }
 }
@@ -203,11 +213,10 @@ http {
 		if err != nil {
 			continue
 		}
-		if inst.ContainerID == "" {
-			continue
-		}
+		// Predictable docker name used by InstanceService
+		host := fmt.Sprintf("miniaws-%s", inst.ID.String()[:8])
 		d.Targets = append(d.Targets, targetInfo{
-			ContainerID: inst.ContainerID,
+			ContainerID: host,
 			Port:        t.Port,
 			Weight:      t.Weight,
 		})

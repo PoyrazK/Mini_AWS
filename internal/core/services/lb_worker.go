@@ -41,6 +41,7 @@ func (w *LBWorker) Run(ctx context.Context, wg *sync.WaitGroup) {
 		case <-ticker.C:
 			w.processCreatingLBs(ctx)
 			w.processDeletingLBs(ctx)
+			w.processActiveLBs(ctx)
 			w.processHealthChecks(ctx)
 		}
 	}
@@ -108,6 +109,26 @@ func (w *LBWorker) cleanupLB(ctx context.Context, lb *domain.LoadBalancer) {
 		log.Printf("Worker: failed to delete LB %s from DB: %v", lb.ID, err)
 	} else {
 		log.Printf("Worker: LB %s fully removed", lb.ID)
+	}
+}
+
+func (w *LBWorker) processActiveLBs(ctx context.Context) {
+	lbs, err := w.lbRepo.List(ctx)
+	if err != nil {
+		return
+	}
+
+	for _, lb := range lbs {
+		if lb.Status == domain.LBStatusActive {
+			targets, err := w.lbRepo.ListTargets(ctx, lb.ID)
+			if err != nil {
+				continue
+			}
+			// Update configuration (e.g. if targets changed)
+			if err := w.proxyAdapter.UpdateProxyConfig(ctx, lb, targets); err != nil {
+				log.Printf("Worker: failed to update proxy config for LB %s: %v", lb.ID, err)
+			}
+		}
 	}
 }
 

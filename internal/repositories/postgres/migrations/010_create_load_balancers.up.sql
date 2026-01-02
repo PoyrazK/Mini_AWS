@@ -16,7 +16,7 @@ CREATE INDEX idx_lb_status ON load_balancers(status);
 CREATE TABLE lb_targets (
     id UUID PRIMARY KEY,
     lb_id UUID REFERENCES load_balancers(id) ON DELETE CASCADE,
-    instance_id UUID REFERENCES instances(id),
+    instance_id UUID REFERENCES instances(id) ON DELETE CASCADE,
     port INT NOT NULL,
     weight INT DEFAULT 1,
     health VARCHAR(50) DEFAULT 'unknown',
