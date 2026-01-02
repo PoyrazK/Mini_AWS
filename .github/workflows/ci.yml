@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: cloud
+          POSTGRES_PASSWORD: cloud
+          POSTGRES_DB: thecloud
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          
+      - name: Install Dependencies
+        run: go mod download
+        
+      - name: Verify Swagger
+        run: |
+          go install github.com/swaggo/swag/cmd/swag@latest
+          swag init -g cmd/api/main.go --output docs/swagger
+          if [ -n "$(git status --porcelain docs/swagger)" ]; then
+            echo "Swagger docs are out of sync. Run 'swag init' and commit changes."
+            exit 1
+          fi
+
+      - name: Run Unit Tests
+        run: go test -v ./...
+        
+      - name: Run Integration Tests
+        env:
+          DATABASE_URL: postgres://cloud:cloud@localhost:5433/thecloud?sslmode=disable
+        run: go test -tags=integration -v ./internal/repositories/postgres/...
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Build Docker Image
+        run: docker build . -t thecloud-api:latest
+        
+      - name: Scan Image Vulnerabilities
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'thecloud-api:latest'
+          format: 'table'
+          exit-code: '0' # Don't fail build yet, just report
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
