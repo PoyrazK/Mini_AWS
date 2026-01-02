@@ -12,6 +12,7 @@ const (
 	Internal     Type = "INTERNAL"
 	Unauthorized Type = "UNAUTHORIZED"
 	Conflict     Type = "CONFLICT"
+	Forbidden    Type = "FORBIDDEN"
 
 	// Storage Errors
 	BucketNotFound Type = "BUCKET_NOT_FOUND"
@@ -23,6 +24,11 @@ const (
 	PortConflict       Type = "PORT_CONFLICT"
 	TooManyPorts       Type = "TOO_MANY_PORTS"
 	InstanceNotRunning Type = "INSTANCE_NOT_RUNNING"
+
+	// Load Balancer Errors
+	LBNotFound     Type = "LB_NOT_FOUND"
+	LBTargetExists Type = "LB_TARGET_EXISTS"
+	LBCrossVPC     Type = "LB_CROSS_VPC"
 )
 
 // Error represents an API error that can be safely returned to clients.
@@ -68,3 +74,9 @@ func GetCause(err error) error {
 	}
 	return nil
 }
+
+var (
+	ErrLBNotFound     = New(LBNotFound, "load balancer not found")
+	ErrLBTargetExists = New(LBTargetExists, "target already registered")
+	ErrLBCrossVPC     = New(LBCrossVPC, "target must be in same VPC as LB")
+)
