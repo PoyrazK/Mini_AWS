@@ -12,14 +12,16 @@ import (
 )
 
 type AutoScalingService struct {
-	repo    ports.AutoScalingRepository
-	vpcRepo ports.VpcRepository
+	repo        ports.AutoScalingRepository
+	vpcRepo     ports.VpcRepository
+	instanceSvc ports.InstanceService
 }
 
-func NewAutoScalingService(repo ports.AutoScalingRepository, vpcRepo ports.VpcRepository) *AutoScalingService {
+func NewAutoScalingService(repo ports.AutoScalingRepository, vpcRepo ports.VpcRepository, instanceSvc ports.InstanceService) *AutoScalingService {
 	return &AutoScalingService{
-		repo:    repo,
-		vpcRepo: vpcRepo,
+		repo:        repo,
+		vpcRepo:     vpcRepo,
+		instanceSvc: instanceSvc,
 	}
 }
 
@@ -93,51 +95,24 @@ func (s *AutoScalingService) ListGroups(ctx context.Context) ([]*domain.ScalingG
 }
 
 func (s *AutoScalingService) DeleteGroup(ctx context.Context, id uuid.UUID) error {
-	group, err := s.repo.GetGroupByID(ctx, id)
-	if err != nil {
-		return err
-	}
-
-	// Mark as deleted or delete directly?
-	// For now, simple delete. In a real system, we might mark as DELETING and let worker cleanup.
-	// But our schema has ON DELETE CASCADE for instances, so we need to be careful.
-	// Actually, the schema has ON DELETE CASCADE for *scaling_group_instances* table entries, NOT the actual instances table.
-	// So deleting the group will leave orphaned instances if we don't clean them up.
-	// The worker should handle cleanup or we do it here.
-	// Let's implement a synchronous cleanup here for simplicity, or mark status DELETED.
-
-	// Better approach: Mark status as DELETED, let worker terminate instances, then delete group.
-	// But to fit within the "simple implementation" request and keeping in mind the 10s delay:
-	// We will implement direct termination here for now.
-
-	// Note: The implementation plan said "DeleteGroup" in service.
-	// Let's rely on the worker to reconcile "Active" groups. But if we delete the group record, the worker won't find it.
-	// So we need to terminate instances associated with it.
-
-	// Fetch instances
+	// Fetch instances before deleting group
 	instanceIDs, err := s.repo.GetInstancesInGroup(ctx, id)
 	if err != nil {
 		return err
 	}
 
-	// We need instance service to terminate them. But AutoScalingService doesn't have reference to InstanceService directly
-	// to avoid circular dependency if InstanceService depends on ASG.
-	// Actually InstanceService doesn't depend on ASG. But usually we might want to keep them separate.
-	// However, the worker has access to both.
+	// Delete group first to stop worker from managing them (and CASCADE removes relationships)
+	if err := s.repo.DeleteGroup(ctx, id); err != nil {
+		return err
+	}
 
-	// Refined Plan: The service here just deletes the record. The DATABASE schema `scaling_group_instances` has CASCADE.
-	// So the link is gone. But the actual instances remain running!
-	// This is a leak.
-	// We should probably inject InstanceService here or let the user manually delete instances?
-	// No, ASG should manage them.
+	// Terminate instances synchronously to ensure cleanup.
+	for _, instID := range instanceIDs {
+		// Ignore errors during termination of individual instances to ensure best-effort cleanup
+		_ = s.instanceSvc.TerminateInstance(ctx, instID.String())
+	}
 
-	// Let's update `AutoScalingService` struct to include `InstanceService` in the next step when we see `autoscaling_worker.go`.
-	// For now, I'll return nil and let the worker handling the "cleanup" logic or user manually cleaning up...
-	// Wait, the Review said "TestScalingGroup_DeleteTerminatesAllInstances".
-	// So this method MUST terminate instances.
-	// I will add InstanceService to the struct.
-
-	return s.repo.DeleteGroup(ctx, id)
+	return nil
 }
 
 // SetDesiredCapacity just updates the DB. Worker reconciles.

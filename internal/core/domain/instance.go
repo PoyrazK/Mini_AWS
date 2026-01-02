@@ -17,7 +17,7 @@ const (
 )
 
 const (
-	MinPort             = 1
+	MinPort             = 0
 	MaxPort             = 65535
 	MaxPortsPerInstance = 10
 )

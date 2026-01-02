@@ -29,8 +29,13 @@ func (r *AutoScalingRepo) CreateGroup(ctx context.Context, group *domain.Scaling
 			min_instances, max_instances, desired_count, current_count, status, version, created_at, updated_at
 		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
 	`
+	var idempotencyKey interface{}
+	if group.IdempotencyKey != "" {
+		idempotencyKey = group.IdempotencyKey
+	}
+
 	_, err := r.db.Exec(ctx, query,
-		group.ID, group.IdempotencyKey, group.Name, group.VpcID, group.LoadBalancerID,
+		group.ID, idempotencyKey, group.Name, group.VpcID, group.LoadBalancerID,
 		group.Image, group.Ports, group.MinInstances, group.MaxInstances,
 		group.DesiredCount, group.CurrentCount, group.Status, group.Version,
 		group.CreatedAt, group.UpdatedAt,

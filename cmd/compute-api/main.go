@@ -15,6 +15,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/gin-gonic/gin"
+	"github.com/poyraz/cloud/internal/core/ports"
 	"github.com/poyraz/cloud/internal/core/services"
 	httphandlers "github.com/poyraz/cloud/internal/handlers"
 	"github.com/poyraz/cloud/internal/platform"
@@ -236,11 +237,29 @@ func main() {
 		lbGroup.DELETE("/:id/targets/:instanceId", lbHandler.RemoveTarget)
 	}
 
+	// Auto-Scaling Routes (Protected)
+	asgRepo := postgres.NewAutoScalingRepo(db)
+	asgSvc := services.NewAutoScalingService(asgRepo, vpcRepo, instanceSvc)
+	asgHandler := httphandlers.NewAutoScalingHandler(asgSvc)
+	asgWorker := services.NewAutoScalingWorker(asgRepo, instanceSvc, lbSvc, eventSvc, ports.RealClock{})
+
+	asgGroup := r.Group("/autoscaling")
+	asgGroup.Use(httputil.Auth(identitySvc))
+	{
+		asgGroup.POST("/groups", asgHandler.CreateGroup)
+		asgGroup.GET("/groups", asgHandler.ListGroups)
+		asgGroup.GET("/groups/:id", asgHandler.GetGroup)
+		asgGroup.DELETE("/groups/:id", asgHandler.DeleteGroup)
+		asgGroup.POST("/groups/:id/policies", asgHandler.CreatePolicy)
+		asgGroup.DELETE("/policies/:id", asgHandler.DeletePolicy)
+	}
+
 	// 7. Background Workers
 	wg := &sync.WaitGroup{}
 	workerCtx, workerCancel := context.WithCancel(context.Background())
-	wg.Add(1)
+	wg.Add(2)
 	go lbWorker.Run(workerCtx, wg)
+	go asgWorker.Run(workerCtx, wg)
 
 	// 8. Server setup
 	srv := &http.Server{
