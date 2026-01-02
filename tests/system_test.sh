@@ -10,7 +10,11 @@ echo -e "${BLUE}Starting System Test for The Cloud...${NC}"
 
 # 1. Start API in background
 echo "Restarting API..."
-fuser -k 8080/tcp || true
+if command -v fuser >/dev/null 2>&1; then
+  fuser -k 8080/tcp || true
+else
+  lsof -ti tcp:8080 | xargs -r kill || true
+fi
 nohup ./bin/api > test_api.log 2>&1 &
 API_PID=$!
 sleep 2

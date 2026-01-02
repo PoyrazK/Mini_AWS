@@ -19,9 +19,12 @@ The "Compute" service acts as a hypervisor. Instead of launching VMs (KVM/QEMU),
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `PORT` | API Server Port | `:8080` |
-| `DB_DSN` | Postgres Connection String | `host=localhost ...` |
-| `GODAEMON` | (Internal) Docker Socket | `/var/run/docker.sock` |
+| `PORT` | API Server Port | `8080` |
+| `DATABASE_URL` | Postgres Connection String | `postgres://cloud:cloud@localhost:5433/thecloud` |
+| `DB_USER` | Postgres Username | `cloud` |
+| `DB_PASSWORD` | Postgres Password | `cloud` |
+| `DB_NAME` | Postgres Database | `thecloud` |
+| `DOCKER_HOST` | Docker Socket | `unix:///var/run/docker.sock` |
 
 ## Deployment Strategy
 

@@ -92,8 +92,42 @@ jobs:
         run: npm run build
         working-directory: web
 
+  system-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Install Dependencies
+        run: go mod download
+
+      - name: Start Postgres
+        run: docker compose up -d postgres
+
+      - name: Wait for Postgres
+        run: |
+          for i in {1..10}; do
+            if docker exec cloud-db pg_isready -U cloud -d thecloud; then
+              exit 0
+            fi
+            sleep 2
+          done
+          exit 1
+
+      - name: Build Binaries
+        run: make build
+
+      - name: Run System Tests
+        env:
+          DATABASE_URL: postgres://cloud:cloud@localhost:5433/thecloud?sslmode=disable
+        run: ./tests/system_test.sh
+
   build:
-    needs: [test, web]
+    needs: [test, web, system-tests]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

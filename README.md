@@ -58,6 +58,7 @@ npm run dev
 | Doc | Description |
 |-----|-------------|
 | [Development Guide](docs/development.md) | Setup on Windows, Mac, or Linux |
+| [Testing Guide](docs/testing.md) | Unit, integration, and system test workflows |
 | [Roadmap](docs/roadmap.md) | Project phases and progress |
 | [Future Plans & Contributing](docs/future-plans.md) | How to contribute + feature backlog |
 | [Future Vision](docs/vision.md) | Long-term strategy and goals |
