@@ -44,8 +44,19 @@ jobs:
             exit 1
           fi
 
-      - name: Run Unit Tests
-        run: go test -v ./...
+      - name: Lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+
+      - name: Run Unit Tests with Coverage
+        run: go test -race -coverprofile=coverage.out -covermode=atomic ./...
+        
+      - name: Upload Coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.out
+          fail_ci_if_error: false
       
       - name: Run Database Migrations
         env:
