@@ -57,6 +57,8 @@ func setupTestUser(t *testing.T, db *pgxpool.Pool) context.Context {
 func cleanDB(t *testing.T, db *pgxpool.Pool) {
 	ctx := context.Background()
 	queries := []string{
+		"DELETE FROM queue_messages",
+		"DELETE FROM queues",
 		"DELETE FROM lb_targets",
 		"DELETE FROM scaling_group_instances",
 		"DELETE FROM scaling_policies",

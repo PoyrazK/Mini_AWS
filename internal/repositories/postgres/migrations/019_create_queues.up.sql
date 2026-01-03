@@ -26,5 +26,4 @@ CREATE TABLE queue_messages (
 );
 
 -- Index for efficient polling
-CREATE INDEX idx_messages_queue_visible ON queue_messages(queue_id, visible_at)
-    WHERE visible_at <= NOW();
+CREATE INDEX idx_messages_queue_visible ON queue_messages(queue_id, visible_at);

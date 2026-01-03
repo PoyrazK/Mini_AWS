@@ -355,3 +355,62 @@ func (m *MockVolumeRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	args := m.Called(ctx, id)
 	return args.Error(0)
 }
+
+// MockQueueRepo
+type MockQueueRepo struct{ mock.Mock }
+
+func (m *MockQueueRepo) Create(ctx context.Context, q *domain.Queue) error {
+	args := m.Called(ctx, q)
+	return args.Error(0)
+}
+func (m *MockQueueRepo) GetByID(ctx context.Context, id, userID uuid.UUID) (*domain.Queue, error) {
+	args := m.Called(ctx, id, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Queue), args.Error(1)
+}
+func (m *MockQueueRepo) GetByName(ctx context.Context, name string, userID uuid.UUID) (*domain.Queue, error) {
+	args := m.Called(ctx, name, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Queue), args.Error(1)
+}
+func (m *MockQueueRepo) List(ctx context.Context, userID uuid.UUID) ([]*domain.Queue, error) {
+	args := m.Called(ctx, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Queue), args.Error(1)
+}
+func (m *MockQueueRepo) Delete(ctx context.Context, id uuid.UUID) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+func (m *MockQueueRepo) SendMessage(ctx context.Context, queueID uuid.UUID, body string) (*domain.Message, error) {
+	args := m.Called(ctx, queueID, body)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Message), args.Error(1)
+}
+func (m *MockQueueRepo) ReceiveMessages(ctx context.Context, queueID uuid.UUID, maxMessages, visibilityTimeout int) ([]*domain.Message, error) {
+	args := m.Called(ctx, queueID, maxMessages, visibilityTimeout)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Message), args.Error(1)
+}
+func (m *MockQueueRepo) DeleteMessage(ctx context.Context, queueID uuid.UUID, receiptHandle string) error {
+	args := m.Called(ctx, queueID, receiptHandle)
+	return args.Error(0)
+}
+func (m *MockQueueRepo) PurgeMessages(ctx context.Context, queueID uuid.UUID) (int64, error) {
+	args := m.Called(ctx, queueID)
+	return args.Get(0).(int64), args.Error(1)
+}
+func (m *MockQueueRepo) GetQueueStats(ctx context.Context, queueID uuid.UUID) (int, int, error) {
+	args := m.Called(ctx, queueID)
+	return args.Int(0), args.Int(1), args.Error(2)
+}
