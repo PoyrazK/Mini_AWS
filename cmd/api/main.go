@@ -158,6 +158,10 @@ func main() {
 	cacheSvc := services.NewCacheService(cacheRepo, dockerAdapter, vpcRepo, eventSvc, logger)
 	cacheHandler := httphandlers.NewCacheHandler(cacheSvc)
 
+	queueRepo := postgres.NewPostgresQueueRepository(db)
+	queueSvc := services.NewQueueService(queueRepo, eventSvc)
+	queueHandler := httphandlers.NewQueueHandler(queueSvc)
+
 	// 5. Engine & Middleware
 	if cfg.Environment == "production" {
 		gin.SetMode(gin.ReleaseMode)
@@ -334,6 +338,19 @@ func main() {
 		cacheGroup.GET("/:id/connection", cacheHandler.GetConnectionString)
 		cacheGroup.POST("/:id/flush", cacheHandler.Flush)
 		cacheGroup.GET("/:id/stats", cacheHandler.GetStats)
+	}
+
+	queueGroup := r.Group("/queues")
+	queueGroup.Use(httputil.Auth(identitySvc))
+	{
+		queueGroup.POST("", queueHandler.Create)
+		queueGroup.GET("", queueHandler.List)
+		queueGroup.GET("/:id", queueHandler.Get)
+		queueGroup.DELETE("/:id", queueHandler.Delete)
+		queueGroup.POST("/:id/messages", queueHandler.SendMessage)
+		queueGroup.GET("/:id/messages", queueHandler.ReceiveMessages)
+		queueGroup.DELETE("/:id/messages/:handle", queueHandler.DeleteMessage)
+		queueGroup.POST("/:id/purge", queueHandler.Purge) // Changed from DELETE to POST to avoid ambiguity
 	}
 
 	// Auto-Scaling Routes (Protected)
