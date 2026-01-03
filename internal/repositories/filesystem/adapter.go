@@ -28,6 +28,10 @@ func (s *LocalFileStore) Write(ctx context.Context, bucket, key string, r io.Rea
 	}
 
 	filePath := filepath.Join(bucketPath, key)
+	if err := os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
+		return 0, errors.Wrap(errors.Internal, "failed to create directories", err)
+	}
+
 	f, err := os.Create(filePath)
 	if err != nil {
 		return 0, errors.Wrap(errors.Internal, "failed to create file", err)

@@ -63,6 +63,7 @@ func (s *FunctionService) CreateFunction(ctx context.Context, name, runtime, han
 
 	_, err := s.fileStore.Write(ctx, "functions", codeKey, bytes.NewReader(code))
 	if err != nil {
+		s.logger.Error("failed to store function code", "error", err, "bucket", "functions", "key", codeKey)
 		return nil, errors.Wrap(errors.Internal, "failed to store function code", err)
 	}
 

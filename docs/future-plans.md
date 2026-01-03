@@ -31,7 +31,7 @@ This document outlines planned features and how you can contribute to The Cloud.
 - [ ] **RBAC** - User roles (admin, developer, read-only)
 - [x] **RDS** - Managed PostgreSQL/MySQL containers
 - [x] **Secrets Manager** - Encrypted secret storage
-- [ ] **CloudFunctions** - Serverless functions (Lambda-like)
+- [x] **CloudFunctions** - Serverless functions (Lambda-like)
 
 ### Medium Priority
 - [ ] **CloudCache** - Managed Redis instances

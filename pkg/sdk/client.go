@@ -14,7 +14,6 @@ type Client struct {
 func NewClient(apiURL, apiKey string) *Client {
 	client := resty.New()
 	client.SetHeader("X-API-Key", apiKey)
-	client.SetHeader("Content-Type", "application/json")
 	return &Client{
 		resty:  client,
 		apiURL: apiURL,
