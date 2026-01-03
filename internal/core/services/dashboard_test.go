@@ -249,6 +249,31 @@ func TestDashboardService_GetRecentEvents(t *testing.T) {
 	assert.Len(t, result, 2)
 }
 
+func TestDashboardService_GetStats(t *testing.T) {
+	instanceRepo := new(mockInstanceRepo)
+	volumeRepo := new(mockVolumeRepo)
+	vpcRepo := new(mockVpcRepo)
+	eventRepo := new(mockEventRepo)
+
+	instanceRepo.On("List", mock.Anything).Return([]*domain.Instance{
+		{ID: uuid.New(), Status: domain.StatusRunning},
+	}, nil)
+	volumeRepo.On("List", mock.Anything).Return([]*domain.Volume{}, nil)
+	vpcRepo.On("List", mock.Anything).Return([]*domain.VPC{}, nil)
+
+	events := []*domain.Event{{ID: uuid.New(), Action: "TEST"}}
+	eventRepo.On("List", mock.Anything, 10).Return(events, nil)
+
+	svc := NewDashboardService(instanceRepo, volumeRepo, vpcRepo, eventRepo, slog.Default())
+
+	stats, err := svc.GetStats(context.Background())
+
+	assert.NoError(t, err)
+	assert.NotNil(t, stats)
+	assert.Equal(t, 1, stats.Summary.RunningInstances)
+	assert.Len(t, stats.RecentEvents, 1)
+}
+
 // Helper function
 func ptr(id uuid.UUID) *uuid.UUID {
 	return &id

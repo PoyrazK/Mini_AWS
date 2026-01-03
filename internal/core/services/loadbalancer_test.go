@@ -208,3 +208,25 @@ func TestLBService_AddTarget(t *testing.T) {
 		instRepo.AssertExpectations(t)
 	})
 }
+
+func TestLBService_Delete_Success(t *testing.T) {
+	lbRepo := new(mockLBRepo)
+	vpcRepo := new(mockVpcRepo)
+	instRepo := new(mockInstanceRepo)
+	svc := NewLBService(lbRepo, vpcRepo, instRepo)
+
+	ctx := context.Background()
+	lbID := uuid.New()
+
+	// Expect Get then Update (Soft Delete)
+	lb := &domain.LoadBalancer{ID: lbID, Status: domain.LBStatusActive}
+	lbRepo.On("GetByID", ctx, lbID).Return(lb, nil)
+	lbRepo.On("Update", ctx, mock.MatchedBy(func(l *domain.LoadBalancer) bool {
+		return l.ID == lbID && l.Status == domain.LBStatusDeleted
+	})).Return(nil)
+
+	err := svc.Delete(ctx, lbID)
+
+	assert.NoError(t, err)
+	lbRepo.AssertExpectations(t)
+}
