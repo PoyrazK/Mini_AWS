@@ -247,3 +247,212 @@ func TestAutoScalingWorker_Logic(t *testing.T) {
 func newMockWorkerDeps() (*MockAutoScalingRepo, *MockInstanceService, *MockLBService, *MockEventService, *MockClock) {
 	return new(MockAutoScalingRepo), new(MockInstanceService), new(MockLBService), new(MockEventService), new(MockClock)
 }
+
+func TestAutoScalingWorker_CleanupGroup(t *testing.T) {
+	ctx := context.Background()
+	groupID := uuid.New()
+	lbID := uuid.New()
+	now := time.Now()
+
+	t.Run("Cleanup group deletes all instances then group", func(t *testing.T) {
+		asgRepo, instSvc, lbSvc, eventSvc, clock := newMockWorkerDeps()
+		worker := services.NewAutoScalingWorker(asgRepo, instSvc, lbSvc, eventSvc, clock)
+
+		instID := uuid.New()
+		group := &domain.ScalingGroup{
+			ID:             groupID,
+			Name:           "deleting-asg",
+			Status:         domain.ScalingGroupStatusDeleting,
+			LoadBalancerID: &lbID,
+		}
+		instances := []uuid.UUID{instID}
+
+		asgRepo.On("ListAllGroups", ctx).Return([]*domain.ScalingGroup{group}, nil).Once()
+		asgRepo.On("GetAllScalingGroupInstances", ctx, []uuid.UUID{groupID}).Return(map[uuid.UUID][]uuid.UUID{groupID: instances}, nil).Once()
+		asgRepo.On("GetAllPolicies", ctx, []uuid.UUID{groupID}).Return(map[uuid.UUID][]*domain.ScalingPolicy{groupID: {}}, nil).Once()
+
+		clock.On("Now").Return(now).Maybe()
+
+		// Expect cleanup: RemoveTarget, RemoveInstanceFromGroup, TerminateInstance
+		lbSvc.On("RemoveTarget", mock.Anything, lbID, instID).Return(nil).Once()
+		asgRepo.On("RemoveInstanceFromGroup", mock.Anything, groupID, instID).Return(nil).Once()
+		instSvc.On("TerminateInstance", mock.Anything, instID.String()).Return(nil).Once()
+		eventSvc.On("RecordEvent", mock.Anything, "AUTOSCALING_SCALE_IN", groupID.String(), "SCALING_GROUP", mock.Anything).Return(nil).Once()
+
+		worker.Evaluate(ctx)
+
+		asgRepo.AssertExpectations(t)
+		instSvc.AssertExpectations(t)
+		lbSvc.AssertExpectations(t)
+	})
+
+	t.Run("Cleanup group deletes record when no instances left", func(t *testing.T) {
+		asgRepo, instSvc, lbSvc, eventSvc, clock := newMockWorkerDeps()
+		worker := services.NewAutoScalingWorker(asgRepo, instSvc, lbSvc, eventSvc, clock)
+
+		group := &domain.ScalingGroup{
+			ID:     groupID,
+			Name:   "empty-deleting-asg",
+			Status: domain.ScalingGroupStatusDeleting,
+		}
+
+		asgRepo.On("ListAllGroups", ctx).Return([]*domain.ScalingGroup{group}, nil).Once()
+		asgRepo.On("GetAllScalingGroupInstances", ctx, []uuid.UUID{groupID}).Return(map[uuid.UUID][]uuid.UUID{groupID: {}}, nil).Once()
+		asgRepo.On("GetAllPolicies", ctx, []uuid.UUID{groupID}).Return(map[uuid.UUID][]*domain.ScalingPolicy{groupID: {}}, nil).Once()
+
+		// Expect group deletion
+		asgRepo.On("DeleteGroup", mock.Anything, groupID).Return(nil).Once()
+		clock.On("Now").Return(now).Maybe()
+
+		worker.Evaluate(ctx)
+
+		asgRepo.AssertExpectations(t)
+		asgRepo.AssertCalled(t, "DeleteGroup", mock.Anything, groupID)
+	})
+}
+
+func TestAutoScalingWorker_FailureBackoff(t *testing.T) {
+	ctx := context.Background()
+	groupID := uuid.New()
+	now := time.Now()
+	threeMinutesAgo := now.Add(-3 * time.Minute)
+
+	t.Run("Skip scale out due to failure backoff", func(t *testing.T) {
+		asgRepo, instSvc, lbSvc, eventSvc, clock := newMockWorkerDeps()
+		worker := services.NewAutoScalingWorker(asgRepo, instSvc, lbSvc, eventSvc, clock)
+
+		group := &domain.ScalingGroup{
+			ID:            groupID,
+			Name:          "failing-asg",
+			MinInstances:  1,
+			MaxInstances:  5,
+			DesiredCount:  2,
+			CurrentCount:  1,
+			FailureCount:  5,                // At max failures
+			LastFailureAt: &threeMinutesAgo, // Only 3 min ago, backoff is 5 min
+		}
+
+		asgRepo.On("ListAllGroups", ctx).Return([]*domain.ScalingGroup{group}, nil).Once()
+		asgRepo.On("GetAllScalingGroupInstances", ctx, []uuid.UUID{groupID}).Return(map[uuid.UUID][]uuid.UUID{groupID: {uuid.New()}}, nil).Once()
+		asgRepo.On("GetAllPolicies", ctx, []uuid.UUID{groupID}).Return(map[uuid.UUID][]*domain.ScalingPolicy{groupID: {}}, nil).Once()
+
+		clock.On("Now").Return(now).Maybe()
+
+		worker.Evaluate(ctx)
+
+		// LaunchInstance should NOT be called due to backoff
+		instSvc.AssertNotCalled(t, "LaunchInstance", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+		asgRepo.AssertExpectations(t)
+	})
+
+	t.Run("Resume scaling after backoff expires", func(t *testing.T) {
+		asgRepo, instSvc, lbSvc, eventSvc, clock := newMockWorkerDeps()
+		worker := services.NewAutoScalingWorker(asgRepo, instSvc, lbSvc, eventSvc, clock)
+
+		tenMinutesAgo := now.Add(-10 * time.Minute) // Past the 5 min backoff
+		group := &domain.ScalingGroup{
+			ID:            groupID,
+			Name:          "recovered-asg",
+			MinInstances:  1,
+			MaxInstances:  5,
+			DesiredCount:  2,
+			CurrentCount:  1,
+			FailureCount:  5,
+			LastFailureAt: &tenMinutesAgo,
+			Image:         "nginx",
+			Ports:         "80:80",
+		}
+
+		instID := uuid.New()
+		asgRepo.On("ListAllGroups", ctx).Return([]*domain.ScalingGroup{group}, nil).Once()
+		asgRepo.On("GetAllScalingGroupInstances", ctx, []uuid.UUID{groupID}).Return(map[uuid.UUID][]uuid.UUID{groupID: {instID}}, nil).Once()
+		asgRepo.On("GetAllPolicies", ctx, []uuid.UUID{groupID}).Return(map[uuid.UUID][]*domain.ScalingPolicy{groupID: {}}, nil).Once()
+
+		clock.On("Now").Return(now).Maybe()
+
+		newInstID := uuid.New()
+		instSvc.On("LaunchInstance", mock.Anything, mock.Anything, "nginx", "0:80", mock.Anything, mock.Anything).Return(&domain.Instance{ID: newInstID}, nil).Once()
+		asgRepo.On("AddInstanceToGroup", mock.Anything, groupID, newInstID).Return(nil).Once()
+		eventSvc.On("RecordEvent", mock.Anything, "AUTOSCALING_SCALE_OUT", groupID.String(), "SCALING_GROUP", mock.Anything).Return(nil).Once()
+		asgRepo.On("UpdateGroup", mock.Anything, mock.Anything).Return(nil).Maybe() // reset failures
+
+		worker.Evaluate(ctx)
+
+		instSvc.AssertCalled(t, "LaunchInstance", mock.Anything, mock.Anything, "nginx", "0:80", mock.Anything, mock.Anything)
+		asgRepo.AssertExpectations(t)
+	})
+}
+
+func TestAutoScalingWorker_ReconcileDesiredBounds(t *testing.T) {
+	ctx := context.Background()
+	groupID := uuid.New()
+	now := time.Now()
+
+	t.Run("Force desired to min when below", func(t *testing.T) {
+		asgRepo, instSvc, lbSvc, eventSvc, clock := newMockWorkerDeps()
+		worker := services.NewAutoScalingWorker(asgRepo, instSvc, lbSvc, eventSvc, clock)
+
+		group := &domain.ScalingGroup{
+			ID:           groupID,
+			MinInstances: 2,
+			MaxInstances: 5,
+			DesiredCount: 1, // Below min
+			CurrentCount: 1,
+			Image:        "nginx",
+		}
+
+		asgRepo.On("ListAllGroups", ctx).Return([]*domain.ScalingGroup{group}, nil).Once()
+		asgRepo.On("GetAllScalingGroupInstances", ctx, []uuid.UUID{groupID}).Return(map[uuid.UUID][]uuid.UUID{groupID: {uuid.New()}}, nil).Once()
+		asgRepo.On("GetAllPolicies", ctx, []uuid.UUID{groupID}).Return(map[uuid.UUID][]*domain.ScalingPolicy{groupID: {}}, nil).Once()
+
+		clock.On("Now").Return(now).Maybe()
+
+		// Expect UpdateGroup to set desired = 2
+		asgRepo.On("UpdateGroup", mock.Anything, mock.MatchedBy(func(g *domain.ScalingGroup) bool {
+			return g.DesiredCount == 2
+		})).Return(nil).Once()
+
+		// Then expect scale out
+		newInstID := uuid.New()
+		instSvc.On("LaunchInstance", mock.Anything, mock.Anything, "nginx", mock.Anything, mock.Anything, mock.Anything).Return(&domain.Instance{ID: newInstID}, nil).Once()
+		asgRepo.On("AddInstanceToGroup", mock.Anything, groupID, newInstID).Return(nil).Once()
+		eventSvc.On("RecordEvent", mock.Anything, "AUTOSCALING_SCALE_OUT", groupID.String(), "SCALING_GROUP", mock.Anything).Return(nil).Once()
+		asgRepo.On("UpdateGroup", mock.Anything, mock.Anything).Return(nil).Maybe()
+
+		worker.Evaluate(ctx)
+
+		asgRepo.AssertExpectations(t)
+	})
+
+	t.Run("Force desired to max when above", func(t *testing.T) {
+		asgRepo, instSvc, lbSvc, eventSvc, clock := newMockWorkerDeps()
+		worker := services.NewAutoScalingWorker(asgRepo, instSvc, lbSvc, eventSvc, clock)
+
+		group := &domain.ScalingGroup{
+			ID:           groupID,
+			MinInstances: 1,
+			MaxInstances: 3,
+			DesiredCount: 5, // Above max
+			CurrentCount: 3,
+		}
+		instances := []uuid.UUID{uuid.New(), uuid.New(), uuid.New()}
+
+		asgRepo.On("ListAllGroups", ctx).Return([]*domain.ScalingGroup{group}, nil).Once()
+		asgRepo.On("GetAllScalingGroupInstances", ctx, []uuid.UUID{groupID}).Return(map[uuid.UUID][]uuid.UUID{groupID: instances}, nil).Once()
+		asgRepo.On("GetAllPolicies", ctx, []uuid.UUID{groupID}).Return(map[uuid.UUID][]*domain.ScalingPolicy{groupID: {}}, nil).Once()
+
+		clock.On("Now").Return(now).Maybe()
+
+		// Expect UpdateGroup to clamp desired = 3
+		asgRepo.On("UpdateGroup", mock.Anything, mock.MatchedBy(func(g *domain.ScalingGroup) bool {
+			return g.DesiredCount == 3
+		})).Return(nil).Once()
+
+		worker.Evaluate(ctx)
+
+		asgRepo.AssertExpectations(t)
+		// No scale action expected as current == desired
+		instSvc.AssertNotCalled(t, "LaunchInstance", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+		instSvc.AssertNotCalled(t, "TerminateInstance", mock.Anything, mock.Anything)
+	})
+}
