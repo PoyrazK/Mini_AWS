@@ -142,8 +142,8 @@ func (s *CacheService) CreateCache(ctx context.Context, name, version string, me
 	return cache, nil // Returning incomplete update for now until I fix Repo
 }
 
-func (s *CacheService) GetCache(ctx context.Context, id uuid.UUID) (*domain.Cache, error) {
-	return s.repo.GetByID(ctx, id)
+func (s *CacheService) GetCache(ctx context.Context, idOrName string) (*domain.Cache, error) {
+	return s.getCacheByIDOrName(ctx, idOrName)
 }
 
 func (s *CacheService) ListCaches(ctx context.Context) ([]*domain.Cache, error) {
@@ -151,8 +151,8 @@ func (s *CacheService) ListCaches(ctx context.Context) ([]*domain.Cache, error) 
 	return s.repo.List(ctx, userID)
 }
 
-func (s *CacheService) DeleteCache(ctx context.Context, id uuid.UUID) error {
-	cache, err := s.repo.GetByID(ctx, id)
+func (s *CacheService) DeleteCache(ctx context.Context, idOrName string) error {
+	cache, err := s.getCacheByIDOrName(ctx, idOrName)
 	if err != nil {
 		return err
 	}
@@ -166,16 +166,16 @@ func (s *CacheService) DeleteCache(ctx context.Context, id uuid.UUID) error {
 		}
 	}
 
-	if err := s.repo.Delete(ctx, id); err != nil {
+	if err := s.repo.Delete(ctx, cache.ID); err != nil {
 		return err
 	}
 
-	_ = s.eventSvc.RecordEvent(ctx, "CACHE_DELETE", id.String(), "CACHE", nil)
+	_ = s.eventSvc.RecordEvent(ctx, "CACHE_DELETE", cache.ID.String(), "CACHE", nil)
 	return nil
 }
 
-func (s *CacheService) GetConnectionString(ctx context.Context, id uuid.UUID) (string, error) {
-	cache, err := s.repo.GetByID(ctx, id)
+func (s *CacheService) GetConnectionString(ctx context.Context, idOrName string) (string, error) {
+	cache, err := s.getCacheByIDOrName(ctx, idOrName)
 	if err != nil {
 		return "", err
 	}
@@ -184,8 +184,17 @@ func (s *CacheService) GetConnectionString(ctx context.Context, id uuid.UUID) (s
 	return fmt.Sprintf("redis://:%s@localhost:%d", cache.Password, cache.Port), nil
 }
 
-func (s *CacheService) FlushCache(ctx context.Context, id uuid.UUID) error {
-	cache, err := s.repo.GetByID(ctx, id)
+func (s *CacheService) getCacheByIDOrName(ctx context.Context, idOrName string) (*domain.Cache, error) {
+	id, err := uuid.Parse(idOrName)
+	if err == nil {
+		return s.repo.GetByID(ctx, id)
+	}
+	userID := appcontext.UserIDFromContext(ctx)
+	return s.repo.GetByName(ctx, userID, idOrName)
+}
+
+func (s *CacheService) FlushCache(ctx context.Context, idOrName string) error {
+	cache, err := s.getCacheByIDOrName(ctx, idOrName)
 	if err != nil {
 		return err
 	}
@@ -217,8 +226,8 @@ func (s *CacheService) FlushCache(ctx context.Context, id uuid.UUID) error {
 	return errors.New(errors.Internal, "FlushCache not implemented (requires Exec support)")
 }
 
-func (s *CacheService) GetCacheStats(ctx context.Context, id uuid.UUID) (*ports.CacheStats, error) {
-	cache, err := s.repo.GetByID(ctx, id)
+func (s *CacheService) GetCacheStats(ctx context.Context, idOrName string) (*ports.CacheStats, error) {
+	cache, err := s.getCacheByIDOrName(ctx, idOrName)
 	if err != nil {
 		return nil, err
 	}

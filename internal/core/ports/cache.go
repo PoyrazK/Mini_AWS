@@ -16,12 +16,12 @@ type CacheStats struct {
 
 type CacheService interface {
 	CreateCache(ctx context.Context, name, version string, memoryMB int, vpcID *uuid.UUID) (*domain.Cache, error)
-	GetCache(ctx context.Context, id uuid.UUID) (*domain.Cache, error)
+	GetCache(ctx context.Context, idOrName string) (*domain.Cache, error)
 	ListCaches(ctx context.Context) ([]*domain.Cache, error)
-	DeleteCache(ctx context.Context, id uuid.UUID) error
-	GetConnectionString(ctx context.Context, id uuid.UUID) (string, error)
-	FlushCache(ctx context.Context, id uuid.UUID) error
-	GetCacheStats(ctx context.Context, id uuid.UUID) (*CacheStats, error)
+	DeleteCache(ctx context.Context, idOrName string) error
+	GetConnectionString(ctx context.Context, idOrName string) (string, error)
+	FlushCache(ctx context.Context, idOrName string) error
+	GetCacheStats(ctx context.Context, idOrName string) (*CacheStats, error)
 }
 
 type CacheRepository interface {

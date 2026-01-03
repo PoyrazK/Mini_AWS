@@ -52,79 +52,49 @@ func (h *CacheHandler) List(c *gin.Context) {
 }
 
 func (h *CacheHandler) Get(c *gin.Context) {
-	id, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		httputil.Error(c, errors.New(errors.InvalidInput, "invalid cache id"))
-		return
-	}
-
-	cache, err := h.svc.GetCache(c.Request.Context(), id)
+	idOrName := c.Param("id")
+	cache, err := h.svc.GetCache(c.Request.Context(), idOrName)
 	if err != nil {
 		httputil.Error(c, err)
 		return
 	}
-
 	httputil.Success(c, http.StatusOK, cache)
 }
 
 func (h *CacheHandler) Delete(c *gin.Context) {
-	id, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		httputil.Error(c, errors.New(errors.InvalidInput, "invalid cache id"))
-		return
-	}
-
-	if err := h.svc.DeleteCache(c.Request.Context(), id); err != nil {
+	idOrName := c.Param("id")
+	if err := h.svc.DeleteCache(c.Request.Context(), idOrName); err != nil {
 		httputil.Error(c, err)
 		return
 	}
-
 	httputil.Success(c, http.StatusOK, gin.H{"message": "cache deleted"})
 }
 
 func (h *CacheHandler) GetConnectionString(c *gin.Context) {
-	id, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		httputil.Error(c, errors.New(errors.InvalidInput, "invalid cache id"))
-		return
-	}
-
-	connStr, err := h.svc.GetConnectionString(c.Request.Context(), id)
+	idOrName := c.Param("id")
+	connStr, err := h.svc.GetConnectionString(c.Request.Context(), idOrName)
 	if err != nil {
 		httputil.Error(c, err)
 		return
 	}
-
 	httputil.Success(c, http.StatusOK, gin.H{"connection_string": connStr})
 }
 
 func (h *CacheHandler) Flush(c *gin.Context) {
-	id, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		httputil.Error(c, errors.New(errors.InvalidInput, "invalid cache id"))
-		return
-	}
-
-	if err := h.svc.FlushCache(c.Request.Context(), id); err != nil {
+	idOrName := c.Param("id")
+	if err := h.svc.FlushCache(c.Request.Context(), idOrName); err != nil {
 		httputil.Error(c, err)
 		return
 	}
-
 	httputil.Success(c, http.StatusOK, gin.H{"message": "cache flushed"})
 }
 
 func (h *CacheHandler) GetStats(c *gin.Context) {
-	id, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		httputil.Error(c, errors.New(errors.InvalidInput, "invalid cache id"))
-		return
-	}
-
-	stats, err := h.svc.GetCacheStats(c.Request.Context(), id)
+	idOrName := c.Param("id")
+	stats, err := h.svc.GetCacheStats(c.Request.Context(), idOrName)
 	if err != nil {
 		httputil.Error(c, err)
 		return
 	}
-
 	httputil.Success(c, http.StatusOK, stats)
 }
