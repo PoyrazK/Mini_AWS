@@ -27,19 +27,19 @@ cloud auth login sk_abc123...
 
 ---
 
-## compute
+## instance
 Manage compute instances.
 
-### `compute list`
+### `instance list`
 List all instances.
 ```bash
-cloud compute list
+cloud instance list
 ```
 
-### `compute launch`
+### `instance launch`
 Launch a new instance.
 ```bash
-cloud compute launch --name my-server --image nginx:alpine --port 8080:80 --volume data:/var/lib/data
+cloud instance launch --name my-server --image nginx:alpine --port 8080:80 --volume data:/var/lib/data
 ```
 | Flag | Default | Description |
 |------|---------|-------------|
@@ -49,34 +49,34 @@ cloud compute launch --name my-server --image nginx:alpine --port 8080:80 --volu
 | `-v, --vpc` | | VPC ID or Name |
 | `-V, --volume` | | Volume attachment (vol-name:/path) |
 
-### `compute stop <id>`
+### `instance stop <id>`
 Stop an instance.
 ```bash
-cloud compute stop a1b2c3d4
+cloud instance stop a1b2c3d4
 ```
 
-### `compute rm <id>`
+### `instance rm <id>`
 Terminate and remove an instance.
 ```bash
-cloud compute rm my-server
+cloud instance rm my-server
 ```
 
-### `compute logs <id>`
+### `instance logs <id>`
 View instance logs (supports ID or Name).
 ```bash
-cloud compute logs my-server
+cloud instance logs my-server
 ```
 
-### `compute show <id>`
+### `instance show <id>`
 Show detailed instance information.
 ```bash
-cloud compute show my-server
+cloud instance show my-server
 ```
 
-### `compute stats <id>`
+### `instance stats <id>`
 Show instance CPU and Memory usage.
 ```bash
-cloud compute stats my-server
+cloud instance stats my-server
 ```
 
 ---
@@ -376,19 +376,19 @@ cloud secrets rm <id>
 
 ---
 
-## fn
+## function
 Manage CloudFunctions (Serverless).
 
-### `fn list`
+### `function list`
 List all functions.
 ```bash
-cloud fn list
+cloud function list
 ```
 
-### `fn create`
+### `function create`
 Create a new function.
 ```bash
-cloud fn create --name my-fn --runtime nodejs20 --code ./func.zip
+cloud function create --name my-function --runtime nodejs20 --code ./func.zip
 ```
 | Flag | Default | Description |
 |------|---------|-------------|
@@ -397,20 +397,20 @@ cloud fn create --name my-fn --runtime nodejs20 --code ./func.zip
 | `--runtime` | `nodejs20` | Runtime environment |
 | `--handler` | `index.handler` | Entry point |
 
-### `fn invoke <id>`
+### `function invoke <id>`
 Invoke a function.
 ```bash
-cloud fn invoke my-fn --payload '{"foo":"bar"}'
+cloud function invoke my-function --payload '{"foo":"bar"}'
 ```
 
-### `fn logs <id>`
+### `function logs <id>`
 Get recent logs for a function.
 ```bash
-cloud fn logs my-fn
+cloud function logs my-function
 ```
 
-### `fn rm <id>`
+### `function rm <id>`
 Remove a function.
 ```bash
-cloud fn rm my-fn
+cloud function rm my-function
 ```

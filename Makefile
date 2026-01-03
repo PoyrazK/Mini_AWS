@@ -21,11 +21,11 @@ swagger:
 build:
 	mkdir -p bin
 	go build -o bin/api cmd/api/main.go
-	go build -o bin/thecloud cmd/thecloud/*.go
+	go build -o bin/cloud cmd/cloud/*.go
 
 install: build
 	mkdir -p $(HOME)/.local/bin
-	cp bin/thecloud $(HOME)/.local/bin/thecloud
+	cp bin/cloud $(HOME)/.local/bin/cloud
 	@./scripts/setup_path.sh
 
 setup-path:

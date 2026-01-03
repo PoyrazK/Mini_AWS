@@ -16,15 +16,15 @@ var apiURL = "http://localhost:8080"
 var outputJSON bool
 var apiKey string
 
-var computeCmd = &cobra.Command{
-	Use:   "compute",
+var instanceCmd = &cobra.Command{
+	Use:   "instance",
 	Short: "Manage compute instances",
 }
 
 func getClient() *sdk.Client {
 	key := apiKey // 1. Flag
 	if key == "" {
-		key = os.Getenv("THECLOUD_API_KEY") // 2. Env Var
+		key = os.Getenv("CLOUD_API_KEY") // 2. Env Var
 	}
 	if key == "" {
 		key = loadConfig() // 3. Config File
@@ -229,13 +229,13 @@ var statsCmd = &cobra.Command{
 }
 
 func init() {
-	computeCmd.AddCommand(listCmd)
-	computeCmd.AddCommand(launchCmd)
-	computeCmd.AddCommand(stopCmd)
-	computeCmd.AddCommand(logsCmd)
-	computeCmd.AddCommand(showCmd)
-	computeCmd.AddCommand(rmCmd)
-	computeCmd.AddCommand(statsCmd)
+	instanceCmd.AddCommand(listCmd)
+	instanceCmd.AddCommand(launchCmd)
+	instanceCmd.AddCommand(stopCmd)
+	instanceCmd.AddCommand(logsCmd)
+	instanceCmd.AddCommand(showCmd)
+	instanceCmd.AddCommand(rmCmd)
+	instanceCmd.AddCommand(statsCmd)
 
 	launchCmd.Flags().StringP("name", "n", "", "Name of the instance (required)")
 	launchCmd.Flags().StringP("image", "i", "alpine", "Image to use")

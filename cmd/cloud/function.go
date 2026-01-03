@@ -8,8 +8,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var fnCmd = &cobra.Command{
-	Use:   "fn",
+var functionCmd = &cobra.Command{
+	Use:   "function",
 	Short: "Manage CloudFunctions",
 }
 
@@ -189,9 +189,9 @@ func init() {
 	invokeFnCmd.Flags().StringP("payload-file", "f", "", "Path to payload file")
 	invokeFnCmd.Flags().BoolP("async", "a", false, "Invoke asynchronously")
 
-	fnCmd.AddCommand(createFnCmd)
-	fnCmd.AddCommand(listFnCmd)
-	fnCmd.AddCommand(invokeFnCmd)
-	fnCmd.AddCommand(logsFnCmd)
-	fnCmd.AddCommand(rmFnCmd)
+	functionCmd.AddCommand(createFnCmd)
+	functionCmd.AddCommand(listFnCmd)
+	functionCmd.AddCommand(invokeFnCmd)
+	functionCmd.AddCommand(logsFnCmd)
+	functionCmd.AddCommand(rmFnCmd)
 }
