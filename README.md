@@ -13,6 +13,7 @@ To build the world's best open-source cloud platform that anyone can run, modify
 - **Load Balancer**: Layer 7 HTTP traffic distribution
 - **Auto-Scaling**: Dynamic scaling of compute resources based on metrics
 - **Managed Databases (RDS)**: Launch PostgreSQL/MySQL instances with a single command ([Guide](docs/guides/rds.md))
+- **Managed Caches (Redis)**: Launch and manage Redis instances ([Guide](docs/guides/cache.md))
 - **Secrets Manager**: Encrypted storage for API keys and sensitive config ([Guide](docs/guides/secrets.md))
 - **Console**: Interactive Next.js Dashboard for visual resource management
 
@@ -82,6 +83,7 @@ npm run dev
 | [Secrets Manager](docs/guides/secrets.md) | Security and encryption guide |
 | [Networking](docs/guides/networking.md) | VPCs and Network isolation |
 | [Storage](docs/guides/storage.md) | Object and Block storage |
+| [Managed Caches](docs/guides/cache.md) | Redis cache management |
 
 ## 📊 KPIs
 - Time to Hello World: < 5 min

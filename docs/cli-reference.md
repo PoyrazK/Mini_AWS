@@ -249,3 +249,57 @@ cloud autoscaling add-policy <asg-id> \
   --metric cpu \
   --target 50
 ```
+
+---
+
+## cache
+Manage managed Redis caches.
+
+### `cache list`
+List all cache instances.
+```bash
+cloud cache list
+```
+
+### `cache create`
+Create a new Redis cache.
+```bash
+cloud cache create --name my-redis --memory 256
+```
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--name` | (required) | Cache name |
+| `--version` | `7.2` | Redis version |
+| `--memory` | `128` | Memory limit in MB |
+| `--vpc` | | VPC ID |
+| `--wait` | `false` | Wait for instance to be ready |
+
+### `cache connection <id>`
+Get the connection string for a cache (includes password).
+```bash
+cloud cache connection my-redis
+```
+
+### `cache show <id>`
+Show detailed cache information.
+```bash
+cloud cache show my-redis
+```
+
+### `cache stats <id>`
+Show cache statistics (Memory, Clients, Keys).
+```bash
+cloud cache stats my-redis
+```
+
+### `cache flush <id>`
+Flush all keys from the cache (Dangerous!).
+```bash
+cloud cache flush my-redis --yes
+```
+
+### `cache rm <id>`
+Delete a cache instance.
+```bash
+cloud cache rm my-redis
+```
