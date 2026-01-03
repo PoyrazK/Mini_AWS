@@ -1,4 +1,4 @@
-.PHONY: run test test-coverage build migrate clean stop swagger
+.PHONY: run test test-coverage build migrate clean stop swagger lint web-lint web-build
 
 run: stop
 	docker compose up -d
@@ -23,6 +23,15 @@ build:
 	go build -o bin/api cmd/api/main.go
 	go build -o bin/thecloud cmd/thecloud/*.go
 
+lint:
+	golangci-lint run
+
+web-lint:
+	cd web && npm run lint
+
+web-build:
+	cd web && npm run build
+
 install: build
 	mkdir -p $(HOME)/.local/bin
 	cp bin/thecloud $(HOME)/.local/bin/thecloud
@@ -35,7 +44,7 @@ migrate:
 	@echo "Running migrations..."
 	@docker compose up -d postgres
 	@sleep 2
-	@go run cmd/compute-api/main.go --migrate-only 2>/dev/null || echo "Migrations applied via server startup"
+	@go run cmd/api/main.go --migrate-only 2>/dev/null || echo "Migrations applied via server startup"
 
 migrate-status:
 	@echo "Checking migration status..."

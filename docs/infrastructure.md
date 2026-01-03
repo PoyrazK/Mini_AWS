@@ -19,19 +19,22 @@ The "Compute" service acts as a hypervisor. Instead of launching VMs (KVM/QEMU),
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `PORT` | API Server Port | `:8080` |
-| `DB_DSN` | Postgres Connection String | `host=localhost ...` |
-| `GODAEMON` | (Internal) Docker Socket | `/var/run/docker.sock` |
+| `PORT` | API Server Port | `8080` |
+| `DATABASE_URL` | Postgres Connection String | `postgres://cloud:cloud@localhost:5433/thecloud` |
+| `DB_USER` | Postgres Username | `cloud` |
+| `DB_PASSWORD` | Postgres Password | `cloud` |
+| `DB_NAME` | Postgres Database | `thecloud` |
+| `DOCKER_HOST` | Docker Socket | `unix:///var/run/docker.sock` |
 
 ## Deployment Strategy
 
 ### Docker Compose
 We use `docker-compose.yml` to orchestrate the control plane.
 - **Service**: `postgres` (State)
-- **Service**: `compute-api` (Logic)
+- **Service**: `api` (Logic)
 
 ### Mounting the Socket
-To let the `compute-api` container launch *sibling* containers, we mount the host Docker socket:
+To let the `api` container launch *sibling* containers, we mount the host Docker socket:
 ```yaml
 volumes:
   - /var/run/docker.sock:/var/run/docker.sock

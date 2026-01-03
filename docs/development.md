@@ -11,7 +11,7 @@ Welcome to the **The Cloud** operational manual. This guide will help you set up
   ```bash
   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
   ```
-- **Go (Golang)**: Version 1.25 or higher.
+- **Go (Golang)**: Version 1.24 or higher.
   ```bash
   brew install go
   ```
@@ -33,7 +33,7 @@ Welcome to the **The Cloud** operational manual. This guide will help you set up
 2.  **Environment Variables**:
     Create a `.env` file in the root directory:
     ```bash
-    echo "DATABASE_URL=postgres://cloud:password@localhost:5432/thecloud" > .env
+    echo "DATABASE_URL=postgres://cloud:cloud@localhost:5433/thecloud" > .env
     ```
 
 ### 3. Running the Project
@@ -77,7 +77,7 @@ The `Makefile` works natively on macOS.
 2.  **Environment Variables**:
     Create a `.env` file manually or via PowerShell:
     ```powershell
-    Set-Content .env "DATABASE_URL=postgres://cloud:password@localhost:5432/thecloud"
+    Set-Content .env "DATABASE_URL=postgres://cloud:cloud@localhost:5433/thecloud"
     ```
 
 ### 3. Running the Project (Manual / PowerShell)
@@ -90,14 +90,13 @@ If you don't have `make`, run these commands:
 
 - **Run API**:
   ```powershell
-  go run cmd/compute-api/main.go
+  go run cmd/api/main.go
   ```
 
 - **Build CLI (PowerShell)**:
   ```powershell
   mkdir bin
-  go build -o bin/cloud.exe cmd/cloud-cli/main.go
-  go build -o bin/cloud2.exe cmd/cloud_cli/main.go
+  go build -o bin/thecloud.exe cmd/thecloud/*.go
   ```
 
 ### 🛑 Common Windows Issues

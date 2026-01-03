@@ -49,7 +49,7 @@ npm run dev
 ```
 
 ## 🏗️ Architecture
-- **Frontend**: Next.js 14, Tailwind CSS, GSAP
+- **Frontend**: Next.js 16, Tailwind CSS, GSAP
 - **Backend**: Go (Clean Architecture, Hexagonal)
 - **Database**: PostgreSQL (pgx)
 - **Infrastructure**: Docker Engine (Containers, Networks, Volumes)
@@ -62,9 +62,16 @@ npm run dev
 | Doc | Description |
 |-----|-------------|
 | [Development Guide](docs/development.md) | Setup on Windows, Mac, or Linux |
+| [Testing Guide](docs/testing.md) | Unit, integration, and system test workflows |
 | [Roadmap](docs/roadmap.md) | Project phases and progress |
 | [Future Plans & Contributing](docs/future-plans.md) | How to contribute + feature backlog |
 | [Future Vision](docs/vision.md) | Long-term strategy and goals |
+
+### 🤝 Community
+| Doc | Description |
+|-----|-------------|
+| [Contributing Guide](CONTRIBUTING.md) | How to propose changes and run checks |
+| [Security Policy](SECURITY.md) | How to report vulnerabilities |
 
 ### 🏛️ Architecture & Services
 | Doc | Description |
