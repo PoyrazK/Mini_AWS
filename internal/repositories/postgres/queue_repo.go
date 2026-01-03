@@ -171,6 +171,6 @@ func (r *PostgresQueueRepository) GetQueueStats(ctx context.Context, queueID uui
 		FROM queue_messages 
 		WHERE queue_id = $1
 	`
-	err := r.db.QueryRowContext(ctx, query, queueID).Scan(&visible, &in_flight)
-	return visible, in_flight, err
+	err := r.db.QueryRowContext(ctx, query, queueID).Scan(&visible, &inFlight)
+	return visible, inFlight, err
 }

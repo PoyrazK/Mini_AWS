@@ -21,9 +21,9 @@ func NewQueueService(repo ports.QueueRepository, eventSvc ports.EventService) po
 }
 
 func (s *QueueService) CreateQueue(ctx context.Context, name string, opts *ports.CreateQueueOptions) (*domain.Queue, error) {
-	userID, err := appcontext.UserIDFromContext(ctx)
-	if err != nil {
-		return nil, err
+	userID := appcontext.UserIDFromContext(ctx)
+	if userID == uuid.Nil {
+		return nil, fmt.Errorf("unauthorized")
 	}
 
 	// Check if already exists
@@ -71,9 +71,9 @@ func (s *QueueService) CreateQueue(ctx context.Context, name string, opts *ports
 }
 
 func (s *QueueService) GetQueue(ctx context.Context, id uuid.UUID) (*domain.Queue, error) {
-	userID, err := appcontext.UserIDFromContext(ctx)
-	if err != nil {
-		return nil, err
+	userID := appcontext.UserIDFromContext(ctx)
+	if userID == uuid.Nil {
+		return nil, fmt.Errorf("unauthorized")
 	}
 
 	q, err := s.repo.GetByID(ctx, id, userID)
@@ -88,9 +88,9 @@ func (s *QueueService) GetQueue(ctx context.Context, id uuid.UUID) (*domain.Queu
 }
 
 func (s *QueueService) ListQueues(ctx context.Context) ([]*domain.Queue, error) {
-	userID, err := appcontext.UserIDFromContext(ctx)
-	if err != nil {
-		return nil, err
+	userID := appcontext.UserIDFromContext(ctx)
+	if userID == uuid.Nil {
+		return nil, fmt.Errorf("unauthorized")
 	}
 	return s.repo.List(ctx, userID)
 }
