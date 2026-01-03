@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -161,6 +162,16 @@ func (m *MockDocker) CreateVolume(ctx context.Context, name string) error {
 func (m *MockDocker) DeleteVolume(ctx context.Context, name string) error {
 	args := m.Called(ctx, name)
 	return args.Error(0)
+}
+
+func (m *MockDocker) RunTask(ctx context.Context, opts ports.RunTaskOptions) (string, error) {
+	args := m.Called(ctx, opts)
+	return args.String(0), args.Error(1)
+}
+
+func (m *MockDocker) WaitContainer(ctx context.Context, containerID string) (int64, error) {
+	args := m.Called(ctx, containerID)
+	return int64(args.Int(0)), args.Error(1)
 }
 
 type MockVolumeRepo struct {

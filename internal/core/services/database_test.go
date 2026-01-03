@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -91,6 +92,14 @@ func (m *MockDockerClient) CreateVolume(ctx context.Context, name string) error 
 func (m *MockDockerClient) DeleteVolume(ctx context.Context, name string) error {
 	args := m.Called(ctx, name)
 	return args.Error(0)
+}
+func (m *MockDockerClient) RunTask(ctx context.Context, opts ports.RunTaskOptions) (string, error) {
+	args := m.Called(ctx, opts)
+	return args.String(0), args.Error(1)
+}
+func (m *MockDockerClient) WaitContainer(ctx context.Context, id string) (int64, error) {
+	args := m.Called(ctx, id)
+	return int64(args.Int(0)), args.Error(1)
 }
 
 func TestCreateDatabase_Success(t *testing.T) {
