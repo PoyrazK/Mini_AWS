@@ -30,6 +30,7 @@ func init() {
 	rootCmd.AddCommand(storageCmd)
 	rootCmd.AddCommand(vpcCmd)
 	rootCmd.AddCommand(lbCmd)
+	rootCmd.AddCommand(dbCmd)
 }
 
 func main() {
