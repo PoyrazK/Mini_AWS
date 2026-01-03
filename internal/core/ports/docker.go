@@ -5,6 +5,19 @@ import (
 	"io"
 )
 
+type RunTaskOptions struct {
+	Image           string
+	Command         []string
+	Env             []string
+	MemoryMB        int64
+	CPUs            float64
+	NetworkDisabled bool
+	ReadOnlyRootfs  bool
+	PidsLimit       *int64
+	WorkingDir      string
+	Binds           []string
+}
+
 // DockerClient defines the interface for interacting with the container engine.
 type DockerClient interface {
 	CreateContainer(ctx context.Context, name, image string, ports []string, networkID string, volumeBinds []string, env []string) (string, error)
@@ -17,4 +30,6 @@ type DockerClient interface {
 	RemoveNetwork(ctx context.Context, networkID string) error
 	CreateVolume(ctx context.Context, name string) error
 	DeleteVolume(ctx context.Context, name string) error
+	RunTask(ctx context.Context, opts RunTaskOptions) (string, error)
+	WaitContainer(ctx context.Context, containerID string) (int64, error)
 }

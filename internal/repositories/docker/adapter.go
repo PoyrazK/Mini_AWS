@@ -16,6 +16,7 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/docker/go-connections/nat"
+	"github.com/poyrazk/thecloud/internal/core/ports"
 )
 
 const (
@@ -214,4 +215,68 @@ func (a *DockerAdapter) DeleteVolume(ctx context.Context, name string) error {
 		return fmt.Errorf("failed to delete volume %s: %w", name, err)
 	}
 	return nil
+}
+
+func (a *DockerAdapter) RunTask(ctx context.Context, opts ports.RunTaskOptions) (string, error) {
+	// 1. Ensure image exists
+	pullCtx, pullCancel := context.WithTimeout(ctx, ImagePullTimeout)
+	defer pullCancel()
+
+	reader, err := a.cli.ImagePull(pullCtx, opts.Image, image.PullOptions{})
+	if err != nil {
+		return "", fmt.Errorf("failed to pull image: %w", err)
+	}
+	defer reader.Close()
+	_, _ = io.Copy(io.Discard, reader)
+
+	// 2. Configure container with security defaults
+	config := &container.Config{
+		Image:           opts.Image,
+		Cmd:             opts.Command,
+		Env:             opts.Env,
+		WorkingDir:      opts.WorkingDir,
+		NetworkDisabled: opts.NetworkDisabled,
+	}
+
+	hostConfig := &container.HostConfig{
+		Resources: container.Resources{
+			Memory:   opts.MemoryMB * 1024 * 1024,
+			NanoCPUs: int64(opts.CPUs * 1e9),
+		},
+		Binds:          opts.Binds,
+		ReadonlyRootfs: opts.ReadOnlyRootfs,
+		SecurityOpt:    []string{"no-new-privileges:true"},
+	}
+
+	if opts.PidsLimit != nil {
+		hostConfig.Resources.PidsLimit = opts.PidsLimit
+	}
+
+	// 3. Create container
+	resp, err := a.cli.ContainerCreate(ctx, config, hostConfig, nil, nil, "")
+	if err != nil {
+		return "", fmt.Errorf("failed to create task container: %w", err)
+	}
+
+	// 4. Start container
+	if err := a.cli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
+		return "", fmt.Errorf("failed to start task container: %w", err)
+	}
+
+	return resp.ID, nil
+}
+
+func (a *DockerAdapter) WaitContainer(ctx context.Context, containerID string) (int64, error) {
+	statusCh, errCh := a.cli.ContainerWait(ctx, containerID, container.WaitConditionNotRunning)
+	select {
+	case err := <-errCh:
+		if err != nil {
+			return 0, fmt.Errorf("error waiting for container: %w", err)
+		}
+	case status := <-statusCh:
+		return status.StatusCode, nil
+	case <-ctx.Done():
+		return 0, ctx.Err()
+	}
+	return 0, nil
 }

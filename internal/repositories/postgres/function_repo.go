@@ -26,7 +26,7 @@ func (r *FunctionRepository) Create(ctx context.Context, f *domain.Function) err
 		f.ID, f.UserID, f.Name, f.Runtime, f.Handler, f.CodePath, f.Timeout, f.MemoryMB, f.Status, f.CreatedAt, f.UpdatedAt,
 	)
 	if err != nil {
-		return errors.Wrap(errors.Database, "failed to create function", err)
+		return errors.Wrap(errors.Internal, "failed to create function", err)
 	}
 	return nil
 }
@@ -59,7 +59,7 @@ func (r *FunctionRepository) List(ctx context.Context, userID uuid.UUID) ([]*dom
 	query := `SELECT id, user_id, name, runtime, handler, code_path, timeout_seconds, memory_mb, status, created_at, updated_at FROM functions WHERE user_id = $1 ORDER BY created_at DESC`
 	rows, err := r.db.Query(ctx, query, userID)
 	if err != nil {
-		return nil, errors.Wrap(errors.Database, "failed to list functions", err)
+		return nil, errors.Wrap(errors.Internal, "failed to list functions", err)
 	}
 	defer rows.Close()
 
@@ -68,7 +68,7 @@ func (r *FunctionRepository) List(ctx context.Context, userID uuid.UUID) ([]*dom
 		f := &domain.Function{}
 		err := rows.Scan(&f.ID, &f.UserID, &f.Name, &f.Runtime, &f.Handler, &f.CodePath, &f.Timeout, &f.MemoryMB, &f.Status, &f.CreatedAt, &f.UpdatedAt)
 		if err != nil {
-			return nil, errors.Wrap(errors.Database, "failed to scan function", err)
+			return nil, errors.Wrap(errors.Internal, "failed to scan function", err)
 		}
 		functions = append(functions, f)
 	}
@@ -79,7 +79,7 @@ func (r *FunctionRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	query := `DELETE FROM functions WHERE id = $1`
 	_, err := r.db.Exec(ctx, query, id)
 	if err != nil {
-		return errors.Wrap(errors.Database, "failed to delete function", err)
+		return errors.Wrap(errors.Internal, "failed to delete function", err)
 	}
 	return nil
 }
@@ -93,7 +93,7 @@ func (r *FunctionRepository) CreateInvocation(ctx context.Context, i *domain.Inv
 		i.ID, i.FunctionID, i.Status, i.StartedAt, i.EndedAt, i.DurationMs, i.StatusCode, i.Logs,
 	)
 	if err != nil {
-		return errors.Wrap(errors.Database, "failed to create invocation", err)
+		return errors.Wrap(errors.Internal, "failed to create invocation", err)
 	}
 	return nil
 }
@@ -102,7 +102,7 @@ func (r *FunctionRepository) GetInvocations(ctx context.Context, functionID uuid
 	query := `SELECT id, function_id, status, started_at, ended_at, duration_ms, status_code, logs FROM invocations WHERE function_id = $1 ORDER BY started_at DESC LIMIT $2`
 	rows, err := r.db.Query(ctx, query, functionID, limit)
 	if err != nil {
-		return nil, errors.Wrap(errors.Database, "failed to get invocations", err)
+		return nil, errors.Wrap(errors.Internal, "failed to get invocations", err)
 	}
 	defer rows.Close()
 
@@ -111,7 +111,7 @@ func (r *FunctionRepository) GetInvocations(ctx context.Context, functionID uuid
 		i := &domain.Invocation{}
 		err := rows.Scan(&i.ID, &i.FunctionID, &i.Status, &i.StartedAt, &i.EndedAt, &i.DurationMs, &i.StatusCode, &i.Logs)
 		if err != nil {
-			return nil, errors.Wrap(errors.Database, "failed to scan invocation", err)
+			return nil, errors.Wrap(errors.Internal, "failed to scan invocation", err)
 		}
 		invocations = append(invocations, i)
 	}
