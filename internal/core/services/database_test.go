@@ -165,3 +165,77 @@ func TestDeleteDatabase_Success(t *testing.T) {
 	repo.AssertExpectations(t)
 	docker.AssertExpectations(t)
 }
+
+func TestGetDatabase_ByID(t *testing.T) {
+	repo := new(MockDatabaseRepo)
+	docker := new(MockDockerClient)
+	vpcRepo := new(MockVpcRepo)
+	eventSvc := new(MockEventService)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	svc := services.NewDatabaseService(repo, docker, vpcRepo, eventSvc, logger)
+
+	ctx := context.Background()
+	dbID := uuid.New()
+	db := &domain.Database{ID: dbID, Name: "my-db"}
+
+	repo.On("GetByID", ctx, dbID).Return(db, nil)
+
+	result, err := svc.GetDatabase(ctx, dbID) // Pass UUID directly
+
+	assert.NoError(t, err)
+	assert.Equal(t, dbID, result.ID)
+	repo.AssertExpectations(t)
+}
+
+func TestListDatabases(t *testing.T) {
+	repo := new(MockDatabaseRepo)
+	docker := new(MockDockerClient)
+	vpcRepo := new(MockVpcRepo)
+	eventSvc := new(MockEventService)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	svc := services.NewDatabaseService(repo, docker, vpcRepo, eventSvc, logger)
+
+	ctx := context.Background()
+	dbs := []*domain.Database{{Name: "db1"}, {Name: "db2"}}
+
+	repo.On("List", ctx).Return(dbs, nil)
+
+	result, err := svc.ListDatabases(ctx)
+
+	assert.NoError(t, err)
+	assert.Len(t, result, 2)
+	repo.AssertExpectations(t)
+}
+
+func TestGetConnectionString(t *testing.T) {
+	repo := new(MockDatabaseRepo)
+	docker := new(MockDockerClient)
+	vpcRepo := new(MockVpcRepo)
+	eventSvc := new(MockEventService)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	svc := services.NewDatabaseService(repo, docker, vpcRepo, eventSvc, logger)
+
+	ctx := context.Background()
+	dbID := uuid.New()
+	db := &domain.Database{
+		ID:       dbID,
+		Name:     "conn-db",
+		Engine:   domain.EnginePostgres,
+		Port:     5432,
+		Username: "admin",
+		Password: "secret",
+	}
+
+	repo.On("GetByID", ctx, dbID).Return(db, nil)
+
+	connStr, err := svc.GetConnectionString(ctx, dbID) // Correct method name
+
+	assert.NoError(t, err)
+	assert.Contains(t, connStr, "postgres://")
+	assert.Contains(t, connStr, "admin:secret")
+	assert.Contains(t, connStr, "5432")
+	repo.AssertExpectations(t)
+}
