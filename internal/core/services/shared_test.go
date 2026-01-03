@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"context"
+	"io"
 	"time"
 
 	"github.com/google/uuid"
@@ -248,7 +249,109 @@ func (m *MockVpcRepo) List(ctx context.Context) ([]*domain.VPC, error) {
 	}
 	return args.Get(0).([]*domain.VPC), args.Error(1)
 }
+
 func (m *MockVpcRepo) Delete(ctx context.Context, id uuid.UUID) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+
+// MockStorageRepo
+type MockStorageRepo struct {
+	mock.Mock
+}
+
+func (m *MockStorageRepo) SaveMeta(ctx context.Context, obj *domain.Object) error {
+	args := m.Called(ctx, obj)
+	return args.Error(0)
+}
+func (m *MockStorageRepo) GetMeta(ctx context.Context, bucket, key string) (*domain.Object, error) {
+	args := m.Called(ctx, bucket, key)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Object), args.Error(1)
+}
+func (m *MockStorageRepo) List(ctx context.Context, bucket string) ([]*domain.Object, error) {
+	args := m.Called(ctx, bucket)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Object), args.Error(1)
+}
+func (m *MockStorageRepo) SoftDelete(ctx context.Context, bucket, key string) error {
+	args := m.Called(ctx, bucket, key)
+	return args.Error(0)
+}
+
+// MockFileStore
+type MockFileStore struct {
+	mock.Mock
+}
+
+func (m *MockFileStore) Write(ctx context.Context, bucket, key string, r io.Reader) (int64, error) {
+	args := m.Called(ctx, bucket, key, r)
+	return args.Get(0).(int64), args.Error(1)
+}
+func (m *MockFileStore) Read(ctx context.Context, bucket, key string) (io.ReadCloser, error) {
+	args := m.Called(ctx, bucket, key)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(io.ReadCloser), args.Error(1)
+}
+func (m *MockFileStore) Delete(ctx context.Context, bucket, key string) error {
+	args := m.Called(ctx, bucket, key)
+	return args.Error(0)
+}
+
+// MockVolumeRepo
+type MockVolumeRepo struct {
+	mock.Mock
+}
+
+func (m *MockVolumeRepo) Create(ctx context.Context, v *domain.Volume) error {
+	args := m.Called(ctx, v)
+	return args.Error(0)
+}
+
+func (m *MockVolumeRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.Volume, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Volume), args.Error(1)
+}
+
+func (m *MockVolumeRepo) GetByName(ctx context.Context, name string) (*domain.Volume, error) {
+	args := m.Called(ctx, name)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Volume), args.Error(1)
+}
+
+func (m *MockVolumeRepo) List(ctx context.Context) ([]*domain.Volume, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Volume), args.Error(1)
+}
+
+func (m *MockVolumeRepo) ListByInstanceID(ctx context.Context, id uuid.UUID) ([]*domain.Volume, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Volume), args.Error(1)
+}
+
+func (m *MockVolumeRepo) Update(ctx context.Context, v *domain.Volume) error {
+	args := m.Called(ctx, v)
+	return args.Error(0)
+}
+
+func (m *MockVolumeRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	args := m.Called(ctx, id)
 	return args.Error(0)
 }

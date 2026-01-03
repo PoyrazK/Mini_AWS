@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"log/slog"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -137,5 +138,75 @@ func TestFlushCache_Success(t *testing.T) {
 	err := svc.FlushCache(ctx, cacheID.String())
 
 	assert.NoError(t, err)
+	docker.AssertExpectations(t)
+}
+
+func TestGetCacheStats_Success(t *testing.T) {
+	repo := new(MockCacheRepo)
+	docker := new(MockDockerClient)
+	vpcRepo := new(MockVpcRepo)
+	eventSvc := new(MockEventService)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	svc := services.NewCacheService(repo, docker, vpcRepo, eventSvc, logger)
+
+	ctx := context.Background()
+	cacheID := uuid.New()
+	containerID := "cont-123"
+	cache := &domain.Cache{
+		ID:          cacheID,
+		Status:      domain.CacheStatusRunning,
+		ContainerID: containerID,
+		Password:    "secret",
+	}
+
+	repo.On("GetByID", ctx, cacheID).Return(cache, nil)
+
+	// Mock Docker Stats
+	statsJSON := `{"memory_stats":{"usage":1024,"limit":2048}}`
+	docker.On("GetContainerStats", ctx, containerID).Return(io.NopCloser(strings.NewReader(statsJSON)), nil)
+
+	// Mock Exec INFO
+	infoOutput := "connected_clients:5\r\ndb0:keys=10,expires=0,avg_ttl=0\r\n"
+	docker.On("Exec", ctx, containerID, []string{"redis-cli", "-a", "secret", "INFO"}).Return(infoOutput, nil)
+
+	stats, err := svc.GetCacheStats(ctx, cacheID.String())
+
+	assert.NoError(t, err)
+	assert.NotNil(t, stats)
+	assert.Equal(t, int64(1024), stats.UsedMemoryBytes)
+	assert.Equal(t, int64(2048), stats.MaxMemoryBytes)
+	assert.Equal(t, 5, stats.ConnectedClients)
+	assert.Equal(t, int64(10), stats.TotalKeys)
+
+	docker.AssertExpectations(t)
+}
+
+func TestCreateCache_DockerFailure(t *testing.T) {
+	repo := new(MockCacheRepo)
+	docker := new(MockDockerClient)
+	vpcRepo := new(MockVpcRepo)
+	eventSvc := new(MockEventService)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	svc := services.NewCacheService(repo, docker, vpcRepo, eventSvc, logger)
+
+	ctx := appcontext.WithUserID(context.Background(), uuid.New())
+	name := "fail-cache"
+
+	// Expect Repo Create
+	repo.On("Create", ctx, mock.Anything).Return(nil)
+
+	// Expect Docker Create to fail
+	docker.On("CreateContainer", ctx, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return("", assert.AnError)
+
+	// Expect Rollback Delete
+	repo.On("Delete", ctx, mock.Anything).Return(nil)
+
+	cache, err := svc.CreateCache(ctx, name, "7.2", 128, nil)
+
+	assert.Error(t, err)
+	assert.Nil(t, cache)
+	repo.AssertExpectations(t)
 	docker.AssertExpectations(t)
 }
