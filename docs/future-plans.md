@@ -43,6 +43,20 @@ This document outlines planned features and how you can contribute to The Cloud.
 
 ---
 
+## 🏗️ Infrastructure & CI/CD
+
+These items aim to make the development cycle "Enterprise-Grade".
+
+| Item | Priority | Description |
+|------|----------|-------------|
+| **Multi-Platform Builds** | Medium | Build Docker images for both `AMD64` and `ARM64` (Graviton/Mac support) |
+| **CI Caching** | Medium | Implement Go and Docker layer caching to speed up CI runs |
+| **E2E Integration** | High | Integrate Go-based E2E tests into the GitHub Actions pipeline |
+| **Security Gates** | High | Configure `Trivy` to fail builds on `CRITICAL` vulnerability findings |
+| **PR Automation** | Low | Add automated PR comments for coverage reports and Swagger previews |
+
+---
+
 ## 🛠️ How to Contribute
 
 ### 1. Pick an Issue
@@ -96,4 +110,4 @@ internal/
 - Open an issue for questions
 - Tag maintainers for review
 
-*Last updated: 2026-01-02*
+*Last updated: 2026-01-03*
