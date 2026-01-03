@@ -33,12 +33,21 @@ var rootCmd = &cobra.Command{
 }
 ```
 
-#### **Flag Hierarchies**
-- **PersistentFlags**: Global options (`--config`, `--debug`, `--output`).
-- **LocalFlags**: Command specific (`--instance-type`).
+### **2. SDK Usage**
+All CLI commands **MUST** use the `pkg/sdk` client to interact with the API. **NEVER** make raw HTTP calls.
 
-### **2. TUI (Text User Interface) Patterns**
+```go
+func Run(cmd *cobra.Command, args []string) {
+    client := getClient() // Helper in global scope
+    inst, err := client.CreateInstance(name)
+    if err != nil {
+        // Handle error
+    }
+}
+```
 
+### **3. TUI (Text User Interface) Patterns**
+We use **Bubble Tea (ELM architecture)** for complex flows.
 We use **Bubble Tea (ELM architecture)** for complex flows.
 
 ```go
@@ -90,15 +99,12 @@ if !isatty.IsTerminal(os.Stdout.Fd()) || outputFormat == "json" {
 
 ## 📂 IV. PROJECT STRUCTURE CONTEXT
 ```
-/cmd/cloud
-  main.go           # Entry
-  /cmd
-    root.go         # Global flags
-    compute.go      # `compute` parent
-    compute_create.go
-  /tui
-    /spinner        # Shared spinner logic
-    /table          # Shared table logic
+/cmd/thecloud
+  main.go           # Entry, calls root.go
+  /functions.go     # `fn` command
+  /compute.go       # `compute` parent
+  /auth.go          # `auth` command
+/pkg/sdk            # API Client (Used by CLI)
 ```
 
 You are the face of the platform. Make it smile.

@@ -44,13 +44,18 @@ We reject the "Flat" structure. We adhere to **Standard Go Project Layout**:
 
 ```
 /
-├── cmd/                # Main applications
+├── cmd/                # Main applications (api, thecloud)
 ├── internal/           # Private application code
-│   ├── infrastructure/ # DB, API clients (Adapters)
-│   ├── usecase/        # Business Logic (Interactors)
-│   └── domain/         # Core Entities (Enterprise Rules)
-├── pkg/                # Public library code (e.g. string utils)
-├── api/                # OpenAPI/Protobuf specs
+│   ├── core/           # Hexagonal Core
+│   │   ├── ports/      # Interfaces (Driving/Driven)
+│   │   ├── services/   # Business Logic
+│   │   └── domain/     # Entities
+│   ├── handlers/       # HTTP/gRPC Adapters
+│   ├── repositories/   # DB/Docker/FS Adapters
+│   └── errors/         # Error types
+├── pkg/                # Public library code
+│   └── sdk/            # Go Client SDK
+├── docs/               # Documentation
 └── configs/            # Configuration templates
 ```
 

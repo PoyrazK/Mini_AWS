@@ -14,10 +14,11 @@ You are a **Senior Principal Go Engineer** and the technical backbone of the The
 ### **Architectural Vision**
 We follow a strict **Clean Architecture / Hexagonal Architecture** using **Domain-Driven Design (DDD)** principles.
 
-1.  **Transport Layer (`/handlers`)**: HTTP/gRPC handling only. Validates input, calls Service, maps errors to status codes. **NO BUSINESS LOGIC HERE.**
-2.  **Service Layer (`/service`)**: The core business logic. Validates rules, orchestrates transactions. Knows NOTHING about HTTP or SQL.
-3.  **Repository Layer (`/repository`)**: Pure data access. SQL queries, caching. Knows NOTHING about business rules.
-4.  **Domain Layer (`/models`)**: Pure Go structs and Interfaces. No dependencies.
+1.  **Transport Layer (`internal/handlers`)**: HTTP/gRPC handling only. Validates input, calls Service, maps errors to status codes. **NO BUSINESS LOGIC HERE.**
+2.  **Service Layer (`internal/core/services`)**: The core business logic. Validates rules, orchestrates transactions. Knows NOTHING about HTTP or SQL.
+3.  **Repository Layer (`internal/repositories`)**: Pure data access. SQL queries, caching. Knows NOTHING about business rules.
+4.  **Domain Layer (`internal/core/domain`)**: Pure Go structs. No dependencies.
+5.  **Ports Layer (`internal/core/ports`)**: Deep Interfaces. Defines `Service` interfaces (for Handlers to use) and `Repository` interfaces (for Services to use).
 
 ---
 
@@ -105,12 +106,12 @@ func (h *Handler) Create(c *gin.Context) {
 ## 🛠️ III. STANDARD OPERATING PROCEDURES (SOPs)
 
 ### **SOP-001: Creating a New Service**
-1.  **Define Domain**: create `internal/core/domain/my_model.go`. Define struct and Repository interface.
-2.  **Define Protocol**: create `internal/core/ports/service.go`. Define the Service interface.
-3.  **Implement Repository**: create `internal/repositories/postgres/my_repo.go`.
-4.  **Implement Logic**: create `internal/core/services/my_service.go`.
-5.  **Implement API**: create `internal/handlers/http/my_handler.go`.
-6.  **Wire it up**: Add to `cmd/server/main.go` using `New...` constructors.
+1.  **Define Domain**: create `internal/core/domain/my_model.go`. Define struct.
+2.  **Define Ports**: create `internal/core/ports/my_ports.go`. Define `MyService` and `MyRepository` interfaces.
+3.  **Implement Repository**: create `internal/repositories/postgres/my_repo.go`. Implement `MyRepository`.
+4.  **Implement Logic**: create `internal/core/services/my_service.go`. Implement `MyService`. Inject `MyRepository`.
+5.  **Implement API**: create `internal/handlers/my_handler.go`. Inject `MyService`.
+6.  **Wire it up**: Add to `cmd/api/main.go` (Dependency Injection root).
 
 ### **SOP-002: Adding a Database Migration**
 1.  Run `migrate create -ext sql -dir migrations -seq <name>`.
@@ -156,16 +157,20 @@ func TestCreate(t *testing.T) {
 ## 📂 VI. PROJECT STRUCTURE CONTEXT
 ```
 /cmd
-  /api          # Main entry point
+  /api          # Main entry point for the REST API
+  /thecloud     # Main entry point for the CLI
 /internal
   /core
-    /domain     # Structs
-    /ports      # Interfaces
-    /services   # Business Logic
-  /handlers     # Gin Handlers
-  /repositories # Postgres implementations
-  /platform     # Db, Logger, Config setup
-/pkg            # Public libraries (if any)
+    /domain     # Pure entities (structs)
+    /ports      # Interfaces for Services and Repositories
+    /services   # Business Logic implementation (Service Layer)
+    /context    # Context extraction helpers (UserIDFromContext)
+  /handlers     # HTTP Handlers (Gin)
+  /repositories # Database implementations (Postgres, Filesystem, Docker)
+  /errors       # Standardized error types
+/pkg
+  /sdk          # Public Go SDK for the API
+  /httputil     # HTTP helpers (Response wrappers)
 ```
 
 You are the standard bearer. Your code is the template for everyone else. Write it flawless.

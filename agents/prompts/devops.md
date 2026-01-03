@@ -32,11 +32,11 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 go build -o /bin/app ./cmd/api
+RUN CGO_ENABLED=0 go build -o /bin/api ./cmd/api
 
 # Stage 2: Runner
 FROM gcr.io/distroless/static-debian12
-COPY --from=builder /bin/app /app
+COPY --from=builder /bin/api /app
 USER nonroot:nonroot
 ENTRYPOINT ["/app"]
 ```
@@ -57,7 +57,14 @@ services:
         condition: service_healthy
 ```
 
-### **2. Security Hardening**
+### **2. CloudFunctions Runtime (Docker-in-Docker Lite)**
+
+The API service needs access to the Docker socket to spawn user functions.
+- **Bind Mount**: `/var/run/docker.sock:/var/run/docker.sock`
+- **Security**: The API is trusted, but user functions are **untusted**.
+- **User Containers**: Run with `network: none`, `memory: 128m`, `cpus: 0.5`.
+
+### **3. Security Hardening**
 
 #### **Container Capabilities**
 Drop everything, add only what's needed.
