@@ -1,0 +1,159 @@
+package postgres
+
+import (
+	"context"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/core/ports"
+)
+
+type PostgresNotifyRepository struct {
+	db *pgxpool.Pool
+}
+
+func NewPostgresNotifyRepository(db *pgxpool.Pool) ports.NotifyRepository {
+	return &PostgresNotifyRepository{db: db}
+}
+
+func (r *PostgresNotifyRepository) CreateTopic(ctx context.Context, topic *domain.Topic) error {
+	query := `
+		INSERT INTO topics (id, user_id, name, arn, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6)
+	`
+	_, err := r.db.Exec(ctx, query,
+		topic.ID,
+		topic.UserID,
+		topic.Name,
+		topic.ARN,
+		topic.CreatedAt,
+		topic.UpdatedAt,
+	)
+	return err
+}
+
+func (r *PostgresNotifyRepository) GetTopicByID(ctx context.Context, id, userID uuid.UUID) (*domain.Topic, error) {
+	query := `SELECT id, user_id, name, arn, created_at, updated_at FROM topics WHERE id = $1 AND user_id = $2`
+	var topic domain.Topic
+	err := r.db.QueryRow(ctx, query, id, userID).Scan(
+		&topic.ID,
+		&topic.UserID,
+		&topic.Name,
+		&topic.ARN,
+		&topic.CreatedAt,
+		&topic.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &topic, nil
+}
+
+func (r *PostgresNotifyRepository) GetTopicByName(ctx context.Context, name string, userID uuid.UUID) (*domain.Topic, error) {
+	query := `SELECT id, user_id, name, arn, created_at, updated_at FROM topics WHERE name = $1 AND user_id = $2`
+	var topic domain.Topic
+	err := r.db.QueryRow(ctx, query, name, userID).Scan(
+		&topic.ID,
+		&topic.UserID,
+		&topic.Name,
+		&topic.ARN,
+		&topic.CreatedAt,
+		&topic.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &topic, nil
+}
+
+func (r *PostgresNotifyRepository) ListTopics(ctx context.Context, userID uuid.UUID) ([]*domain.Topic, error) {
+	query := `SELECT id, user_id, name, arn, created_at, updated_at FROM topics WHERE user_id = $1 ORDER BY created_at DESC`
+	rows, err := r.db.Query(ctx, query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var topics []*domain.Topic
+	for rows.Next() {
+		var topic domain.Topic
+		if err := rows.Scan(&topic.ID, &topic.UserID, &topic.Name, &topic.ARN, &topic.CreatedAt, &topic.UpdatedAt); err != nil {
+			return nil, err
+		}
+		topics = append(topics, &topic)
+	}
+	return topics, nil
+}
+
+func (r *PostgresNotifyRepository) DeleteTopic(ctx context.Context, id uuid.UUID) error {
+	query := `DELETE FROM topics WHERE id = $1`
+	_, err := r.db.Exec(ctx, query, id)
+	return err
+}
+
+func (r *PostgresNotifyRepository) CreateSubscription(ctx context.Context, sub *domain.Subscription) error {
+	query := `
+		INSERT INTO subscriptions (id, user_id, topic_id, protocol, endpoint, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+	`
+	_, err := r.db.Exec(ctx, query,
+		sub.ID,
+		sub.UserID,
+		sub.TopicID,
+		sub.Protocol,
+		sub.Endpoint,
+		sub.CreatedAt,
+		sub.UpdatedAt,
+	)
+	return err
+}
+
+func (r *PostgresNotifyRepository) GetSubscriptionByID(ctx context.Context, id, userID uuid.UUID) (*domain.Subscription, error) {
+	query := `SELECT id, user_id, topic_id, protocol, endpoint, created_at, updated_at FROM subscriptions WHERE id = $1 AND user_id = $2`
+	var sub domain.Subscription
+	err := r.db.QueryRow(ctx, query, id, userID).Scan(
+		&sub.ID,
+		&sub.UserID,
+		&sub.TopicID,
+		&sub.Protocol,
+		&sub.Endpoint,
+		&sub.CreatedAt,
+		&sub.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &sub, nil
+}
+
+func (r *PostgresNotifyRepository) ListSubscriptions(ctx context.Context, topicID uuid.UUID) ([]*domain.Subscription, error) {
+	query := `SELECT id, user_id, topic_id, protocol, endpoint, created_at, updated_at FROM subscriptions WHERE topic_id = $1 ORDER BY created_at DESC`
+	rows, err := r.db.Query(ctx, query, topicID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var subs []*domain.Subscription
+	for rows.Next() {
+		var sub domain.Subscription
+		if err := rows.Scan(&sub.ID, &sub.UserID, &sub.TopicID, &sub.Protocol, &sub.Endpoint, &sub.CreatedAt, &sub.UpdatedAt); err != nil {
+			return nil, err
+		}
+		subs = append(subs, &sub)
+	}
+	return subs, nil
+}
+
+func (r *PostgresNotifyRepository) DeleteSubscription(ctx context.Context, id uuid.UUID) error {
+	query := `DELETE FROM subscriptions WHERE id = $1`
+	_, err := r.db.Exec(ctx, query, id)
+	return err
+}
+
+func (r *PostgresNotifyRepository) SaveMessage(ctx context.Context, msg *domain.NotifyMessage) error {
+	query := `INSERT INTO notify_messages (id, topic_id, body, created_at) VALUES ($1, $2, $3, $4)`
+	_, err := r.db.Exec(ctx, query, msg.ID, msg.TopicID, msg.Body, msg.CreatedAt)
+	return err
+}
