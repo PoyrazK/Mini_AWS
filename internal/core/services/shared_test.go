@@ -599,3 +599,55 @@ func (m *MockGatewayRepo) GetAllActiveRoutes(ctx context.Context) ([]*domain.Gat
 	}
 	return args.Get(0).([]*domain.GatewayRoute), args.Error(1)
 }
+
+// MockContainerRepo
+type MockContainerRepo struct{ mock.Mock }
+
+func (m *MockContainerRepo) CreateDeployment(ctx context.Context, d *domain.Deployment) error {
+	args := m.Called(ctx, d)
+	return args.Error(0)
+}
+func (m *MockContainerRepo) GetDeploymentByID(ctx context.Context, id, userID uuid.UUID) (*domain.Deployment, error) {
+	args := m.Called(ctx, id, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Deployment), args.Error(1)
+}
+func (m *MockContainerRepo) ListDeployments(ctx context.Context, userID uuid.UUID) ([]*domain.Deployment, error) {
+	args := m.Called(ctx, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Deployment), args.Error(1)
+}
+func (m *MockContainerRepo) UpdateDeployment(ctx context.Context, d *domain.Deployment) error {
+	args := m.Called(ctx, d)
+	return args.Error(0)
+}
+func (m *MockContainerRepo) DeleteDeployment(ctx context.Context, id uuid.UUID) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+func (m *MockContainerRepo) AddContainer(ctx context.Context, deploymentID, instanceID uuid.UUID) error {
+	args := m.Called(ctx, deploymentID, instanceID)
+	return args.Error(0)
+}
+func (m *MockContainerRepo) RemoveContainer(ctx context.Context, deploymentID, instanceID uuid.UUID) error {
+	args := m.Called(ctx, deploymentID, instanceID)
+	return args.Error(0)
+}
+func (m *MockContainerRepo) GetContainers(ctx context.Context, deploymentID uuid.UUID) ([]uuid.UUID, error) {
+	args := m.Called(ctx, deploymentID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]uuid.UUID), args.Error(1)
+}
+func (m *MockContainerRepo) ListAllDeployments(ctx context.Context) ([]*domain.Deployment, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Deployment), args.Error(1)
+}
