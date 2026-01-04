@@ -58,11 +58,19 @@ func getConfigPath() string {
 
 func saveConfig(key string) {
 	path := getConfigPath()
-	os.MkdirAll(filepath.Dir(path), 0755)
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		fmt.Printf("Warning: failed to create config directory: %v\n", err)
+	}
 
 	cfg := Config{APIKey: key}
-	data, _ := json.MarshalIndent(cfg, "", "  ")
-	os.WriteFile(path, data, 0644)
+	data, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		fmt.Printf("Error: failed to marshal config: %v\n", err)
+		return
+	}
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		fmt.Printf("Error: failed to write config file: %v\n", err)
+	}
 }
 
 func loadConfig() string {
@@ -72,7 +80,9 @@ func loadConfig() string {
 		return ""
 	}
 	var cfg Config
-	json.Unmarshal(data, &cfg)
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		return ""
+	}
 	return cfg.APIKey
 }
 

@@ -118,7 +118,9 @@ func (h *QueueHandler) ReceiveMessages(c *gin.Context) {
 
 	maxStr := c.DefaultQuery("max_messages", "1")
 	var max int
-	fmt.Sscanf(maxStr, "%d", &max)
+	if _, err := fmt.Sscanf(maxStr, "%d", &max); err != nil {
+		max = 1
+	}
 
 	msgs, err := h.svc.ReceiveMessages(c.Request.Context(), id, max)
 	if err != nil {

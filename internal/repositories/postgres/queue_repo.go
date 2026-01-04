@@ -97,7 +97,7 @@ func (r *PostgresQueueRepository) ReceiveMessages(ctx context.Context, queueID u
 	if err != nil {
 		return nil, err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	// 1. Select visible messages and lock them
 	query := `
