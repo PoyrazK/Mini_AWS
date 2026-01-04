@@ -1,3 +1,4 @@
+// Package ws implements the WebSocket handlers and hub.
 package ws
 
 import (

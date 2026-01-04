@@ -1,3 +1,4 @@
+// Package httphandlers implements the HTTP handlers for the application.
 package httphandlers
 
 import (

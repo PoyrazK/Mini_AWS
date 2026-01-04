@@ -1,3 +1,4 @@
+// Package simpleaudit provides a simple implementation of the AuditLogger interface.
 package simpleaudit
 
 import (

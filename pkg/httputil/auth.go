@@ -1,3 +1,4 @@
+// Package httputil provides HTTP utilities and middleware.
 package httputil
 
 import (

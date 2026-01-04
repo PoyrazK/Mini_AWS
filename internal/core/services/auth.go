@@ -1,3 +1,4 @@
+// Package services implements the core business logic.
 package services
 
 import (

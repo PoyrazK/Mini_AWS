@@ -1,3 +1,4 @@
+// Package docker implements the Docker infrastructure adapters.
 package docker
 
 import (

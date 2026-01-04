@@ -1,3 +1,4 @@
+// Package appcontext provides context utilities for the application.
 package appcontext
 
 import (

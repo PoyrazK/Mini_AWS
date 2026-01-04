@@ -1,3 +1,4 @@
+// Package filesystem implements the local filesystem infrastructure adapters.
 package filesystem
 
 import (

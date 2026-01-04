@@ -1,3 +1,4 @@
+// Package ratelimit provides rate limiting middleware and utilities.
 package ratelimit
 
 import (
