@@ -175,6 +175,11 @@ func main() {
 	gwSvc := services.NewGatewayService(gwRepo)
 	gwHandler := httphandlers.NewGatewayHandler(gwSvc)
 
+	containerRepo := postgres.NewPostgresContainerRepository(db)
+	containerSvc := services.NewContainerService(containerRepo, eventSvc)
+	containerHandler := httphandlers.NewContainerHandler(containerSvc)
+	containerWorker := services.NewContainerWorker(containerRepo, instanceSvc, eventSvc)
+
 	// 5. Engine & Middleware
 	if cfg.Environment == "production" {
 		gin.SetMode(gin.ReleaseMode)
@@ -400,6 +405,16 @@ func main() {
 	// The actual Gateway Proxy (Public)
 	r.Any("/gw/*proxy", gwHandler.Proxy)
 
+	containerGroup := r.Group("/containers")
+	containerGroup.Use(httputil.Auth(identitySvc))
+	{
+		containerGroup.POST("/deployments", containerHandler.CreateDeployment)
+		containerGroup.GET("/deployments", containerHandler.ListDeployments)
+		containerGroup.GET("/deployments/:id", containerHandler.GetDeployment)
+		containerGroup.POST("/deployments/:id/scale", containerHandler.ScaleDeployment)
+		containerGroup.DELETE("/deployments/:id", containerHandler.DeleteDeployment)
+	}
+
 	// Auto-Scaling Routes (Protected)
 	asgRepo := postgres.NewAutoScalingRepo(db)
 	asgSvc := services.NewAutoScalingService(asgRepo, vpcRepo)
@@ -420,10 +435,11 @@ func main() {
 	// 7. Background Workers
 	wg := &sync.WaitGroup{}
 	workerCtx, workerCancel := context.WithCancel(context.Background())
-	wg.Add(3)
+	wg.Add(4)
 	go lbWorker.Run(workerCtx, wg)
 	go asgWorker.Run(workerCtx, wg)
 	go cronWorker.Run(workerCtx, wg)
+	go containerWorker.Run(workerCtx, wg)
 
 	// 8. Server setup
 	srv := &http.Server{
