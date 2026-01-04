@@ -566,3 +566,36 @@ func (m *MockCronRepo) SaveJobRun(ctx context.Context, run *domain.CronJobRun) e
 	args := m.Called(ctx, run)
 	return args.Error(0)
 }
+
+// MockGatewayRepo
+type MockGatewayRepo struct{ mock.Mock }
+
+func (m *MockGatewayRepo) CreateRoute(ctx context.Context, route *domain.GatewayRoute) error {
+	args := m.Called(ctx, route)
+	return args.Error(0)
+}
+func (m *MockGatewayRepo) GetRouteByID(ctx context.Context, id, userID uuid.UUID) (*domain.GatewayRoute, error) {
+	args := m.Called(ctx, id, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.GatewayRoute), args.Error(1)
+}
+func (m *MockGatewayRepo) ListRoutes(ctx context.Context, userID uuid.UUID) ([]*domain.GatewayRoute, error) {
+	args := m.Called(ctx, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.GatewayRoute), args.Error(1)
+}
+func (m *MockGatewayRepo) DeleteRoute(ctx context.Context, id uuid.UUID) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+func (m *MockGatewayRepo) GetAllActiveRoutes(ctx context.Context) ([]*domain.GatewayRoute, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.GatewayRoute), args.Error(1)
+}
