@@ -57,6 +57,13 @@ func setupTestUser(t *testing.T, db *pgxpool.Pool) context.Context {
 func cleanDB(t *testing.T, db *pgxpool.Pool) {
 	ctx := context.Background()
 	queries := []string{
+		"DELETE FROM cron_job_runs",
+		"DELETE FROM cron_jobs",
+		"DELETE FROM gateway_routes",
+		"DELETE FROM deployment_containers",
+		"DELETE FROM deployments",
+		"DELETE FROM subscriptions",
+		"DELETE FROM topics",
 		"DELETE FROM queue_messages",
 		"DELETE FROM queues",
 		"DELETE FROM lb_targets",
