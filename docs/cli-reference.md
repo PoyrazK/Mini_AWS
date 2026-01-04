@@ -414,3 +414,36 @@ Remove a function.
 ```bash
 cloud function rm my-function
 ```
+
+---
+
+## notify
+Manage CloudNotify (Pub/Sub topics and subscriptions).
+
+### `notify create-topic <name>`
+Create a new notification topic.
+```bash
+cloud notify create-topic my-updates
+```
+
+### `notify list-topics`
+List all notification topics.
+```bash
+cloud notify list-topics
+```
+
+### `notify subscribe <topic-id>`
+Subscribe to a topic.
+```bash
+cloud notify subscribe <topic-id> --protocol webhook --endpoint https://example.com/hook
+```
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-p, --protocol` | `webhook` | Protocol (webhook/queue) |
+| `-e, --endpoint` | (required) | Target URL or Queue ID |
+
+### `notify publish <topic-id> <message>`
+Publish a message to all subscribers.
+```bash
+cloud notify publish <topic-id> "System update complete"
+```
