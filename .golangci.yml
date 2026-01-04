@@ -1,5 +1,4 @@
 # golangci-lint v2 configuration
-# See: https://golangci-lint.run/
 
 version: "2"
 
@@ -14,6 +13,11 @@ linters:
     - staticcheck
     - unused
     - ineffassign
+  exclusions:
+    paths:
+      - cmd/thecloud
+      - pkg/sdk
+      - internal/handlers/ws
   settings:
     errcheck:
       exclude-functions:
@@ -21,9 +25,3 @@ linters:
         - (*github.com/olekukonko/tablewriter.Table).Render
         - (net/http.ResponseWriter).Write
         - (*github.com/spf13/cobra.Command).MarkFlagRequired
-
-exclusions:
-  paths:
-    - cmd/thecloud
-    - pkg/sdk
-    - internal/handlers/ws
