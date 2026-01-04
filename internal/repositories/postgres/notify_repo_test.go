@@ -52,7 +52,7 @@ func TestPostgresNotifyRepository(t *testing.T) {
 			CreatedAt: time.Now(),
 		}
 
-		err = repo.Subscribe(ctx, sub)
+		err = repo.CreateSubscription(ctx, sub)
 		require.NoError(t, err)
 
 		subs, err := repo.ListSubscriptions(ctx, topicID)

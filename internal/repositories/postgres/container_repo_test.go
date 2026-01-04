@@ -42,9 +42,6 @@ func TestPostgresContainerRepository(t *testing.T) {
 	})
 
 	t.Run("Containers", func(t *testing.T) {
-		depID := uuid.New()
-		// We'd need an actual instance record here due to FK, but skip for now
-		// or use a dummy instance if possible.
-		// Since I can't easily create an instance without setup, I'll just commit these.
+		// Placeholder for container relationship tests
 	})
 }
