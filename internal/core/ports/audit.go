@@ -16,3 +16,7 @@ type AuditService interface {
 	Log(ctx context.Context, userID uuid.UUID, action, resourceType, resourceID string, details map[string]interface{}) error
 	ListLogs(ctx context.Context, userID uuid.UUID, limit int) ([]*domain.AuditLog, error)
 }
+
+type AuditLogger interface {
+	Log(ctx context.Context, entry *domain.AuditLog) error
+}
