@@ -9,9 +9,9 @@ import (
 
 func TestNewConfig_Defaults(t *testing.T) {
 	// Ensure env vars are unset to test defaults
-	os.Unsetenv("PORT")
-	os.Unsetenv("DATABASE_URL")
-	os.Unsetenv("APP_ENV")
+	_ = os.Unsetenv("PORT")
+	_ = os.Unsetenv("DATABASE_URL")
+	_ = os.Unsetenv("APP_ENV")
 
 	cfg, err := NewConfig()
 	assert.NoError(t, err)
@@ -21,13 +21,13 @@ func TestNewConfig_Defaults(t *testing.T) {
 }
 
 func TestNewConfig_EnvVars(t *testing.T) {
-	os.Setenv("PORT", "9090")
-	os.Setenv("DATABASE_URL", "postgres://test:test@localhost:5432/testdb")
-	os.Setenv("APP_ENV", "production")
+	_ = os.Setenv("PORT", "9090")
+	_ = os.Setenv("DATABASE_URL", "postgres://test:test@localhost:5432/testdb")
+	_ = os.Setenv("APP_ENV", "production")
 	defer func() {
-		os.Unsetenv("PORT")
-		os.Unsetenv("DATABASE_URL")
-		os.Unsetenv("APP_ENV")
+		_ = os.Unsetenv("PORT")
+		_ = os.Unsetenv("DATABASE_URL")
+		_ = os.Unsetenv("APP_ENV")
 	}()
 
 	cfg, err := NewConfig()
