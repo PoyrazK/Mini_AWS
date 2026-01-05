@@ -147,7 +147,7 @@ func main() {
 	databaseHandler := httphandlers.NewDatabaseHandler(databaseSvc)
 
 	secretRepo := postgres.NewSecretRepository(db)
-	secretSvc := services.NewSecretService(secretRepo, eventSvc, logger)
+	secretSvc := services.NewSecretService(secretRepo, eventSvc, logger, cfg.SecretsEncryptionKey, cfg.Environment)
 	secretHandler := httphandlers.NewSecretHandler(secretSvc)
 
 	fnRepo := postgres.NewFunctionRepository(db)

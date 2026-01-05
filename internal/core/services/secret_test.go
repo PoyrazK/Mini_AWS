@@ -4,7 +4,6 @@ import (
 	"context"
 	"io"
 	"log/slog"
-	"os"
 	"testing"
 
 	"github.com/google/uuid"
@@ -56,8 +55,8 @@ func TestSecretService_CreateAndGet(t *testing.T) {
 	eventSvc := new(MockEventService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	_ = os.Setenv("SECRETS_ENCRYPTION_KEY", "test-key-must-be-32-bytes-long---")
-	svc := services.NewSecretService(repo, eventSvc, logger)
+	key := "test-key-must-be-32-bytes-long---"
+	svc := services.NewSecretService(repo, eventSvc, logger, key, "development")
 	userID := uuid.New()
 	ctxWithUser := setupTestUserCtx(userID) // Helper needed or inline
 
@@ -96,8 +95,8 @@ func TestSecretService_Delete(t *testing.T) {
 	eventSvc := new(MockEventService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	_ = os.Setenv("SECRETS_ENCRYPTION_KEY", "test-key-must-be-32-bytes-long---")
-	svc := services.NewSecretService(repo, eventSvc, logger)
+	key := "test-key-must-be-32-bytes-long---"
+	svc := services.NewSecretService(repo, eventSvc, logger, key, "development")
 	ctx := context.Background()
 	secretID := uuid.New()
 
@@ -117,8 +116,8 @@ func TestSecretService_List(t *testing.T) {
 	eventSvc := new(MockEventService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	_ = os.Setenv("SECRETS_ENCRYPTION_KEY", "test-key-must-be-32-bytes-long---")
-	svc := services.NewSecretService(repo, eventSvc, logger)
+	key := "test-key-must-be-32-bytes-long---"
+	svc := services.NewSecretService(repo, eventSvc, logger, key, "development")
 	ctx := context.Background()
 
 	secrets := []*domain.Secret{

@@ -21,19 +21,27 @@ type SecretService struct {
 	masterKey []byte
 }
 
-func NewSecretService(repo ports.SecretRepository, eventSvc ports.EventService, logger *slog.Logger) *SecretService {
-	mk := os.Getenv("SECRETS_ENCRYPTION_KEY")
-	if mk == "" {
-		// FALLBACK for development (should warn or fail in production)
-		mk = "default-thecloud-development-key-32chars"
+func NewSecretService(repo ports.SecretRepository, eventSvc ports.EventService, logger *slog.Logger, masterKey string, environment string) *SecretService {
+	if masterKey == "" {
+		if environment == "production" {
+			// In production, we MUST have a key
+			logger.Error("SECRETS_ENCRYPTION_KEY is required in production but was not set")
+			os.Exit(1)
+		}
+		// FALLBACK for development
+		masterKey = "default-thecloud-development-key-32chars"
 		logger.Warn("SECRETS_ENCRYPTION_KEY not set, using default key")
+	}
+
+	if len(masterKey) < 16 {
+		logger.Warn("SECRETS_ENCRYPTION_KEY is too short, please use at least 16 characters for better security")
 	}
 
 	return &SecretService{
 		repo:      repo,
 		eventSvc:  eventSvc,
 		logger:    logger,
-		masterKey: []byte(mk),
+		masterKey: []byte(masterKey),
 	}
 }
 
