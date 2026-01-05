@@ -101,7 +101,7 @@ func main() {
 	auditRepo := postgres.NewAuditRepository(db)
 	auditSvc := services.NewAuditService(auditRepo)
 	identitySvc := services.NewIdentityService(identityRepo, auditSvc)
-	authSvc := services.NewAuthService(userRepo, identitySvc)
+	authSvc := services.NewAuthService(userRepo, identitySvc, auditSvc)
 	auditHandler := httphandlers.NewAuditHandler(auditSvc)
 	identityHandler := httphandlers.NewIdentityHandler(identitySvc)
 	authHandler := httphandlers.NewAuthHandler(authSvc)

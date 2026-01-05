@@ -16,12 +16,14 @@ import (
 type AuthService struct {
 	userRepo  ports.UserRepository
 	apiKeySvc ports.IdentityService
+	auditSvc  ports.AuditService
 }
 
-func NewAuthService(userRepo ports.UserRepository, apiKeySvc ports.IdentityService) *AuthService {
+func NewAuthService(userRepo ports.UserRepository, apiKeySvc ports.IdentityService, auditSvc ports.AuditService) *AuthService {
 	return &AuthService{
 		userRepo:  userRepo,
 		apiKeySvc: apiKeySvc,
+		auditSvc:  auditSvc,
 	}
 }
 
@@ -53,6 +55,10 @@ func (s *AuthService) Register(ctx context.Context, email, password, name string
 		return nil, err
 	}
 
+	_ = s.auditSvc.Log(ctx, user.ID, "user.register", "user", user.ID.String(), map[string]interface{}{
+		"email": email,
+	})
+
 	return user, nil
 }
 
@@ -76,6 +82,8 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (*domai
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to create initial API key: %w", err)
 	}
+
+	_ = s.auditSvc.Log(ctx, user.ID, "user.login", "user", user.ID.String(), map[string]interface{}{})
 
 	return user, key.Key, nil
 }

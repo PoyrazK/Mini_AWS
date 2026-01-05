@@ -82,8 +82,9 @@ func (m *MockIdentityService) RotateKey(ctx context.Context, userID, id uuid.UUI
 func TestAuthService_Register_Success(t *testing.T) {
 	userRepo := new(MockUserRepo)
 	identitySvc := new(MockIdentityService)
+	auditSvc := new(MockAuditService)
 
-	svc := services.NewAuthService(userRepo, identitySvc)
+	svc := services.NewAuthService(userRepo, identitySvc, auditSvc)
 	ctx := context.Background()
 
 	email := "test@example.com"
@@ -92,6 +93,7 @@ func TestAuthService_Register_Success(t *testing.T) {
 
 	userRepo.On("GetByEmail", ctx, email).Return(nil, nil) // Not existing
 	userRepo.On("Create", ctx, mock.AnythingOfType("*domain.User")).Return(nil)
+	auditSvc.On("Log", ctx, mock.Anything, "user.register", "user", mock.Anything, mock.Anything).Return(nil)
 
 	user, err := svc.Register(ctx, email, password, name)
 
@@ -108,8 +110,9 @@ func TestAuthService_Register_Success(t *testing.T) {
 func TestAuthService_Register_DuplicateEmail(t *testing.T) {
 	userRepo := new(MockUserRepo)
 	identitySvc := new(MockIdentityService)
+	auditSvc := new(MockAuditService)
 
-	svc := services.NewAuthService(userRepo, identitySvc)
+	svc := services.NewAuthService(userRepo, identitySvc, auditSvc)
 	ctx := context.Background()
 
 	email := "existing@example.com"
@@ -127,8 +130,9 @@ func TestAuthService_Register_DuplicateEmail(t *testing.T) {
 func TestAuthService_Login_Success(t *testing.T) {
 	userRepo := new(MockUserRepo)
 	identitySvc := new(MockIdentityService)
+	auditSvc := new(MockAuditService)
 
-	svc := services.NewAuthService(userRepo, identitySvc)
+	svc := services.NewAuthService(userRepo, identitySvc, auditSvc)
 	ctx := context.Background()
 
 	email := "login@example.com"
@@ -143,6 +147,7 @@ func TestAuthService_Login_Success(t *testing.T) {
 		UserID:    userID,
 		CreatedAt: time.Now(),
 	}, nil)
+	auditSvc.On("Log", ctx, userID, "user.login", "user", userID.String(), mock.Anything).Return(nil)
 
 	resultUser, apiKey, err := svc.Login(ctx, email, password)
 
@@ -156,8 +161,9 @@ func TestAuthService_Login_Success(t *testing.T) {
 func TestAuthService_Login_WrongPassword(t *testing.T) {
 	userRepo := new(MockUserRepo)
 	identitySvc := new(MockIdentityService)
+	auditSvc := new(MockAuditService)
 
-	svc := services.NewAuthService(userRepo, identitySvc)
+	svc := services.NewAuthService(userRepo, identitySvc, auditSvc)
 	ctx := context.Background()
 
 	email := "wrong@example.com"
@@ -177,8 +183,9 @@ func TestAuthService_Login_WrongPassword(t *testing.T) {
 func TestAuthService_ValidateUser(t *testing.T) {
 	userRepo := new(MockUserRepo)
 	identitySvc := new(MockIdentityService)
+	auditSvc := new(MockAuditService)
 
-	svc := services.NewAuthService(userRepo, identitySvc)
+	svc := services.NewAuthService(userRepo, identitySvc, auditSvc)
 	ctx := context.Background()
 	userID := uuid.New()
 	user := &domain.User{ID: userID, Email: "validate@example.com"}

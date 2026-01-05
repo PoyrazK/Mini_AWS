@@ -41,7 +41,10 @@ curl -X POST http://localhost:8080/auth/login \
 # All protected endpoints require the X-API-Key header
 curl -H "X-API-Key: YOUR_API_KEY" http://localhost:8080/instances
 
-For more details, see the [Authentication Guide](docs/guides/authentication.md).
+For more details, see the guides:
+- [Authentication & API Keys](docs/guides/authentication.md)
+- [Deployment Guide](docs/guides/deployment.md)
+- [Compute (Instances)](docs/guides/autoscaling.md)
 ```
 
 ## 🎮 Quick Start (Console - Frontend)

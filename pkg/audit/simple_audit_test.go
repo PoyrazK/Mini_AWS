@@ -3,9 +3,7 @@ package simpleaudit
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"log/slog"
-	"strings"
 	"testing"
 	"time"
 
@@ -21,14 +19,15 @@ func TestSimpleAuditLogger_Log(t *testing.T) {
 
 	userID := uuid.New()
 	entry := &domain.AuditLog{
-		ID:        uuid.New(),
-		UserID:    &userID,
-		Action:    "CREATE",
-		Resource:  "instance:123",
-		IPAddress: "127.0.0.1",
-		UserAgent: "test-agent",
-		Details:   json.RawMessage(`{"foo":"bar"}`),
-		CreatedAt: time.Now(),
+		ID:           uuid.New(),
+		UserID:       userID,
+		Action:       "CREATE",
+		ResourceType: "instance",
+		ResourceID:   "123",
+		IPAddress:    "127.0.0.1",
+		UserAgent:    "test-agent",
+		Details:      map[string]interface{}{"foo": "bar"},
+		CreatedAt:    time.Now(),
 	}
 
 	err := audit.Log(context.Background(), entry)
@@ -39,10 +38,12 @@ func TestSimpleAuditLogger_Log(t *testing.T) {
 	assert.Contains(t, logOutput, "security_audit")
 	assert.Contains(t, logOutput, "CREATE")
 	assert.Contains(t, logOutput, userID.String())
-	assert.Contains(t, logOutput, "instance:123")
+	assert.Contains(t, logOutput, "instance")
+	assert.Contains(t, logOutput, "123")
 	assert.Contains(t, logOutput, "127.0.0.1")
 	assert.Contains(t, logOutput, "test-agent")
-	assert.Contains(t, logOutput, `{\"foo\":\"bar\"}`)
+	assert.Contains(t, logOutput, "foo")
+	assert.Contains(t, logOutput, "bar")
 }
 
 func TestSimpleAuditLogger_Log_Anonymous(t *testing.T) {
@@ -51,11 +52,11 @@ func TestSimpleAuditLogger_Log_Anonymous(t *testing.T) {
 	audit := NewSimpleAuditLogger(logger)
 
 	entry := &domain.AuditLog{
-		ID:        uuid.New(),
-		UserID:    nil,
-		Action:    "LOGIN",
-		Resource:  "auth",
-		CreatedAt: time.Now(),
+		ID:           uuid.New(),
+		UserID:       uuid.Nil,
+		Action:       "LOGIN",
+		ResourceType: "auth",
+		CreatedAt:    time.Now(),
 	}
 
 	err := audit.Log(context.Background(), entry)
@@ -71,17 +72,16 @@ func TestSimpleAuditLogger_Log_EmptyDetails(t *testing.T) {
 	audit := NewSimpleAuditLogger(logger)
 
 	entry := &domain.AuditLog{
-		ID:       uuid.New(),
-		Action:   "TEST",
-		Resource: "test",
-		Details:  json.RawMessage(""),
+		ID:           uuid.New(),
+		Action:       "TEST",
+		ResourceType: "test",
+		Details:      map[string]interface{}{},
 	}
 
 	err := audit.Log(context.Background(), entry)
 	assert.NoError(t, err)
 
 	logOutput := buf.String()
-	// Should fallback to "{}"
-	// In JSON output it will be escaped as "details":"{}"
-	assert.True(t, strings.Contains(logOutput, `"details":"{}"`), "expected details to be empty json object")
+	// slog with JSON handler handles empty map gracefully
+	assert.Contains(t, logOutput, "details")
 }

@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: db-deployment
+  namespace: thecloud
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: db
+  template:
+    metadata:
+      labels:
+        app: db
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:16-alpine
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_USER
+          value: "cloud"
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: api-secrets
+              key: DB_PASSWORD
+        - name: POSTGRES_DB
+          value: "thecloud"
+        volumeMounts:
+        - name: db-data
+          mountPath: /var/lib/postgresql/data
+      volumes:
+      - name: db-data
+        emptyDir: {} # Use PersistentVolumeClaim in real production
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: db-service
+  namespace: thecloud
+spec:
+  selector:
+    app: db
+  ports:
+  - protocol: TCP
+    port: 5432
+    targetPort: 5432
