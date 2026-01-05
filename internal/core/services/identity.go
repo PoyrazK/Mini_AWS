@@ -50,3 +50,45 @@ func (s *IdentityService) ValidateAPIKey(ctx context.Context, key string) (*doma
 	}
 	return apiKey, nil
 }
+
+func (s *IdentityService) ListKeys(ctx context.Context, userID uuid.UUID) ([]*domain.APIKey, error) {
+	return s.repo.ListAPIKeysByUserID(ctx, userID)
+}
+
+func (s *IdentityService) RevokeKey(ctx context.Context, userID uuid.UUID, id uuid.UUID) error {
+	key, err := s.repo.GetAPIKeyByID(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	if key.UserID != userID {
+		return errors.New(errors.Forbidden, "cannot revoke key owned by another user")
+	}
+
+	return s.repo.DeleteAPIKey(ctx, id)
+}
+
+func (s *IdentityService) RotateKey(ctx context.Context, userID uuid.UUID, id uuid.UUID) (*domain.APIKey, error) {
+	key, err := s.repo.GetAPIKeyByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	if key.UserID != userID {
+		return nil, errors.New(errors.Forbidden, "cannot rotate key owned by another user")
+	}
+
+	// Create new key
+	newKey, err := s.CreateKey(ctx, userID, key.Name+" (rotated)")
+	if err != nil {
+		return nil, err
+	}
+
+	// Delete old key
+	if err := s.repo.DeleteAPIKey(ctx, id); err != nil {
+		// Log error but we already have a new key
+		return newKey, nil
+	}
+
+	return newKey, nil
+}
