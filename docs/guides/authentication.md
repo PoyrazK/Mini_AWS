@@ -83,8 +83,20 @@ For WebSocket connections (e.g., real-time metrics), the API Key is passed as a 
 
 ---
 
+## Key Management
+
+### Manage Keys
+You can list and manage your keys via the `/auth/keys` endpoints.
+
+- **List Keys**: `GET /auth/keys`
+- **Revoke Key**: `DELETE /auth/keys/:id`
+- **Rotate Key**: `POST /auth/keys/rotate`
+
+---
+
 ## Security Best Practices
 
 1. **Keep your API Key secret:** Do not commit it to version control or share it publicly.
 2. **Use HTTPS:** In production, ensure all API traffic is encrypted.
-3. **Rotate Keys:** If you suspect your key has been compromised, generate a new one (feature coming soon).
+3. **Rotate Keys Regularly:** Periodically rotate your keys using the rotation endpoint to minimize risk.
+4. **Revoke Immediately:** If a key is compromised, revoke it immediately via the API.
