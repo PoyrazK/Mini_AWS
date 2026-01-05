@@ -33,4 +33,5 @@ type DockerClient interface {
 	RunTask(ctx context.Context, opts RunTaskOptions) (string, error)
 	WaitContainer(ctx context.Context, containerID string) (int64, error)
 	Exec(ctx context.Context, containerID string, cmd []string) (string, error)
+	Ping(ctx context.Context) error
 }
