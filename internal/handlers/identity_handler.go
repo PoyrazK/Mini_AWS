@@ -113,3 +113,15 @@ func (h *IdentityHandler) RotateKey(c *gin.Context) {
 
 	httputil.Success(c, http.StatusOK, newKey)
 }
+
+// RegenerateKey regenerates an API key (alias for RotateKey)
+// @Summary Regenerate an API key
+// @Tags identity
+// @Param id path string true "Key ID"
+// @Success 200 {object} domain.APIKey
+// @Failure 401 {object} httputil.Response
+// @Failure 403 {object} httputil.Response
+// @Router /auth/keys/{id}/regenerate [post]
+func (h *IdentityHandler) RegenerateKey(c *gin.Context) {
+	h.RotateKey(c)
+}

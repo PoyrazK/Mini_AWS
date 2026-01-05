@@ -234,6 +234,7 @@ func main() {
 		keyGroup.GET("", identityHandler.ListKeys)
 		keyGroup.DELETE("/:id", identityHandler.RevokeKey)
 		keyGroup.POST("/:id/rotate", identityHandler.RotateKey)
+		keyGroup.POST("/:id/regenerate", identityHandler.RegenerateKey)
 	}
 
 	// Instance Routes (Protected)
