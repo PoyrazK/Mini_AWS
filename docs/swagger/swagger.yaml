@@ -441,11 +441,16 @@ definitions:
   httphandlers.CreateVolumeRequest:
     properties:
       name:
+        maxLength: 64
+        minLength: 3
         type: string
       size_gb:
+        maximum: 16000
+        minimum: 1
         type: integer
     required:
     - name
+    - size_gb
     type: object
   httphandlers.LaunchRequest:
     properties:
@@ -468,8 +473,10 @@ definitions:
   httphandlers.LoginRequest:
     properties:
       email:
+        maxLength: 255
         type: string
       password:
+        maxLength: 72
         type: string
     required:
     - email
@@ -484,10 +491,14 @@ definitions:
   httphandlers.RegisterRequest:
     properties:
       email:
+        maxLength: 255
         type: string
       name:
+        maxLength: 100
+        minLength: 2
         type: string
       password:
+        maxLength: 72
         minLength: 8
         type: string
     required:
@@ -910,6 +921,34 @@ paths:
       summary: Delete a scaling policy
       tags:
       - autoscaling
+  /health/live:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Liveness check
+      tags:
+      - health
+  /health/ready:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "503":
+          description: Service Unavailable
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Readiness check
+      tags:
+      - health
   /instances:
     get:
       description: Gets a list of all compute instances
