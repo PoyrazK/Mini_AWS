@@ -14,14 +14,18 @@ import (
 
 func TestGatewayService_CreateRoute(t *testing.T) {
 	repo := new(MockGatewayRepo)
+	auditSvc := new(services.MockAuditService)
 	repo.On("GetAllActiveRoutes", mock.Anything).Return([]*domain.GatewayRoute{}, nil)
-	svc := services.NewGatewayService(repo)
+	svc := services.NewGatewayService(repo, auditSvc)
 
 	userID := uuid.New()
 	ctx := appcontext.WithUserID(context.Background(), userID)
 
 	repo.On("CreateRoute", ctx, mock.AnythingOfType("*domain.GatewayRoute")).Return(nil)
 	repo.On("GetAllActiveRoutes", ctx).Return([]*domain.GatewayRoute{}, nil)
+	auditSvc.On("Log", ctx, userID, "gateway.route_create", "gateway", mock.Anything, mock.MatchedBy(func(details map[string]interface{}) bool {
+		return details["path"] == "/v1"
+	})).Return(nil)
 
 	route, err := svc.CreateRoute(ctx, "test-api", "/v1", "http://target:80", true, 100)
 
@@ -33,6 +37,7 @@ func TestGatewayService_CreateRoute(t *testing.T) {
 
 func TestGatewayService_RefreshAndGetProxy(t *testing.T) {
 	repo := new(MockGatewayRepo)
+	auditSvc := new(services.MockAuditService)
 
 	route := &domain.GatewayRoute{
 		PathPrefix: "/api",
@@ -40,7 +45,7 @@ func TestGatewayService_RefreshAndGetProxy(t *testing.T) {
 	}
 	repo.On("GetAllActiveRoutes", mock.Anything).Return([]*domain.GatewayRoute{route}, nil)
 
-	svc := services.NewGatewayService(repo)
+	svc := services.NewGatewayService(repo, auditSvc)
 
 	proxy, ok := svc.GetProxy("/api/users")
 	assert.True(t, ok)
