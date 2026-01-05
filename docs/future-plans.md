@@ -1,4 +1,4 @@
-# Future Plans & Contributing
+# Future Plans &amp; Contributing
 
 This document outlines planned features and how you can contribute to The Cloud.
 
@@ -13,7 +13,7 @@ This document outlines planned features and how you can contribute to The Cloud.
 | **Postgres Repo Tests** | Easy | ✅ Yes | Add tests to `internal/repositories/postgres/` |
 | **SDK Tests** | Easy | ✅ Yes | Add tests to `pkg/sdk/` |
 | **API Docs (OpenAPI)** | Medium | ✅ Yes | Generate Swagger spec from handlers |
-| **Metrics Collection** | Medium | No | Populate `metrics_history` table |
+| **Snapshots** | Medium | No | Volume backup/restore |
 | **RBAC** | Hard | No | Role-Based Access Control system |
 
 ### In Progress (Maintainers)
@@ -21,40 +21,52 @@ This document outlines planned features and how you can contribute to The Cloud.
 | Feature | Branch | Owner | ETA |
 |---------|--------|-------|-----|
 | Web Dashboard | `jack/main` | @jack | Q1 2026 |
-| Secrets Manager | `feature/secrets-manager` | @PoyrazK | Q1 2026 |
 
 ---
 
-## 📋 Feature Backlog
+## 📋 Feature Status
 
-### High Priority
-- [ ] **RBAC** - User roles (admin, developer, read-only)
+### ✅ Complete
+- [x] **Compute** - Docker-based instance management
+- [x] **Storage** - S3-compatible object storage
+- [x] **Networking** - VPC with isolated Docker networks
+- [x] **Block Storage** - Persistent volumes
+- [x] **Load Balancer** - Layer 7 HTTP traffic distribution
+- [x] **Auto-Scaling** - Dynamic scaling based on metrics
 - [x] **RDS** - Managed PostgreSQL/MySQL containers
 - [x] **Secrets Manager** - Encrypted secret storage
 - [x] **CloudFunctions** - Serverless functions (Lambda-like)
+- [x] **CloudCache** - Managed Redis instances
+- [x] **CloudQueue** - SQS-like message queue
+- [x] **CloudNotify** - Pub/Sub topics and subscriptions
+- [x] **CloudCron** - Scheduled tasks with execution history
+- [x] **CloudGateway** - API routing and reverse proxy
+- [x] **CloudContainers** - Container orchestration with replication
+- [x] **Audit Logging** - Comprehensive audit trail for all services
+- [x] **Identity** - API key authentication and management
 
-### Medium Priority
-- [ ] **CloudCache** - Managed Redis instances
-- [ ] **CloudQueue** - SQS-like message queue
+### 🚧 In Progress
+- [ ] **Next.js Web Dashboard** - Visual resource management
+
+### 📋 Backlog
+- [ ] **RBAC** - User roles (admin, developer, read-only)
 - [ ] **Snapshots** - Volume backup/restore
-
-### Low Priority
 - [ ] **CloudFormation Templates** - IaC YAML definitions
 - [ ] **Multi-region** - Cluster support
 
 ---
 
-## 🏗️ Infrastructure & CI/CD
+## 🏗️ Infrastructure &amp; CI/CD
 
-These items aim to make the development cycle "Enterprise-Grade".
-
-| Item | Priority | Description |
-|------|----------|-------------|
-| **Multi-Platform Builds** | Medium | Build Docker images for both `AMD64` and `ARM64` (Graviton/Mac support) |
-| **CI Caching** | Medium | Implement Go and Docker layer caching to speed up CI runs |
-| **E2E Integration** | High | Integrate Go-based E2E tests into the GitHub Actions pipeline |
-| **Security Gates** | High | Configure `Trivy` to fail builds on `CRITICAL` vulnerability findings |
-| **PR Automation** | Low | Add automated PR comments for coverage reports and Swagger previews |
+| Item | Status | Description |
+|------|--------|-------------|
+| **CI Pipeline** | ✅ Done | Linting, testing, coverage with Codecov |
+| **Staging Deployment** | ✅ Done | GHCR-based staging workflow |
+| **Production Deployment** | ✅ Done | Tag-based releases |
+| **Dependabot** | ✅ Done | Automated dependency updates |
+| **Multi-Platform Builds** | 📋 Planned | ARM64/AMD64 Docker images |
+| **E2E Integration** | 📋 Planned | E2E tests in CI pipeline |
+| **Security Gates** | 📋 Planned | Trivy vulnerability scanning |
 
 ---
 
@@ -63,7 +75,7 @@ These items aim to make the development cycle "Enterprise-Grade".
 ### 1. Pick an Issue
 Choose from "Good First Issue" items above or check [GitHub Issues](https://github.com/PoyrazK/thecloud/issues).
 
-### 2. Fork & Clone
+### 2. Fork &amp; Clone
 ```bash
 git clone https://github.com/YOUR_USERNAME/thecloud.git
 cd thecloud
@@ -111,4 +123,4 @@ internal/
 - Open an issue for questions
 - Tag maintainers for review
 
-*Last updated: 2026-01-03*
+*Last updated: 2026-01-05*
