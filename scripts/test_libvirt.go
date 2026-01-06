@@ -49,7 +49,11 @@ func main() {
 		return
 	}
 	fmt.Printf("[✓] Instance created: %s\n", id)
-	defer adapter.DeleteInstance(ctx, id)
+	defer func() {
+		if err := adapter.DeleteInstance(ctx, id); err != nil {
+			fmt.Printf("Warning: cleanup failed: %v\n", err)
+		}
+	}()
 
 	// 4. Check IP (Wait a bit for DHCP)
 	fmt.Println("Waiting for IP (this might fail if VM doesn't actually boot a real OS)...")

@@ -1,3 +1,4 @@
+// Package libvirt provides load balancer proxy implementation using host-level Nginx.
 package libvirt
 
 import (

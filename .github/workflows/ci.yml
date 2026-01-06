@@ -123,6 +123,10 @@ jobs:
 
       - name: Setup Libvirt Storage and Network
         run: |
+          # Create storage directory first
+          sudo mkdir -p /tmp/libvirt-images
+          sudo chmod 777 /tmp/libvirt-images
+          
           # Create default storage pool
           sudo virsh pool-define-as default dir --target /tmp/libvirt-images
           sudo virsh pool-start default

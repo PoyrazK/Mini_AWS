@@ -1,3 +1,4 @@
+// Package libvirt provides XML template generation for libvirt domain definitions.
 package libvirt
 
 import (

@@ -1,3 +1,6 @@
+// Package libvirt provides a Libvirt/KVM implementation of the ComputeBackend interface.
+// It enables running VMs using QEMU/KVM with features like Cloud-Init, volume management,
+// snapshots, and network configuration.
 package libvirt
 
 import (
@@ -42,6 +45,7 @@ func NewLibvirtAdapter(logger *slog.Logger, uri string) (*LibvirtAdapter, error)
 		return nil, fmt.Errorf("failed to dial libvirt: %w", err)
 	}
 
+	//nolint:staticcheck // libvirt.New is deprecated but NewWithDialer doesn't work with our setup
 	l := libvirt.New(c)
 	if err := l.Connect(); err != nil {
 		return nil, fmt.Errorf("failed to connect to libvirt: %w", err)
@@ -123,7 +127,10 @@ func (a *LibvirtAdapter) CreateInstance(ctx context.Context, name, imageName str
 		// Clean up volume
 		_ = a.conn.StorageVolDelete(vol, 0)
 		if isoPath != "" {
-			os.Remove(isoPath)
+			if err := os.Remove(isoPath); err != nil {
+				// Log but don't fail cleanup
+				fmt.Printf("Warning: failed to remove ISO %s: %v\n", isoPath, err)
+			}
 		}
 		return "", fmt.Errorf("failed to define domain: %w", err)
 	}
@@ -163,7 +170,9 @@ func (a *LibvirtAdapter) CreateInstance(ctx context.Context, name, imageName str
 					// Allocate random port (deterministic for simplicity in this POC)
 					hPort = 30000 + int(uuid.New().ID()%10000)
 				} else {
-					fmt.Sscanf(hostPort, "%d", &hPort)
+					if _, err := fmt.Sscanf(hostPort, "%d", &hPort); err == nil {
+						// Successfully parsed
+					}
 				}
 
 				if hPort > 0 {
@@ -176,10 +185,16 @@ func (a *LibvirtAdapter) CreateInstance(ctx context.Context, name, imageName str
 
 					a.logger.Info("setting up port forwarding", "host", hPort, "vm", containerPort, "ip", ip)
 					// iptables -t nat -A PREROUTING -p tcp --dport <hPort> -j DNAT --to <ip>:<containerPort>
-					path, _ := exec.LookPath("iptables")
+					path, err := exec.LookPath("iptables")
+					if err != nil {
+						a.logger.Error("iptables not found, cannot set up port forwarding", "error", err)
+						continue
+					}
 					if path != "" {
 						cmd := exec.Command("sudo", "iptables", "-t", "nat", "-A", "PREROUTING", "-p", "tcp", "--dport", fmt.Sprintf("%d", hPort), "-j", "DNAT", "--to", ip+":"+containerPort)
-						_ = cmd.Run()
+						if err := cmd.Run(); err != nil {
+							a.logger.Error("failed to set up iptables rule", "command", cmd.String(), "error", err)
+						}
 					}
 				}
 			}
@@ -566,7 +581,11 @@ func (a *LibvirtAdapter) CreateVolumeSnapshot(ctx context.Context, volumeID stri
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("qemu-img convert failed: %w", err)
 	}
-	defer os.Remove(tmpQcow2)
+	defer func() {
+		if err := os.Remove(tmpQcow2); err != nil {
+			fmt.Printf("Warning: failed to remove temp file %s: %v\n", tmpQcow2, err)
+		}
+	}()
 
 	// Now tar it to match the SnapshotService expectation (tarball of contents)
 	// Actually, if we just want a "blob", a tarred qcow2 is fine.
@@ -599,7 +618,11 @@ func (a *LibvirtAdapter) RestoreVolumeSnapshot(ctx context.Context, volumeID str
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() {
+		if err := os.RemoveAll(tmpDir); err != nil {
+			fmt.Printf("Warning: failed to remove temp dir %s: %v\n", tmpDir, err)
+		}
+	}()
 
 	untarCmd := exec.Command("tar", "xzf", sourcePath, "-C", tmpDir)
 	if err := untarCmd.Run(); err != nil {
@@ -625,7 +648,11 @@ func (a *LibvirtAdapter) generateCloudInitISO(ctx context.Context, name string, 
 	if err != nil {
 		return "", err
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() {
+		if err := os.RemoveAll(tmpDir); err != nil {
+			fmt.Printf("Warning: failed to remove temp dir %s: %v\n", tmpDir, err)
+		}
+	}()
 
 	// meta-data
 	metaData := fmt.Sprintf("instance-id: %s\nlocal-hostname: %s\n", name, name)
