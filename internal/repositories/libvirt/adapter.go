@@ -80,13 +80,12 @@ func (a *LibvirtAdapter) CreateInstance(ctx context.Context, name, imageName str
 		return "", fmt.Errorf("failed to create root volume: %w", err)
 	}
 
-	// Get volume path
-	// We need the key or path.
-	// In go-libvirt, struct is returned.
-	// We can construct path: /var/lib/libvirt/images/name-root
-	// Or query XML.
-	// For now, assume standard path.
-	diskPath := fmt.Sprintf("/var/lib/libvirt/images/%s-root", name)
+	// Get volume path from libvirt
+	diskPath, err := a.conn.StorageVolGetPath(vol)
+	if err != nil {
+		_ = a.conn.StorageVolDelete(vol, 0)
+		return "", fmt.Errorf("failed to get volume path: %w", err)
+	}
 
 	// 2. Cloud-Init ISO (if env or cmd provided)
 	isoPath := ""
