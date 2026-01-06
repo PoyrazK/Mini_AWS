@@ -15,12 +15,23 @@ func generateVolumeXML(name string, sizeGB int) string {
 </volume>`, name, sizeGB)
 }
 
-func generateDomainXML(name, diskPath, networkID string, memoryMB, vcpu int) string {
+func generateDomainXML(name, diskPath, networkID, isoPath string, memoryMB, vcpu int) string {
 	if networkID == "" {
 		networkID = "default"
 	}
 	// Convert MB to KB for libvirt
 	memoryKB := memoryMB * 1024
+
+	isoXML := ""
+	if isoPath != "" {
+		isoXML = fmt.Sprintf(`
+    <disk type='file' device='cdrom'>
+      <driver name='qemu' type='raw'/>
+      <source file='%s'/>
+      <target dev='sda' bus='sata'/>
+      <readonly/>
+    </disk>`, isoPath)
+	}
 
 	return fmt.Sprintf(`
 <domain type='kvm'>
@@ -36,7 +47,7 @@ func generateDomainXML(name, diskPath, networkID string, memoryMB, vcpu int) str
       <driver name='qemu' type='qcow2'/>
       <source file='%s'/>
       <target dev='vda' bus='virtio'/>
-    </disk>
+    </disk>%s
     <interface type='network'>
       <source network='%s'/>
       <model type='virtio'/>
@@ -48,7 +59,7 @@ func generateDomainXML(name, diskPath, networkID string, memoryMB, vcpu int) str
       <target type='serial' port='0'/>
     </console>
   </devices>
-</domain>`, name, memoryKB, vcpu, diskPath, networkID)
+</domain>`, name, memoryKB, vcpu, diskPath, isoXML, networkID)
 }
 
 func generateNetworkXML(name, bridgeName, gatewayIP, rangeStart, rangeEnd string) string {

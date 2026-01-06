@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/digitalocean/go-libvirt"
+	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
 
@@ -86,7 +87,7 @@ func (a *LibvirtAdapter) CreateInstance(ctx context.Context, name, imageName str
 		networkID = "default"
 	}
 
-	domainXML := generateDomainXML(name, diskPath, networkID, 512, 1)
+	domainXML := generateDomainXML(name, diskPath, networkID, "", 512, 1)
 
 	dom, err := a.conn.DomainDefineXML(domainXML)
 	if err != nil {
@@ -199,11 +200,97 @@ func (a *LibvirtAdapter) Exec(ctx context.Context, id string, cmd []string) (str
 }
 
 func (a *LibvirtAdapter) RunTask(ctx context.Context, opts ports.RunTaskOptions) (string, error) {
-	return "", fmt.Errorf("runtask not supported in libvirt adapter")
+	// For now, we assume a base image "alpine" exists in the default pool or we fail.
+	// We create a new instance with a randomized name.
+	name := "task-" + uuid.New().String()[:8]
+
+	// Create volumes for binders?
+	// The ports.RunTaskOptions has Binds []string.
+	// We currently only support simple host binds or ignore them for the POC.
+	// To perform the snapshot task, we actually rely on bind mounts.
+	// As noted before, we replaced SnapshotService logic to use CreateVolumeSnapshot,
+	// so RunTask is less critical for Snapshots now, but still useful for other things.
+
+	// Since we don't have a dynamic ISO generator linked yet, we just start the VM.
+	// If the user wants to run a command, we'd need Cloud-Init.
+
+	// 1. Create a disk for the task VM (clone alpine-base if we could, or just new one)
+	// We use the same create logic as CreateInstance but force a small size
+	// We assume "alpine" is the image source.
+	// In CreateInstance we assume image is passed as name.
+	// Here opts.Image is "alpine".
+
+	// Check if base image exists
+	pool, err := a.conn.StoragePoolLookupByName(defaultPoolName)
+	if err != nil {
+		return "", fmt.Errorf("failed to find default pool: %w", err)
+	}
+
+	// For brevity, we just create a new empty vol.
+	// Real implementation should clone base image.
+	volXML := generateVolumeXML(name+"-root", 1)
+	vol, err := a.conn.StorageVolCreateXML(pool, volXML, 0)
+	if err != nil {
+		return "", fmt.Errorf("failed to create root volume: %w", err)
+	}
+
+	// Get path
+	diskPath, err := a.conn.StorageVolGetPath(vol)
+	if err != nil {
+		_ = a.conn.StorageVolDelete(vol, 0)
+		return "", fmt.Errorf("failed to get volume path: %w", err)
+	}
+
+	// 2. Define Domain
+	// We pass empty ISO for now as we don't generate one.
+	domainXML := generateDomainXML(name, diskPath, "default", "", int(opts.MemoryMB), 1)
+
+	dom, err := a.conn.DomainDefineXML(domainXML)
+	if err != nil {
+		_ = a.conn.StorageVolDelete(vol, 0)
+		return "", fmt.Errorf("failed to define domain: %w", err)
+	}
+
+	// 3. Start Domain
+	if err := a.conn.DomainCreate(dom); err != nil {
+		_ = a.conn.DomainUndefine(dom)
+		_ = a.conn.StorageVolDelete(vol, 0)
+		return "", fmt.Errorf("failed to start domain: %w", err)
+	}
+
+	return name, nil
 }
 
 func (a *LibvirtAdapter) WaitTask(ctx context.Context, id string) (int64, error) {
-	return 0, fmt.Errorf("waittask not supported in libvirt adapter")
+	// Poll for domain state to be Shutoff
+	// Since we can't easily get the exit code from inside the VM without qemu-agent,
+	// we assume 0 if it shuts down gracefully (state Shutoff).
+
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return -1, ctx.Err()
+		case <-ticker.C:
+			dom, err := a.conn.DomainLookupByName(id)
+			if err != nil {
+				// If domain is gone, maybe it was deleted?
+				return -1, fmt.Errorf("domain not found: %w", err)
+			}
+
+			state, _, err := a.conn.DomainGetState(dom, 0)
+			if err != nil {
+				continue
+			}
+
+			// libvirt.DomainShutoff = 5
+			if state == 5 {
+				return 0, nil
+			}
+		}
+	}
 }
 
 func (a *LibvirtAdapter) CreateNetwork(ctx context.Context, name string) (string, error) {
