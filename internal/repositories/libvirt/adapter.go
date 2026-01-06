@@ -276,3 +276,34 @@ func (a *LibvirtAdapter) DeleteVolume(ctx context.Context, name string) error {
 	}
 	return nil
 }
+
+func (a *LibvirtAdapter) CreateVolumeSnapshot(ctx context.Context, volumeID string, destinationPath string) error {
+	// volumeID is the libvirt volume name
+	pool, err := a.conn.StoragePoolLookupByName(defaultPoolName)
+	if err != nil {
+		return fmt.Errorf("failed to find default storage pool: %w", err)
+	}
+
+	vol, err := a.conn.StorageVolLookupByName(pool, volumeID)
+	if err != nil {
+		return fmt.Errorf("failed to find volume: %w", err)
+	}
+	_ = vol // Prevent unused variable error
+
+	// We can read volume content via stream or direct file access if local.
+	// For simulation on local fs, we can just copy the file?
+	// But qcow2 is a format. We want a tarball of the FILESYSTEM inside the qcow2?
+	// SnapshotService expects a tarball of the content.
+	// Opening a qcow2 and mounting it requires nbd or guestmount.
+	// This is getting complex for a "Mini AWS" without root.
+
+	// If we assume the "volume" is just a raw file we can tar it.
+	// But we initialized it as qcow2.
+
+	// For now, return not implemented to allow compilation but indicate gap.
+	return fmt.Errorf("not implemented: libvirt volume snapshot requires running agent or qemu-img convert")
+}
+
+func (a *LibvirtAdapter) RestoreVolumeSnapshot(ctx context.Context, volumeID string, sourcePath string) error {
+	return fmt.Errorf("not implemented: libvirt volume restore")
+}

@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"path/filepath"
 	"time"
 
 	"strings"
@@ -216,6 +217,117 @@ func (a *DockerAdapter) DeleteVolume(ctx context.Context, name string) error {
 	if err := a.cli.VolumeRemove(ctx, name, true); err != nil {
 		return fmt.Errorf("failed to delete volume %s: %w", name, err)
 	}
+	return nil
+}
+
+func (a *DockerAdapter) CreateVolumeSnapshot(ctx context.Context, volumeID string, destinationPath string) error {
+	// Use a helper container to tar the volume content to host path
+	// volumeID is the docker volume name
+	// destinationPath is on the host
+
+	// Ensure parent dir of destinationPath exists
+	// We assume destinationPath is accessible to the docker daemon (bind mount)
+
+	// Create a temp container to do the work
+	imageName := "alpine"
+	// Ensure image exists
+	if _, err := a.cli.ImagePull(ctx, imageName, image.PullOptions{}); err != nil {
+		return fmt.Errorf("failed to pull alpine: %w", err)
+	}
+
+	cmd := []string{"tar", "czf", "/snapshot/snapshot.tar.gz", "-C", "/data", "."}
+
+	config := &container.Config{
+		Image: imageName,
+		Cmd:   cmd,
+	}
+
+	hostConfig := &container.HostConfig{
+		Binds: []string{
+			volumeID + ":/data:ro",
+			filepath.Dir(destinationPath) + ":/snapshot",
+		},
+	}
+
+	// We need to name the file correctly inside.
+	// We bind the PARENT directory of destinationPath to /snapshot
+	// And write to /snapshot/<filename>
+	filename := filepath.Base(destinationPath)
+	config.Cmd = []string{"tar", "czf", "/snapshot/" + filename, "-C", "/data", "."}
+
+	resp, err := a.cli.ContainerCreate(ctx, config, hostConfig, nil, nil, "")
+	if err != nil {
+		return fmt.Errorf("failed to create snapshot task: %w", err)
+	}
+	defer func() { _ = a.cli.ContainerRemove(ctx, resp.ID, container.RemoveOptions{Force: true}) }()
+
+	if err := a.cli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
+		return fmt.Errorf("failed to start snapshot task: %w", err)
+	}
+
+	statusCh, errCh := a.cli.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
+	select {
+	case err := <-errCh:
+		if err != nil {
+			return fmt.Errorf("error waiting for snapshot task: %w", err)
+		}
+	case status := <-statusCh:
+		if status.StatusCode != 0 {
+			return fmt.Errorf("snapshot task failed with exit code %d", status.StatusCode)
+		}
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+
+	return nil
+}
+
+func (a *DockerAdapter) RestoreVolumeSnapshot(ctx context.Context, volumeID string, sourcePath string) error {
+	// volumeID is the docker volume name
+	// sourcePath is the .tar.gz on host
+
+	imageName := "alpine"
+	if _, err := a.cli.ImagePull(ctx, imageName, image.PullOptions{}); err != nil {
+		return fmt.Errorf("failed to pull alpine: %w", err)
+	}
+
+	filename := filepath.Base(sourcePath)
+	config := &container.Config{
+		Image: imageName,
+		Cmd:   []string{"tar", "xzf", "/snapshot/" + filename, "-C", "/data"},
+	}
+
+	hostConfig := &container.HostConfig{
+		Binds: []string{
+			volumeID + ":/data",
+			filepath.Dir(sourcePath) + ":/snapshot:ro",
+		},
+	}
+
+	resp, err := a.cli.ContainerCreate(ctx, config, hostConfig, nil, nil, "")
+	if err != nil {
+		return fmt.Errorf("failed to create restore task: %w", err)
+	}
+	defer func() { _ = a.cli.ContainerRemove(ctx, resp.ID, container.RemoveOptions{Force: true}) }()
+
+	if err := a.cli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
+		return fmt.Errorf("failed to start restore task: %w", err)
+	}
+
+	statusCh, errCh := a.cli.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
+	select {
+	case err := <-errCh:
+		if err != nil {
+			return fmt.Errorf("error waiting for restore task: %w", err)
+		}
+	case status := <-statusCh:
+		if status.StatusCode != 0 {
+			return fmt.Errorf("restore task failed with exit code %d", status.StatusCode)
+		}
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+
 	return nil
 }
 

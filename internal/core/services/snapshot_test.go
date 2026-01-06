@@ -39,9 +39,7 @@ func TestCreateSnapshot_Success(t *testing.T) {
 	auditSvc.On("Log", ctx, mock.Anything, "snapshot.create", "snapshot", mock.Anything, mock.Anything).Return(nil)
 
 	// Async expectations
-	docker.On("RunTask", mock.Anything, mock.Anything).Return("task-123", nil)
-	docker.On("WaitTask", mock.Anything, "task-123").Return(int64(0), nil)
-	docker.On("DeleteInstance", mock.Anything, "task-123").Return(nil)
+	docker.On("CreateVolumeSnapshot", mock.Anything, "thecloud-vol-"+volID.String()[:8], mock.Anything).Return(nil)
 	repo.On("Update", mock.Anything, mock.AnythingOfType("*domain.Snapshot")).Return(nil)
 
 	snap, err := svc.CreateSnapshot(ctx, volID, "Test snapshot")
@@ -81,9 +79,9 @@ func TestRestoreSnapshot_Success(t *testing.T) {
 
 	repo.On("GetByID", ctx, snapID).Return(snap, nil)
 	docker.On("CreateVolume", ctx, mock.Anything).Return(nil)
-	docker.On("RunTask", ctx, mock.Anything).Return("task-123", nil)
-	docker.On("WaitTask", ctx, "task-123").Return(int64(0), nil)
-	docker.On("DeleteInstance", ctx, "task-123").Return(nil)
+	// Restore expectations
+	// volume id is dynamic in test but we can use mock.Anything or partial match
+	docker.On("RestoreVolumeSnapshot", ctx, mock.Anything, mock.Anything).Return(nil)
 	volRepo.On("Create", ctx, mock.AnythingOfType("*domain.Volume")).Return(nil)
 
 	eventSvc.On("RecordEvent", ctx, "VOLUME_RESTORE", mock.Anything, "VOLUME", mock.Anything).Return(nil)

@@ -108,40 +108,9 @@ func (s *SnapshotService) performSnapshot(ctx context.Context, vol *domain.Volum
 	// Ensure parent dir exists (it should, but just in case)
 	_ = os.MkdirAll(filepath.Dir(snapshotPath), 0755)
 
-	// We need to mount the host's snapshots directory to the helper container.
-	// This assumes the backend is NOT itself in a container, or if it is, it has the host's docker socket and can mount host paths.
-	// If the backend IS in a container, '.' in filepath.Abs refers to the container's path.
-	// For local dev, this works fine.
-
-	// Command: tar czf /snapshots/<id>.tar.gz -C /data .
-	opts := ports.RunTaskOptions{
-		Image:   "alpine",
-		Command: []string{"tar", "czf", "/snapshots/" + snapshot.ID.String() + ".tar.gz", "-C", "/data", "."},
-		Binds: []string{
-			dockerVolName + ":/data:ro",
-			filepath.Dir(snapshotPath) + ":/snapshots",
-		},
-		MemoryMB:        128,
-		CPUs:            0.5,
-		NetworkDisabled: true,
+	if err := s.compute.CreateVolumeSnapshot(ctx, dockerVolName, snapshotPath); err != nil {
+		return fmt.Errorf("failed to create volume snapshot: %w", err)
 	}
-
-	containerID, err := s.compute.RunTask(ctx, opts)
-	if err != nil {
-		return fmt.Errorf("failed to run snapshot task: %w", err)
-	}
-
-	exitCode, err := s.compute.WaitTask(ctx, containerID)
-	if err != nil {
-		return fmt.Errorf("failed to wait for snapshot task: %w", err)
-	}
-
-	if exitCode != 0 {
-		return fmt.Errorf("snapshot task failed with exit code %d", exitCode)
-	}
-
-	// Clean up task container
-	_ = s.compute.DeleteInstance(ctx, containerID)
 
 	return nil
 }
@@ -206,36 +175,10 @@ func (s *SnapshotService) RestoreSnapshot(ctx context.Context, snapshotID uuid.U
 	// 3. Extract snapshot into new volume
 	snapshotPath, _ := filepath.Abs(filepath.Join(s.baseDir, snapshot.ID.String()+".tar.gz"))
 
-	opts := ports.RunTaskOptions{
-		Image:   "alpine",
-		Command: []string{"tar", "xzf", "/snapshots/" + snapshot.ID.String() + ".tar.gz", "-C", "/data"},
-		Binds: []string{
-			dockerVolName + ":/data",
-			filepath.Dir(snapshotPath) + ":/snapshots",
-		},
-		MemoryMB:        128,
-		CPUs:            0.5,
-		NetworkDisabled: true,
-	}
-
-	containerID, err := s.compute.RunTask(ctx, opts)
-	if err != nil {
+	if err := s.compute.RestoreVolumeSnapshot(ctx, dockerVolName, snapshotPath); err != nil {
 		_ = s.compute.DeleteVolume(ctx, dockerVolName)
-		return nil, fmt.Errorf("failed to run restore task: %w", err)
+		return nil, fmt.Errorf("failed to restore volume snapshot: %w", err)
 	}
-
-	exitCode, err := s.compute.WaitTask(ctx, containerID)
-	if err != nil {
-		_ = s.compute.DeleteVolume(ctx, dockerVolName)
-		return nil, fmt.Errorf("failed to wait for restore task: %w", err)
-	}
-
-	if exitCode != 0 {
-		_ = s.compute.DeleteVolume(ctx, dockerVolName)
-		return nil, fmt.Errorf("restore task failed with exit code %d", exitCode)
-	}
-
-	_ = s.compute.DeleteInstance(ctx, containerID)
 
 	// 4. Save to DB
 	if err := s.volumeRepo.Create(ctx, vol); err != nil {

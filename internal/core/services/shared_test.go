@@ -853,6 +853,16 @@ func (m *MockComputeBackend) Exec(ctx context.Context, containerID string, cmd [
 	args := m.Called(ctx, containerID, cmd)
 	return args.String(0), args.Error(1)
 }
+func (m *MockComputeBackend) CreateVolumeSnapshot(ctx context.Context, volumeID string, destinationPath string) error {
+	args := m.Called(ctx, volumeID, destinationPath)
+	return args.Error(0)
+}
+
+func (m *MockComputeBackend) RestoreVolumeSnapshot(ctx context.Context, volumeID string, sourcePath string) error {
+	args := m.Called(ctx, volumeID, sourcePath)
+	return args.Error(0)
+}
+
 func (m *MockComputeBackend) Ping(ctx context.Context) error {
 	args := m.Called(ctx)
 	return args.Error(0)

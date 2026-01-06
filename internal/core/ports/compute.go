@@ -27,6 +27,8 @@ type ComputeBackend interface {
 	// Volume Management
 	CreateVolume(ctx context.Context, name string) error
 	DeleteVolume(ctx context.Context, name string) error
+	CreateVolumeSnapshot(ctx context.Context, volumeID string, destinationPath string) error
+	RestoreVolumeSnapshot(ctx context.Context, volumeID string, sourcePath string) error
 
 	// Health
 	Ping(ctx context.Context) error
