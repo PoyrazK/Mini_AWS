@@ -147,6 +147,11 @@ func main() {
 	snapshotSvc := services.NewSnapshotService(snapshotRepo, volumeRepo, dockerAdapter, eventSvc, auditSvc, logger)
 	snapshotHandler := httphandlers.NewSnapshotHandler(snapshotSvc)
 
+	// IaC Service
+	stackRepo := postgres.NewStackRepository(db)
+	stackSvc := services.NewStackService(stackRepo, instanceSvc, vpcSvc, logger)
+	stackHandler := httphandlers.NewStackHandler(stackSvc)
+
 	// Storage Service
 	fileStore, err := filesystem.NewLocalFileStore("./thecloud-data/local/storage")
 	if err != nil {
@@ -454,6 +459,17 @@ func main() {
 		asgGroup.DELETE("/groups/:id", httputil.Permission(rbacSvc, domain.PermissionAsDelete), asgHandler.DeleteGroup)
 		asgGroup.POST("/groups/:id/policies", httputil.Permission(rbacSvc, domain.PermissionAsUpdate), asgHandler.CreatePolicy)
 		asgGroup.DELETE("/policies/:id", httputil.Permission(rbacSvc, domain.PermissionAsDelete), asgHandler.DeletePolicy)
+	}
+
+	// IaC Routes (Protected)
+	iacGroup := r.Group("/iac")
+	iacGroup.Use(httputil.Auth(identitySvc))
+	{
+		iacGroup.POST("/stacks", httputil.Permission(rbacSvc, domain.PermissionStackCreate), stackHandler.Create)
+		iacGroup.GET("/stacks", httputil.Permission(rbacSvc, domain.PermissionStackRead), stackHandler.List)
+		iacGroup.GET("/stacks/:id", httputil.Permission(rbacSvc, domain.PermissionStackRead), stackHandler.Get)
+		iacGroup.DELETE("/stacks/:id", httputil.Permission(rbacSvc, domain.PermissionStackDelete), stackHandler.Delete)
+		iacGroup.POST("/validate", httputil.Permission(rbacSvc, domain.PermissionStackRead), stackHandler.Validate)
 	}
 
 	// 7. Background Workers
