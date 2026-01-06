@@ -108,5 +108,4 @@ func init() {
 	cronCmd.AddCommand(resumeCronCmd)
 	cronCmd.AddCommand(deleteCronCmd)
 
-	rootCmd.AddCommand(cronCmd)
 }

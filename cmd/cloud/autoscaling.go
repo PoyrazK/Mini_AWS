@@ -157,6 +157,4 @@ func init() {
 	autoscalingCmd.AddCommand(asgListCmd)
 	autoscalingCmd.AddCommand(asgRmCmd)
 	autoscalingCmd.AddCommand(asgPolicyAddCmd)
-
-	rootCmd.AddCommand(autoscalingCmd)
 }

@@ -34,6 +34,16 @@ func init() {
 	rootCmd.AddCommand(secretsCmd)
 	rootCmd.AddCommand(functionCmd)
 	rootCmd.AddCommand(cacheCmd)
+	rootCmd.AddCommand(autoscalingCmd)
+	rootCmd.AddCommand(containerCmd)
+	rootCmd.AddCommand(cronCmd)
+	rootCmd.AddCommand(eventsCmd)
+	rootCmd.AddCommand(gatewayCmd)
+	rootCmd.AddCommand(notifyCmd)
+	rootCmd.AddCommand(queueCmd)
+	rootCmd.AddCommand(snapshotCmd)
+	rootCmd.AddCommand(volumeCmd)
+	rootCmd.AddCommand(iacCmd)
 }
 
 func main() {

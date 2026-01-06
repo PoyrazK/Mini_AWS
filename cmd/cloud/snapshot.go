@@ -118,7 +118,6 @@ var snapshotRestoreCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(snapshotCmd)
 	snapshotCmd.AddCommand(snapshotListCmd)
 	snapshotCmd.AddCommand(snapshotCreateCmd)
 	snapshotCmd.AddCommand(snapshotRestoreCmd)

@@ -75,5 +75,4 @@ func init() {
 	gatewayCmd.AddCommand(listRoutesCmd)
 	gatewayCmd.AddCommand(deleteRouteCmd)
 
-	rootCmd.AddCommand(gatewayCmd)
 }

@@ -93,6 +93,4 @@ func init() {
 	notifyCmd.AddCommand(listTopicsCmd)
 	notifyCmd.AddCommand(subscribeCmd)
 	notifyCmd.AddCommand(publishCmd)
-
-	rootCmd.AddCommand(notifyCmd)
 }

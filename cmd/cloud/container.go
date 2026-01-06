@@ -105,5 +105,4 @@ func init() {
 	containerCmd.AddCommand(scaleDeploymentCmd)
 	containerCmd.AddCommand(deleteDeploymentCmd)
 
-	rootCmd.AddCommand(containerCmd)
 }

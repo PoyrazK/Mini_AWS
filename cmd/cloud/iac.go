@@ -168,6 +168,4 @@ func init() {
 	iacCmd.AddCommand(iacGetCmd)
 	iacCmd.AddCommand(iacRmCmd)
 	iacCmd.AddCommand(iacValidateCmd)
-
-	rootCmd.AddCommand(iacCmd)
 }

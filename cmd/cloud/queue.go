@@ -187,5 +187,4 @@ func init() {
 
 	receiveMessagesCmd.Flags().Int("max", 1, "Maximum number of messages to receive")
 
-	rootCmd.AddCommand(queueCmd)
 }
