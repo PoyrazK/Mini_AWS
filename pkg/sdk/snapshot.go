@@ -40,7 +40,7 @@ func (c *Client) GetSnapshot(id string) (*domain.Snapshot, error) {
 }
 
 func (c *Client) DeleteSnapshot(id string) error {
-	return c.delete(fmt.Sprintf("/snapshots/%s", id))
+	return c.delete(fmt.Sprintf("/snapshots/%s", id), nil)
 }
 
 func (c *Client) RestoreSnapshot(id string, newVolumeName string) (*domain.Volume, error) {
