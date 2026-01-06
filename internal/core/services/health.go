@@ -12,14 +12,14 @@ type Checkable interface {
 }
 
 type HealthServiceImpl struct {
-	db     Checkable
-	docker ports.DockerClient
+	db      Checkable
+	compute ports.ComputeBackend
 }
 
-func NewHealthServiceImpl(db Checkable, docker ports.DockerClient) *HealthServiceImpl {
+func NewHealthServiceImpl(db Checkable, compute ports.ComputeBackend) *HealthServiceImpl {
 	return &HealthServiceImpl{
-		db:     db,
-		docker: docker,
+		db:      db,
+		compute: compute,
 	}
 }
 
@@ -36,7 +36,7 @@ func (s *HealthServiceImpl) Check(ctx context.Context) ports.HealthCheckResult {
 	}
 
 	// Check Docker
-	if err := s.docker.Ping(ctx); err != nil {
+	if err := s.compute.Ping(ctx); err != nil {
 		checks["docker"] = "DISCONNECTED: " + err.Error()
 		overall = "DEGRADED"
 	} else {

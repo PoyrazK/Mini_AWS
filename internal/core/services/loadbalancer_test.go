@@ -100,7 +100,7 @@ func TestLBService_Create(t *testing.T) {
 	lbRepo := new(mockLBRepo)
 	vpcRepo := new(MockVpcRepo)
 	instRepo := new(MockInstanceRepo)
-	auditSvc := new(services.MockAuditService)
+	auditSvc := new(MockAuditService)
 	svc := services.NewLBService(lbRepo, vpcRepo, instRepo, auditSvc)
 
 	ctx := context.Background()
@@ -155,7 +155,7 @@ func TestLBService_PropagatesUserID(t *testing.T) {
 	lbRepo := new(mockLBRepo)
 	vpcRepo := new(MockVpcRepo)
 	instRepo := new(MockInstanceRepo)
-	auditSvc := new(services.MockAuditService)
+	auditSvc := new(MockAuditService)
 	svc := services.NewLBService(lbRepo, vpcRepo, instRepo, auditSvc)
 
 	expectedUserID := uuid.New()
@@ -181,7 +181,7 @@ func TestLBService_AddTarget(t *testing.T) {
 	lbRepo := new(mockLBRepo)
 	vpcRepo := new(MockVpcRepo)
 	instRepo := new(MockInstanceRepo)
-	auditSvc := new(services.MockAuditService)
+	auditSvc := new(MockAuditService)
 	svc := services.NewLBService(lbRepo, vpcRepo, instRepo, auditSvc)
 
 	ctx := context.Background()
@@ -220,7 +220,7 @@ func TestLBService_Delete_Success(t *testing.T) {
 	lbRepo := new(mockLBRepo)
 	vpcRepo := new(MockVpcRepo)
 	instRepo := new(MockInstanceRepo)
-	auditSvc := new(services.MockAuditService)
+	auditSvc := new(MockAuditService)
 	svc := services.NewLBService(lbRepo, vpcRepo, instRepo, auditSvc)
 
 	ctx := context.Background()

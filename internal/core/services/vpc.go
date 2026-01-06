@@ -14,15 +14,15 @@ import (
 
 type VpcService struct {
 	repo     ports.VpcRepository
-	docker   ports.DockerClient
+	compute  ports.ComputeBackend
 	auditSvc ports.AuditService
 	logger   *slog.Logger
 }
 
-func NewVpcService(repo ports.VpcRepository, docker ports.DockerClient, auditSvc ports.AuditService, logger *slog.Logger) *VpcService {
+func NewVpcService(repo ports.VpcRepository, compute ports.ComputeBackend, auditSvc ports.AuditService, logger *slog.Logger) *VpcService {
 	return &VpcService{
 		repo:     repo,
-		docker:   docker,
+		compute:  compute,
 		auditSvc: auditSvc,
 		logger:   logger,
 	}
@@ -31,7 +31,7 @@ func NewVpcService(repo ports.VpcRepository, docker ports.DockerClient, auditSvc
 func (s *VpcService) CreateVPC(ctx context.Context, name string) (*domain.VPC, error) {
 	// 1. Create Docker network first
 	networkName := fmt.Sprintf("thecloud-vpc-%s", uuid.New().String()[:8])
-	dockerNetworkID, err := s.docker.CreateNetwork(ctx, networkName)
+	dockerNetworkID, err := s.compute.CreateNetwork(ctx, networkName)
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +48,7 @@ func (s *VpcService) CreateVPC(ctx context.Context, name string) (*domain.VPC, e
 	if err := s.repo.Create(ctx, vpc); err != nil {
 		// Cleanup Docker network if DB fails
 		s.logger.Error("failed to create VPC in DB, rolling back network", "name", name, "error", err)
-		if rbErr := s.docker.RemoveNetwork(ctx, dockerNetworkID); rbErr != nil {
+		if rbErr := s.compute.DeleteNetwork(ctx, dockerNetworkID); rbErr != nil {
 			s.logger.Error("failed to rollback network", "network_id", dockerNetworkID, "error", rbErr)
 		}
 		return nil, err
@@ -80,7 +80,7 @@ func (s *VpcService) DeleteVPC(ctx context.Context, idOrName string) error {
 	}
 
 	// 1. Remove Docker network
-	if err := s.docker.RemoveNetwork(ctx, vpc.NetworkID); err != nil {
+	if err := s.compute.DeleteNetwork(ctx, vpc.NetworkID); err != nil {
 		s.logger.Error("failed to remove docker network", "network_id", vpc.NetworkID, "error", err)
 		return err
 	}

@@ -14,7 +14,7 @@ import (
 
 func TestGatewayService_CreateRoute(t *testing.T) {
 	repo := new(MockGatewayRepo)
-	auditSvc := new(services.MockAuditService)
+	auditSvc := new(MockAuditService)
 	repo.On("GetAllActiveRoutes", mock.Anything).Return([]*domain.GatewayRoute{}, nil)
 	svc := services.NewGatewayService(repo, auditSvc)
 
@@ -37,7 +37,7 @@ func TestGatewayService_CreateRoute(t *testing.T) {
 
 func TestGatewayService_RefreshAndGetProxy(t *testing.T) {
 	repo := new(MockGatewayRepo)
-	auditSvc := new(services.MockAuditService)
+	auditSvc := new(MockAuditService)
 
 	route := &domain.GatewayRoute{
 		PathPrefix: "/api",

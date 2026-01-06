@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"log/slog"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -45,10 +46,10 @@ func (m *MockDatabaseRepo) Delete(ctx context.Context, id uuid.UUID) error {
 
 func TestCreateDatabase_Success(t *testing.T) {
 	repo := new(MockDatabaseRepo)
-	docker := new(MockDockerClient)
+	docker := new(MockComputeBackend)
 	vpcRepo := new(MockVpcRepo)
 	eventSvc := new(MockEventService)
-	auditSvc := new(services.MockAuditService)
+	auditSvc := new(MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	svc := services.NewDatabaseService(repo, docker, vpcRepo, eventSvc, auditSvc, logger)
@@ -58,8 +59,10 @@ func TestCreateDatabase_Success(t *testing.T) {
 	engine := "postgres"
 	version := "16"
 
-	docker.On("CreateContainer", ctx, mock.Anything, "postgres:16-alpine", []string{"0:5432"}, "", []string(nil), mock.Anything, []string(nil)).Return("cont-123", nil)
-	docker.On("GetContainerPort", ctx, "cont-123", "5432").Return(54321, nil)
+	docker.On("CreateInstance", ctx, mock.MatchedBy(func(name string) bool {
+		return strings.HasPrefix(name, "cloud-db-")
+	}), "postgres:16-alpine", []string{"0:5432"}, "", []string(nil), mock.Anything, []string(nil)).Return("cont-123", nil)
+	docker.On("GetInstancePort", ctx, "cont-123", "5432").Return(54321, nil)
 	repo.On("Create", ctx, mock.AnythingOfType("*domain.Database")).Return(nil)
 	eventSvc.On("RecordEvent", ctx, "DATABASE_CREATE", mock.Anything, "DATABASE", mock.Anything).Return(nil)
 	auditSvc.On("Log", ctx, mock.Anything, "database.create", "database", mock.Anything, mock.MatchedBy(func(details map[string]interface{}) bool {
@@ -81,10 +84,10 @@ func TestCreateDatabase_Success(t *testing.T) {
 
 func TestDeleteDatabase_Success(t *testing.T) {
 	repo := new(MockDatabaseRepo)
-	docker := new(MockDockerClient)
+	docker := new(MockComputeBackend)
 	vpcRepo := new(MockVpcRepo)
 	eventSvc := new(MockEventService)
-	auditSvc := new(services.MockAuditService)
+	auditSvc := new(MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	svc := services.NewDatabaseService(repo, docker, vpcRepo, eventSvc, auditSvc, logger)
@@ -98,7 +101,7 @@ func TestDeleteDatabase_Success(t *testing.T) {
 	}
 
 	repo.On("GetByID", ctx, dbID).Return(db, nil)
-	docker.On("RemoveContainer", ctx, "cont-123").Return(nil)
+	docker.On("DeleteInstance", ctx, "cont-123").Return(nil)
 	repo.On("Delete", ctx, dbID).Return(nil)
 	eventSvc.On("RecordEvent", ctx, "DATABASE_DELETE", dbID.String(), "DATABASE", mock.Anything).Return(nil)
 	auditSvc.On("Log", ctx, mock.Anything, "database.delete", "database", dbID.String(), mock.MatchedBy(func(details map[string]interface{}) bool {
@@ -114,10 +117,10 @@ func TestDeleteDatabase_Success(t *testing.T) {
 
 func TestGetDatabase_ByID(t *testing.T) {
 	repo := new(MockDatabaseRepo)
-	docker := new(MockDockerClient)
+	docker := new(MockComputeBackend)
 	vpcRepo := new(MockVpcRepo)
 	eventSvc := new(MockEventService)
-	auditSvc := new(services.MockAuditService)
+	auditSvc := new(MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	svc := services.NewDatabaseService(repo, docker, vpcRepo, eventSvc, auditSvc, logger)
@@ -137,10 +140,10 @@ func TestGetDatabase_ByID(t *testing.T) {
 
 func TestListDatabases(t *testing.T) {
 	repo := new(MockDatabaseRepo)
-	docker := new(MockDockerClient)
+	docker := new(MockComputeBackend)
 	vpcRepo := new(MockVpcRepo)
 	eventSvc := new(MockEventService)
-	auditSvc := new(services.MockAuditService)
+	auditSvc := new(MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	svc := services.NewDatabaseService(repo, docker, vpcRepo, eventSvc, auditSvc, logger)
@@ -159,10 +162,10 @@ func TestListDatabases(t *testing.T) {
 
 func TestGetConnectionString(t *testing.T) {
 	repo := new(MockDatabaseRepo)
-	docker := new(MockDockerClient)
+	docker := new(MockComputeBackend)
 	vpcRepo := new(MockVpcRepo)
 	eventSvc := new(MockEventService)
-	auditSvc := new(services.MockAuditService)
+	auditSvc := new(MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	svc := services.NewDatabaseService(repo, docker, vpcRepo, eventSvc, auditSvc, logger)

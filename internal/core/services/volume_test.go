@@ -16,9 +16,9 @@ import (
 
 func TestCreateVolume_Success(t *testing.T) {
 	repo := new(MockVolumeRepo)
-	docker := new(MockDockerClient)
+	docker := new(MockComputeBackend)
 	eventSvc := new(MockEventService)
-	auditSvc := new(services.MockAuditService)
+	auditSvc := new(MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	svc := services.NewVolumeService(repo, docker, eventSvc, auditSvc, logger)
@@ -48,9 +48,9 @@ func TestCreateVolume_Success(t *testing.T) {
 
 func TestDeleteVolume_Success(t *testing.T) {
 	repo := new(MockVolumeRepo)
-	docker := new(MockDockerClient)
+	docker := new(MockComputeBackend)
 	eventSvc := new(MockEventService)
-	auditSvc := new(services.MockAuditService)
+	auditSvc := new(MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	svc := services.NewVolumeService(repo, docker, eventSvc, auditSvc, logger)
@@ -79,9 +79,9 @@ func TestDeleteVolume_Success(t *testing.T) {
 
 func TestDeleteVolume_InUse_Fails(t *testing.T) {
 	repo := new(MockVolumeRepo)
-	docker := new(MockDockerClient)
+	docker := new(MockComputeBackend)
 	eventSvc := new(MockEventService)
-	auditSvc := new(services.MockAuditService)
+	auditSvc := new(MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	svc := services.NewVolumeService(repo, docker, eventSvc, auditSvc, logger)

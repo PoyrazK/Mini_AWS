@@ -21,18 +21,18 @@ type InstanceService struct {
 	repo       ports.InstanceRepository
 	vpcRepo    ports.VpcRepository
 	volumeRepo ports.VolumeRepository
-	docker     ports.DockerClient
+	compute    ports.ComputeBackend
 	eventSvc   ports.EventService
 	auditSvc   ports.AuditService
 	logger     *slog.Logger
 }
 
-func NewInstanceService(repo ports.InstanceRepository, vpcRepo ports.VpcRepository, volumeRepo ports.VolumeRepository, docker ports.DockerClient, eventSvc ports.EventService, auditSvc ports.AuditService, logger *slog.Logger) *InstanceService {
+func NewInstanceService(repo ports.InstanceRepository, vpcRepo ports.VpcRepository, volumeRepo ports.VolumeRepository, compute ports.ComputeBackend, eventSvc ports.EventService, auditSvc ports.AuditService, logger *slog.Logger) *InstanceService {
 	return &InstanceService{
 		repo:       repo,
 		vpcRepo:    vpcRepo,
 		volumeRepo: volumeRepo,
-		docker:     docker,
+		compute:    compute,
 		eventSvc:   eventSvc,
 		auditSvc:   auditSvc,
 		logger:     logger,
@@ -95,7 +95,7 @@ func (s *InstanceService) LaunchInstance(ctx context.Context, name, image, ports
 		attachedVolumes = append(attachedVolumes, vol)
 	}
 
-	containerID, err := s.docker.CreateContainer(ctx, dockerName, image, portList, networkID, volumeBinds, nil, nil)
+	containerID, err := s.compute.CreateInstance(ctx, dockerName, image, portList, networkID, volumeBinds, nil, nil)
 	if err != nil {
 		s.logger.Error("failed to create docker container", "name", dockerName, "image", image, "error", err)
 		inst.Status = domain.StatusError
@@ -201,7 +201,7 @@ func (s *InstanceService) StopInstance(ctx context.Context, idOrName string) err
 		target = fmt.Sprintf("thecloud-%s", inst.ID.String()[:8])
 	}
 
-	if err := s.docker.StopContainer(ctx, target); err != nil {
+	if err := s.compute.StopInstance(ctx, target); err != nil {
 		s.logger.Error("failed to stop docker container", "container_id", target, "error", err)
 		return errors.Wrap(errors.Internal, "failed to stop container", err)
 	}
@@ -244,7 +244,7 @@ func (s *InstanceService) GetInstanceLogs(ctx context.Context, idOrName string) 
 		return "", errors.New(errors.InstanceNotRunning, "instance has no active container")
 	}
 
-	stream, err := s.docker.GetLogs(ctx, inst.ContainerID)
+	stream, err := s.compute.GetInstanceLogs(ctx, inst.ContainerID)
 	if err != nil {
 		return "", err
 	}
@@ -296,7 +296,7 @@ func (s *InstanceService) removeInstanceContainer(ctx context.Context, inst *dom
 		containerID = fmt.Sprintf("thecloud-%s", inst.ID.String()[:8])
 	}
 
-	if err := s.docker.RemoveContainer(ctx, containerID); err != nil {
+	if err := s.compute.DeleteInstance(ctx, containerID); err != nil {
 		s.logger.Warn("failed to remove docker container", "container_id", containerID, "error", err)
 		return errors.Wrap(errors.Internal, "failed to remove container", err)
 	}
@@ -338,7 +338,7 @@ func (s *InstanceService) GetInstanceStats(ctx context.Context, idOrName string)
 		return nil, errors.New(errors.InstanceNotRunning, "instance not running")
 	}
 
-	stream, err := s.docker.GetContainerStats(ctx, inst.ContainerID)
+	stream, err := s.compute.GetInstanceStats(ctx, inst.ContainerID)
 	if err != nil {
 		return nil, errors.Wrap(errors.Internal, "failed to get stats stream", err)
 	}

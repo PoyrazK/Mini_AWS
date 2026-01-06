@@ -17,7 +17,7 @@ import (
 func TestStorageUpload_Success(t *testing.T) {
 	repo := new(MockStorageRepo)
 	store := new(MockFileStore)
-	auditSvc := new(services.MockAuditService)
+	auditSvc := new(MockAuditService)
 	svc := services.NewStorageService(repo, store, auditSvc)
 
 	userID := uuid.New()
@@ -46,7 +46,7 @@ func TestStorageUpload_Success(t *testing.T) {
 func TestStorageDownload_Success(t *testing.T) {
 	repo := new(MockStorageRepo)
 	store := new(MockFileStore)
-	auditSvc := new(services.MockAuditService)
+	auditSvc := new(MockAuditService)
 	svc := services.NewStorageService(repo, store, auditSvc)
 
 	userID := uuid.New()
@@ -73,7 +73,7 @@ func TestStorageDownload_Success(t *testing.T) {
 func TestStorageDelete_Success(t *testing.T) {
 	repo := new(MockStorageRepo)
 	store := new(MockFileStore)
-	auditSvc := new(services.MockAuditService)
+	auditSvc := new(MockAuditService)
 	svc := services.NewStorageService(repo, store, auditSvc)
 
 	userID := uuid.New()
@@ -93,7 +93,7 @@ func TestStorageDelete_Success(t *testing.T) {
 func TestStorageList_Success(t *testing.T) {
 	repo := new(MockStorageRepo)
 	store := new(MockFileStore)
-	auditSvc := new(services.MockAuditService)
+	auditSvc := new(MockAuditService)
 	svc := services.NewStorageService(repo, store, auditSvc)
 
 	ctx := context.Background()

@@ -16,7 +16,7 @@ import (
 
 type DatabaseService struct {
 	repo     ports.DatabaseRepository
-	docker   ports.DockerClient
+	compute  ports.ComputeBackend
 	vpcRepo  ports.VpcRepository
 	eventSvc ports.EventService
 	auditSvc ports.AuditService
@@ -25,7 +25,7 @@ type DatabaseService struct {
 
 func NewDatabaseService(
 	repo ports.DatabaseRepository,
-	docker ports.DockerClient,
+	compute ports.ComputeBackend,
 	vpcRepo ports.VpcRepository,
 	eventSvc ports.EventService,
 	auditSvc ports.AuditService,
@@ -33,7 +33,7 @@ func NewDatabaseService(
 ) *DatabaseService {
 	return &DatabaseService{
 		repo:     repo,
-		docker:   docker,
+		compute:  compute,
 		vpcRepo:  vpcRepo,
 		eventSvc: eventSvc,
 		auditSvc: auditSvc,
@@ -112,14 +112,14 @@ func (s *DatabaseService) CreateDatabase(ctx context.Context, name, engine, vers
 	dockerName := fmt.Sprintf("cloud-db-%s-%s", name, db.ID.String()[:8])
 	portMapping := []string{"0:" + defaultPort}
 
-	containerID, err := s.docker.CreateContainer(ctx, dockerName, imageName, portMapping, networkID, nil, env, nil)
+	containerID, err := s.compute.CreateInstance(ctx, dockerName, imageName, portMapping, networkID, nil, env, nil)
 	if err != nil {
 		s.logger.Error("failed to create database container", "error", err)
 		return nil, errors.Wrap(errors.Internal, "failed to launch database container", err)
 	}
 
 	// 5. Fetch host port
-	hostPort, err := s.docker.GetContainerPort(ctx, containerID, defaultPort)
+	hostPort, err := s.compute.GetInstancePort(ctx, containerID, defaultPort)
 	if err != nil {
 		s.logger.Warn("failed to get mapped port", "container_id", containerID, "error", err)
 		// We'll continue, but the connection string might be broken if not stored correctly.
@@ -132,7 +132,7 @@ func (s *DatabaseService) CreateDatabase(ctx context.Context, name, engine, vers
 	// Save to repo
 	if err := s.repo.Create(ctx, db); err != nil {
 		// Cleanup container if DB save fails
-		_ = s.docker.RemoveContainer(ctx, containerID)
+		_ = s.compute.DeleteInstance(ctx, containerID)
 		return nil, err
 	}
 
@@ -165,7 +165,7 @@ func (s *DatabaseService) DeleteDatabase(ctx context.Context, id uuid.UUID) erro
 
 	// 1. Remove container
 	if db.ContainerID != "" {
-		if err := s.docker.RemoveContainer(ctx, db.ContainerID); err != nil {
+		if err := s.compute.DeleteInstance(ctx, db.ContainerID); err != nil {
 			s.logger.Warn("failed to remove database container", "container_id", db.ContainerID, "error", err)
 		}
 	}

@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"path/filepath"
 	"time"
 
 	"strings"
@@ -48,7 +49,7 @@ func (a *DockerAdapter) Ping(ctx context.Context) error {
 	return err
 }
 
-func (a *DockerAdapter) CreateContainer(ctx context.Context, name, imageName string, ports []string, networkID string, volumeBinds []string, env []string, cmd []string) (string, error) {
+func (a *DockerAdapter) CreateInstance(ctx context.Context, name, imageName string, ports []string, networkID string, volumeBinds []string, env []string, cmd []string) (string, error) {
 	// 1. Ensure image exists (pull if not) - with timeout
 	pullCtx, pullCancel := context.WithTimeout(ctx, ImagePullTimeout)
 	defer pullCancel()
@@ -111,7 +112,7 @@ func (a *DockerAdapter) CreateContainer(ctx context.Context, name, imageName str
 	return resp.ID, nil
 }
 
-func (a *DockerAdapter) StopContainer(ctx context.Context, name string) error {
+func (a *DockerAdapter) StopInstance(ctx context.Context, name string) error {
 	err := a.cli.ContainerStop(ctx, name, container.StopOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to stop container %s: %w", name, err)
@@ -119,7 +120,7 @@ func (a *DockerAdapter) StopContainer(ctx context.Context, name string) error {
 	return nil
 }
 
-func (a *DockerAdapter) RemoveContainer(ctx context.Context, containerID string) error {
+func (a *DockerAdapter) DeleteInstance(ctx context.Context, containerID string) error {
 	err := a.cli.ContainerRemove(ctx, containerID, container.RemoveOptions{Force: true})
 	if err != nil {
 		if errdefs.IsNotFound(err) {
@@ -130,7 +131,7 @@ func (a *DockerAdapter) RemoveContainer(ctx context.Context, containerID string)
 	return nil
 }
 
-func (a *DockerAdapter) GetLogs(ctx context.Context, containerID string) (io.ReadCloser, error) {
+func (a *DockerAdapter) GetInstanceLogs(ctx context.Context, containerID string) (io.ReadCloser, error) {
 	options := container.LogsOptions{
 		ShowStdout: true,
 		ShowStderr: true,
@@ -154,7 +155,7 @@ func (a *DockerAdapter) GetLogs(ctx context.Context, containerID string) (io.Rea
 	return r, nil
 }
 
-func (a *DockerAdapter) GetContainerStats(ctx context.Context, containerID string) (io.ReadCloser, error) {
+func (a *DockerAdapter) GetInstanceStats(ctx context.Context, containerID string) (io.ReadCloser, error) {
 	// Stream: false = get one snapshot
 	stats, err := a.cli.ContainerStats(ctx, containerID, false)
 	if err != nil {
@@ -163,7 +164,7 @@ func (a *DockerAdapter) GetContainerStats(ctx context.Context, containerID strin
 	return stats.Body, nil
 }
 
-func (a *DockerAdapter) GetContainerPort(ctx context.Context, containerID string, containerPort string) (int, error) {
+func (a *DockerAdapter) GetInstancePort(ctx context.Context, containerID string, containerPort string) (int, error) {
 	inspect, err := a.cli.ContainerInspect(ctx, containerID)
 	if err != nil {
 		return 0, fmt.Errorf("failed to inspect container: %w", err)
@@ -194,7 +195,7 @@ func (a *DockerAdapter) CreateNetwork(ctx context.Context, name string) (string,
 	return resp.ID, nil
 }
 
-func (a *DockerAdapter) RemoveNetwork(ctx context.Context, networkID string) error {
+func (a *DockerAdapter) DeleteNetwork(ctx context.Context, networkID string) error {
 	err := a.cli.NetworkRemove(ctx, networkID)
 	if err != nil {
 		return fmt.Errorf("failed to remove network %s: %w", networkID, err)
@@ -217,6 +218,133 @@ func (a *DockerAdapter) DeleteVolume(ctx context.Context, name string) error {
 		return fmt.Errorf("failed to delete volume %s: %w", name, err)
 	}
 	return nil
+}
+
+func (a *DockerAdapter) CreateVolumeSnapshot(ctx context.Context, volumeID string, destinationPath string) error {
+	// Use a helper container to tar the volume content to host path
+	// volumeID is the docker volume name
+	// destinationPath is on the host
+
+	// Ensure parent dir of destinationPath exists
+	// We assume destinationPath is accessible to the docker daemon (bind mount)
+
+	// Create a temp container to do the work
+	imageName := "alpine"
+	// Ensure image exists
+	if _, err := a.cli.ImagePull(ctx, imageName, image.PullOptions{}); err != nil {
+		return fmt.Errorf("failed to pull alpine: %w", err)
+	}
+
+	cmd := []string{"tar", "czf", "/snapshot/snapshot.tar.gz", "-C", "/data", "."}
+
+	config := &container.Config{
+		Image: imageName,
+		Cmd:   cmd,
+	}
+
+	hostConfig := &container.HostConfig{
+		Binds: []string{
+			volumeID + ":/data:ro",
+			filepath.Dir(destinationPath) + ":/snapshot",
+		},
+	}
+
+	// We need to name the file correctly inside.
+	// We bind the PARENT directory of destinationPath to /snapshot
+	// And write to /snapshot/<filename>
+	filename := filepath.Base(destinationPath)
+	config.Cmd = []string{"tar", "czf", "/snapshot/" + filename, "-C", "/data", "."}
+
+	resp, err := a.cli.ContainerCreate(ctx, config, hostConfig, nil, nil, "")
+	if err != nil {
+		return fmt.Errorf("failed to create snapshot task: %w", err)
+	}
+	defer func() { _ = a.cli.ContainerRemove(ctx, resp.ID, container.RemoveOptions{Force: true}) }()
+
+	if err := a.cli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
+		return fmt.Errorf("failed to start snapshot task: %w", err)
+	}
+
+	statusCh, errCh := a.cli.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
+	select {
+	case err := <-errCh:
+		if err != nil {
+			return fmt.Errorf("error waiting for snapshot task: %w", err)
+		}
+	case status := <-statusCh:
+		if status.StatusCode != 0 {
+			return fmt.Errorf("snapshot task failed with exit code %d", status.StatusCode)
+		}
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+
+	return nil
+}
+
+func (a *DockerAdapter) RestoreVolumeSnapshot(ctx context.Context, volumeID string, sourcePath string) error {
+	// volumeID is the docker volume name
+	// sourcePath is the .tar.gz on host
+
+	imageName := "alpine"
+	if _, err := a.cli.ImagePull(ctx, imageName, image.PullOptions{}); err != nil {
+		return fmt.Errorf("failed to pull alpine: %w", err)
+	}
+
+	filename := filepath.Base(sourcePath)
+	config := &container.Config{
+		Image: imageName,
+		Cmd:   []string{"tar", "xzf", "/snapshot/" + filename, "-C", "/data"},
+	}
+
+	hostConfig := &container.HostConfig{
+		Binds: []string{
+			volumeID + ":/data",
+			filepath.Dir(sourcePath) + ":/snapshot:ro",
+		},
+	}
+
+	resp, err := a.cli.ContainerCreate(ctx, config, hostConfig, nil, nil, "")
+	if err != nil {
+		return fmt.Errorf("failed to create restore task: %w", err)
+	}
+	defer func() { _ = a.cli.ContainerRemove(ctx, resp.ID, container.RemoveOptions{Force: true}) }()
+
+	if err := a.cli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
+		return fmt.Errorf("failed to start restore task: %w", err)
+	}
+
+	statusCh, errCh := a.cli.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
+	select {
+	case err := <-errCh:
+		if err != nil {
+			return fmt.Errorf("error waiting for restore task: %w", err)
+		}
+	case status := <-statusCh:
+		if status.StatusCode != 0 {
+			return fmt.Errorf("restore task failed with exit code %d", status.StatusCode)
+		}
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+
+	return nil
+}
+
+func (a *DockerAdapter) GetInstanceIP(ctx context.Context, id string) (string, error) {
+	// Inspect container
+	json, err := a.cli.ContainerInspect(ctx, id)
+	if err != nil {
+		return "", fmt.Errorf("failed to inspect container: %w", err)
+	}
+
+	// Try to get IP from first network
+	for _, net := range json.NetworkSettings.Networks {
+		if net.IPAddress != "" {
+			return net.IPAddress, nil
+		}
+	}
+	return "", fmt.Errorf("no IP address found for container %s", id)
 }
 
 func (a *DockerAdapter) RunTask(ctx context.Context, opts ports.RunTaskOptions) (string, error) {
@@ -268,7 +396,7 @@ func (a *DockerAdapter) RunTask(ctx context.Context, opts ports.RunTaskOptions) 
 	return resp.ID, nil
 }
 
-func (a *DockerAdapter) WaitContainer(ctx context.Context, containerID string) (int64, error) {
+func (a *DockerAdapter) WaitTask(ctx context.Context, containerID string) (int64, error) {
 	statusCh, errCh := a.cli.ContainerWait(ctx, containerID, container.WaitConditionNotRunning)
 	select {
 	case err := <-errCh:

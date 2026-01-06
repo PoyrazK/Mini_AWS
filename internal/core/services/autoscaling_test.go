@@ -15,7 +15,7 @@ import (
 func TestCreateGroup_SecurityLimits(t *testing.T) {
 	mockRepo := new(MockAutoScalingRepo)
 	mockVpcRepo := new(MockVpcRepo)
-	auditSvc := new(services.MockAuditService)
+	auditSvc := new(MockAuditService)
 	svc := services.NewAutoScalingService(mockRepo, mockVpcRepo, auditSvc)
 	ctx := context.Background()
 	vpcID := uuid.New()
@@ -39,7 +39,7 @@ func TestCreateGroup_SecurityLimits(t *testing.T) {
 func TestCreateGroup_Success(t *testing.T) {
 	mockRepo := new(MockAutoScalingRepo)
 	mockVpcRepo := new(MockVpcRepo)
-	auditSvc := new(services.MockAuditService)
+	auditSvc := new(MockAuditService)
 	svc := services.NewAutoScalingService(mockRepo, mockVpcRepo, auditSvc)
 	ctx := context.Background()
 	vpcID := uuid.New()
@@ -63,7 +63,7 @@ func TestCreateGroup_Success(t *testing.T) {
 func TestCreateGroup_Idempotency(t *testing.T) {
 	mockRepo := new(MockAutoScalingRepo)
 	mockVpcRepo := new(MockVpcRepo)
-	auditSvc := new(services.MockAuditService)
+	auditSvc := new(MockAuditService)
 	svc := services.NewAutoScalingService(mockRepo, mockVpcRepo, auditSvc)
 	ctx := context.Background()
 	vpcID := uuid.New()
@@ -81,7 +81,7 @@ func TestCreateGroup_Idempotency(t *testing.T) {
 func TestCreateGroup_ValidationErrors(t *testing.T) {
 	mockRepo := new(MockAutoScalingRepo)
 	mockVpcRepo := new(MockVpcRepo)
-	auditSvc := new(services.MockAuditService)
+	auditSvc := new(MockAuditService)
 	svc := services.NewAutoScalingService(mockRepo, mockVpcRepo, auditSvc)
 	ctx := context.Background()
 	vpcID := uuid.New()
@@ -108,7 +108,7 @@ func TestCreateGroup_ValidationErrors(t *testing.T) {
 func TestDeleteGroup_Success(t *testing.T) {
 	mockRepo := new(MockAutoScalingRepo)
 	mockVpcRepo := new(MockVpcRepo)
-	auditSvc := new(services.MockAuditService)
+	auditSvc := new(MockAuditService)
 	svc := services.NewAutoScalingService(mockRepo, mockVpcRepo, auditSvc)
 	ctx := context.Background()
 	groupID := uuid.New()
@@ -129,7 +129,7 @@ func TestDeleteGroup_Success(t *testing.T) {
 func TestSetDesiredCapacity_Success(t *testing.T) {
 	mockRepo := new(MockAutoScalingRepo)
 	mockVpcRepo := new(MockVpcRepo)
-	auditSvc := new(services.MockAuditService)
+	auditSvc := new(MockAuditService)
 	svc := services.NewAutoScalingService(mockRepo, mockVpcRepo, auditSvc)
 	ctx := context.Background()
 	groupID := uuid.New()
@@ -149,7 +149,7 @@ func TestSetDesiredCapacity_Success(t *testing.T) {
 func TestSetDesiredCapacity_OutOfRange(t *testing.T) {
 	mockRepo := new(MockAutoScalingRepo)
 	mockVpcRepo := new(MockVpcRepo)
-	auditSvc := new(services.MockAuditService)
+	auditSvc := new(MockAuditService)
 	svc := services.NewAutoScalingService(mockRepo, mockVpcRepo, auditSvc)
 	ctx := context.Background()
 	groupID := uuid.New()
@@ -166,7 +166,7 @@ func TestSetDesiredCapacity_OutOfRange(t *testing.T) {
 func TestCreatePolicy_Success(t *testing.T) {
 	mockRepo := new(MockAutoScalingRepo)
 	mockVpcRepo := new(MockVpcRepo)
-	auditSvc := new(services.MockAuditService)
+	auditSvc := new(MockAuditService)
 	svc := services.NewAutoScalingService(mockRepo, mockVpcRepo, auditSvc)
 	ctx := context.Background()
 	groupID := uuid.New()
@@ -186,7 +186,7 @@ func TestCreatePolicy_Success(t *testing.T) {
 func TestCreatePolicy_CooldownTooLow(t *testing.T) {
 	mockRepo := new(MockAutoScalingRepo)
 	mockVpcRepo := new(MockVpcRepo)
-	auditSvc := new(services.MockAuditService)
+	auditSvc := new(MockAuditService)
 	svc := services.NewAutoScalingService(mockRepo, mockVpcRepo, auditSvc)
 	ctx := context.Background()
 	groupID := uuid.New()
@@ -202,7 +202,7 @@ func TestCreatePolicy_CooldownTooLow(t *testing.T) {
 func TestListGroups(t *testing.T) {
 	mockRepo := new(MockAutoScalingRepo)
 	mockVpcRepo := new(MockVpcRepo)
-	auditSvc := new(services.MockAuditService)
+	auditSvc := new(MockAuditService)
 	svc := services.NewAutoScalingService(mockRepo, mockVpcRepo, auditSvc)
 	ctx := context.Background()
 

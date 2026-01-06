@@ -34,16 +34,16 @@ var runtimes = map[string]RuntimeConfig{
 
 type FunctionService struct {
 	repo      ports.FunctionRepository
-	docker    ports.DockerClient
+	compute   ports.ComputeBackend
 	fileStore ports.FileStore
 	auditSvc  ports.AuditService
 	logger    *slog.Logger
 }
 
-func NewFunctionService(repo ports.FunctionRepository, docker ports.DockerClient, fileStore ports.FileStore, auditSvc ports.AuditService, logger *slog.Logger) *FunctionService {
+func NewFunctionService(repo ports.FunctionRepository, compute ports.ComputeBackend, fileStore ports.FileStore, auditSvc ports.AuditService, logger *slog.Logger) *FunctionService {
 	return &FunctionService{
 		repo:      repo,
-		docker:    docker,
+		compute:   compute,
 		fileStore: fileStore,
 		auditSvc:  auditSvc,
 		logger:    logger,
@@ -194,7 +194,7 @@ func (s *FunctionService) runInvocation(ctx context.Context, f *domain.Function,
 	opts.PidsLimit = &pidsLimit
 
 	// 3. Run Container
-	containerID, err := s.docker.RunTask(ctx, opts)
+	containerID, err := s.compute.RunTask(ctx, opts)
 	if err != nil {
 		i.Status = "FAILED"
 		i.Logs = fmt.Sprintf("Error running task: %v", err)
@@ -202,17 +202,17 @@ func (s *FunctionService) runInvocation(ctx context.Context, f *domain.Function,
 		return i, err
 	}
 	defer func() {
-		_ = s.docker.RemoveContainer(context.Background(), containerID)
+		_ = s.compute.DeleteInstance(context.Background(), containerID)
 	}()
 
 	// 4. Wait for Completion
 	waitCtx, cancel := context.WithTimeout(ctx, time.Duration(f.Timeout)*time.Second)
 	defer cancel()
 
-	statusCode, err := s.docker.WaitContainer(waitCtx, containerID)
+	statusCode, err := s.compute.WaitTask(waitCtx, containerID)
 
 	// 5. Capture Results
-	logsReader, _ := s.docker.GetLogs(context.Background(), containerID)
+	logsReader, _ := s.compute.GetInstanceLogs(context.Background(), containerID)
 	if logsReader != nil {
 		logBytes, _ := io.ReadAll(logsReader)
 		i.Logs = string(logBytes)
