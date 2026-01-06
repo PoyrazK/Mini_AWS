@@ -345,11 +345,11 @@ func main() {
 	dbGroup := r.Group("/databases")
 	dbGroup.Use(httputil.Auth(identitySvc))
 	{
-		dbGroup.POST("", httputil.Permission(rbacSvc, domain.PermissionDbCreate), databaseHandler.Create)
-		dbGroup.GET("", httputil.Permission(rbacSvc, domain.PermissionDbRead), databaseHandler.List)
-		dbGroup.GET("/:id", httputil.Permission(rbacSvc, domain.PermissionDbRead), databaseHandler.Get)
-		dbGroup.DELETE("/:id", httputil.Permission(rbacSvc, domain.PermissionDbDelete), databaseHandler.Delete)
-		dbGroup.GET("/:id/connection", httputil.Permission(rbacSvc, domain.PermissionDbRead), databaseHandler.GetConnectionString)
+		dbGroup.POST("", httputil.Permission(rbacSvc, domain.PermissionDBCreate), databaseHandler.Create)
+		dbGroup.GET("", httputil.Permission(rbacSvc, domain.PermissionDBRead), databaseHandler.List)
+		dbGroup.GET("/:id", httputil.Permission(rbacSvc, domain.PermissionDBRead), databaseHandler.Get)
+		dbGroup.DELETE("/:id", httputil.Permission(rbacSvc, domain.PermissionDBDelete), databaseHandler.Delete)
+		dbGroup.GET("/:id/connection", httputil.Permission(rbacSvc, domain.PermissionDBRead), databaseHandler.GetConnectionString)
 	}
 
 	// Secret Routes (Protected)

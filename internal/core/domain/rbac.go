@@ -36,9 +36,9 @@ const (
 	PermissionLbUpdate Permission = "lb:update"
 
 	// Database Permissions
-	PermissionDbCreate Permission = "db:create"
-	PermissionDbDelete Permission = "db:delete"
-	PermissionDbRead   Permission = "db:read"
+	PermissionDBCreate Permission = "db:create"
+	PermissionDBDelete Permission = "db:delete"
+	PermissionDBRead   Permission = "db:read"
 
 	// Secret Permissions
 	PermissionSecretCreate Permission = "secret:create"

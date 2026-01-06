@@ -21,7 +21,7 @@ type RoleRepository interface {
 	GetPermissionsForRole(ctx context.Context, roleID uuid.UUID) ([]domain.Permission, error)
 }
 
-// We can extend IdentityService for RBAC checks
+// RBACService handles role-based access control checks.
 type RBACService interface {
 	Authorize(ctx context.Context, userID uuid.UUID, permission domain.Permission) error
 	HasPermission(ctx context.Context, userID uuid.UUID, permission domain.Permission) (bool, error)
