@@ -70,7 +70,10 @@ func (s *stackService) CreateStack(ctx context.Context, name, templateStr string
 	}
 
 	// Process in background
-	go s.processStack(stack)
+	// Process in background
+	// Create a copy for the goroutine to avoid data race with the returned stack
+	stackCopy := *stack
+	go s.processStack(&stackCopy)
 
 	return stack, nil
 }
