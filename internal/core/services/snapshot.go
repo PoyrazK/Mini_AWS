@@ -18,7 +18,7 @@ import (
 type SnapshotService struct {
 	repo       ports.SnapshotRepository
 	volumeRepo ports.VolumeRepository
-	docker     ports.DockerClient
+	compute    ports.ComputeBackend
 	eventSvc   ports.EventService
 	auditSvc   ports.AuditService
 	logger     *slog.Logger
@@ -28,7 +28,7 @@ type SnapshotService struct {
 func NewSnapshotService(
 	repo ports.SnapshotRepository,
 	volumeRepo ports.VolumeRepository,
-	docker ports.DockerClient,
+	compute ports.ComputeBackend,
 	eventSvc ports.EventService,
 	auditSvc ports.AuditService,
 	logger *slog.Logger,
@@ -41,7 +41,7 @@ func NewSnapshotService(
 	return &SnapshotService{
 		repo:       repo,
 		volumeRepo: volumeRepo,
-		docker:     docker,
+		compute:    compute,
 		eventSvc:   eventSvc,
 		auditSvc:   auditSvc,
 		logger:     logger,
@@ -126,12 +126,12 @@ func (s *SnapshotService) performSnapshot(ctx context.Context, vol *domain.Volum
 		NetworkDisabled: true,
 	}
 
-	containerID, err := s.docker.RunTask(ctx, opts)
+	containerID, err := s.compute.RunTask(ctx, opts)
 	if err != nil {
 		return fmt.Errorf("failed to run snapshot task: %w", err)
 	}
 
-	exitCode, err := s.docker.WaitContainer(ctx, containerID)
+	exitCode, err := s.compute.WaitTask(ctx, containerID)
 	if err != nil {
 		return fmt.Errorf("failed to wait for snapshot task: %w", err)
 	}
@@ -141,7 +141,7 @@ func (s *SnapshotService) performSnapshot(ctx context.Context, vol *domain.Volum
 	}
 
 	// Clean up task container
-	_ = s.docker.RemoveContainer(ctx, containerID)
+	_ = s.compute.DeleteInstance(ctx, containerID)
 
 	return nil
 }
@@ -199,7 +199,7 @@ func (s *SnapshotService) RestoreSnapshot(ctx context.Context, snapshotID uuid.U
 
 	// 2. Create Docker Volume
 	dockerVolName := "thecloud-vol-" + vol.ID.String()[:8]
-	if err := s.docker.CreateVolume(ctx, dockerVolName); err != nil {
+	if err := s.compute.CreateVolume(ctx, dockerVolName); err != nil {
 		return nil, errors.Wrap(errors.Internal, "failed to create docker volume for restore", err)
 	}
 
@@ -218,28 +218,28 @@ func (s *SnapshotService) RestoreSnapshot(ctx context.Context, snapshotID uuid.U
 		NetworkDisabled: true,
 	}
 
-	containerID, err := s.docker.RunTask(ctx, opts)
+	containerID, err := s.compute.RunTask(ctx, opts)
 	if err != nil {
-		_ = s.docker.DeleteVolume(ctx, dockerVolName)
+		_ = s.compute.DeleteVolume(ctx, dockerVolName)
 		return nil, fmt.Errorf("failed to run restore task: %w", err)
 	}
 
-	exitCode, err := s.docker.WaitContainer(ctx, containerID)
+	exitCode, err := s.compute.WaitTask(ctx, containerID)
 	if err != nil {
-		_ = s.docker.DeleteVolume(ctx, dockerVolName)
+		_ = s.compute.DeleteVolume(ctx, dockerVolName)
 		return nil, fmt.Errorf("failed to wait for restore task: %w", err)
 	}
 
 	if exitCode != 0 {
-		_ = s.docker.DeleteVolume(ctx, dockerVolName)
+		_ = s.compute.DeleteVolume(ctx, dockerVolName)
 		return nil, fmt.Errorf("restore task failed with exit code %d", exitCode)
 	}
 
-	_ = s.docker.RemoveContainer(ctx, containerID)
+	_ = s.compute.DeleteInstance(ctx, containerID)
 
 	// 4. Save to DB
 	if err := s.volumeRepo.Create(ctx, vol); err != nil {
-		_ = s.docker.DeleteVolume(ctx, dockerVolName)
+		_ = s.compute.DeleteVolume(ctx, dockerVolName)
 		return nil, err
 	}
 

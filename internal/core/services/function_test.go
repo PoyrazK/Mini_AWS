@@ -54,9 +54,9 @@ func (m *MockFunctionRepo) GetInvocations(ctx context.Context, functionID uuid.U
 
 func TestFunctionService_InvokeFunction(t *testing.T) {
 	repo := new(MockFunctionRepo)
-	docker := new(MockDockerClient)
+	docker := new(MockComputeBackend)
 	fileStore := new(MockFileStore)
-	auditSvc := new(services.MockAuditService)
+	auditSvc := new(MockAuditService)
 	logger := slog.Default()
 
 	svc := services.NewFunctionService(repo, docker, fileStore, auditSvc, logger)
@@ -78,9 +78,9 @@ func TestFunctionService_InvokeFunction(t *testing.T) {
 
 func TestCreateFunction_Success(t *testing.T) {
 	repo := new(MockFunctionRepo)
-	docker := new(MockDockerClient)
+	docker := new(MockComputeBackend)
 	fileStore := new(MockFileStore)
-	auditSvc := new(services.MockAuditService)
+	auditSvc := new(MockAuditService)
 	logger := slog.Default()
 
 	svc := services.NewFunctionService(repo, docker, fileStore, auditSvc, logger)
@@ -101,9 +101,9 @@ func TestCreateFunction_Success(t *testing.T) {
 
 func TestCreateFunction_InvalidRuntime(t *testing.T) {
 	repo := new(MockFunctionRepo)
-	docker := new(MockDockerClient)
+	docker := new(MockComputeBackend)
 	fileStore := new(MockFileStore)
-	auditSvc := new(services.MockAuditService)
+	auditSvc := new(MockAuditService)
 	logger := slog.Default()
 
 	svc := services.NewFunctionService(repo, docker, fileStore, auditSvc, logger)
@@ -119,9 +119,9 @@ func TestCreateFunction_InvalidRuntime(t *testing.T) {
 
 func TestListFunctions(t *testing.T) {
 	repo := new(MockFunctionRepo)
-	docker := new(MockDockerClient)
+	docker := new(MockComputeBackend)
 	fileStore := new(MockFileStore)
-	auditSvc := new(services.MockAuditService)
+	auditSvc := new(MockAuditService)
 	logger := slog.Default()
 
 	svc := services.NewFunctionService(repo, docker, fileStore, auditSvc, logger)
@@ -141,9 +141,9 @@ func TestListFunctions(t *testing.T) {
 
 func TestDeleteFunction(t *testing.T) {
 	repo := new(MockFunctionRepo)
-	docker := new(MockDockerClient)
+	docker := new(MockComputeBackend)
 	fileStore := new(MockFileStore)
-	auditSvc := new(services.MockAuditService)
+	auditSvc := new(MockAuditService)
 	logger := slog.Default()
 
 	svc := services.NewFunctionService(repo, docker, fileStore, auditSvc, logger)
@@ -166,9 +166,9 @@ func TestDeleteFunction(t *testing.T) {
 
 func TestGetFunctionLogs(t *testing.T) {
 	repo := new(MockFunctionRepo)
-	docker := new(MockDockerClient)
+	docker := new(MockComputeBackend)
 	fileStore := new(MockFileStore)
-	auditSvc := new(services.MockAuditService)
+	auditSvc := new(MockAuditService)
 	logger := slog.Default()
 
 	svc := services.NewFunctionService(repo, docker, fileStore, auditSvc, logger)

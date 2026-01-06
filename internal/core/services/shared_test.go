@@ -793,67 +793,67 @@ func (m *MockInstanceRepo) ListByVPC(ctx context.Context, vpcID uuid.UUID) ([]*d
 }
 
 // MockDockerClient
-type MockDockerClient struct{ mock.Mock }
+type MockComputeBackend struct{ mock.Mock }
 
-func (m *MockDockerClient) CreateContainer(ctx context.Context, name, image string, ports []string, networkID string, volumeBinds []string, env []string, cmd []string) (string, error) {
+func (m *MockComputeBackend) CreateInstance(ctx context.Context, name, image string, ports []string, networkID string, volumeBinds []string, env []string, cmd []string) (string, error) {
 	args := m.Called(ctx, name, image, ports, networkID, volumeBinds, env, cmd)
 	return args.String(0), args.Error(1)
 }
-func (m *MockDockerClient) StopContainer(ctx context.Context, id string) error {
+func (m *MockComputeBackend) StopInstance(ctx context.Context, id string) error {
 	args := m.Called(ctx, id)
 	return args.Error(0)
 }
-func (m *MockDockerClient) RemoveContainer(ctx context.Context, id string) error {
+func (m *MockComputeBackend) DeleteInstance(ctx context.Context, id string) error {
 	args := m.Called(ctx, id)
 	return args.Error(0)
 }
-func (m *MockDockerClient) GetLogs(ctx context.Context, id string) (io.ReadCloser, error) {
+func (m *MockComputeBackend) GetInstanceLogs(ctx context.Context, id string) (io.ReadCloser, error) {
 	args := m.Called(ctx, id)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(io.ReadCloser), args.Error(1)
 }
-func (m *MockDockerClient) GetContainerStats(ctx context.Context, id string) (io.ReadCloser, error) {
+func (m *MockComputeBackend) GetInstanceStats(ctx context.Context, id string) (io.ReadCloser, error) {
 	args := m.Called(ctx, id)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(io.ReadCloser), args.Error(1)
 }
-func (m *MockDockerClient) GetContainerPort(ctx context.Context, id string, port string) (int, error) {
+func (m *MockComputeBackend) GetInstancePort(ctx context.Context, id string, port string) (int, error) {
 	args := m.Called(ctx, id, port)
 	return args.Int(0), args.Error(1)
 }
-func (m *MockDockerClient) CreateNetwork(ctx context.Context, name string) (string, error) {
+func (m *MockComputeBackend) CreateNetwork(ctx context.Context, name string) (string, error) {
 	args := m.Called(ctx, name)
 	return args.String(0), args.Error(1)
 }
-func (m *MockDockerClient) RemoveNetwork(ctx context.Context, id string) error {
+func (m *MockComputeBackend) DeleteNetwork(ctx context.Context, id string) error {
 	args := m.Called(ctx, id)
 	return args.Error(0)
 }
-func (m *MockDockerClient) CreateVolume(ctx context.Context, name string) error {
+func (m *MockComputeBackend) CreateVolume(ctx context.Context, name string) error {
 	args := m.Called(ctx, name)
 	return args.Error(0)
 }
-func (m *MockDockerClient) DeleteVolume(ctx context.Context, name string) error {
+func (m *MockComputeBackend) DeleteVolume(ctx context.Context, name string) error {
 	args := m.Called(ctx, name)
 	return args.Error(0)
 }
-func (m *MockDockerClient) RunTask(ctx context.Context, opts ports.RunTaskOptions) (string, error) {
+func (m *MockComputeBackend) RunTask(ctx context.Context, opts ports.RunTaskOptions) (string, error) {
 	args := m.Called(ctx, opts)
 	return args.String(0), args.Error(1)
 }
-func (m *MockDockerClient) WaitContainer(ctx context.Context, id string) (int64, error) {
+func (m *MockComputeBackend) WaitTask(ctx context.Context, id string) (int64, error) {
 	args := m.Called(ctx, id)
-	return int64(args.Int(0)), args.Error(1)
+	return args.Get(0).(int64), args.Error(1)
 }
-func (m *MockDockerClient) Exec(ctx context.Context, containerID string, cmd []string) (string, error) {
+func (m *MockComputeBackend) Exec(ctx context.Context, containerID string, cmd []string) (string, error) {
 	args := m.Called(ctx, containerID, cmd)
 	return args.String(0), args.Error(1)
 }
-func (m *MockDockerClient) Ping(ctx context.Context) error {
+func (m *MockComputeBackend) Ping(ctx context.Context) error {
 	args := m.Called(ctx)
 	return args.Error(0)
 }

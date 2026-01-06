@@ -15,7 +15,7 @@ import (
 func TestContainerService_CreateDeployment(t *testing.T) {
 	repo := new(MockContainerRepo)
 	eventSvc := new(MockEventService)
-	auditSvc := new(services.MockAuditService)
+	auditSvc := new(MockAuditService)
 	svc := services.NewContainerService(repo, eventSvc, auditSvc)
 
 	userID := uuid.New()
@@ -36,7 +36,7 @@ func TestContainerService_CreateDeployment(t *testing.T) {
 
 func TestContainerService_ScaleDeployment(t *testing.T) {
 	repo := new(MockContainerRepo)
-	auditSvc := new(services.MockAuditService)
+	auditSvc := new(MockAuditService)
 	svc := services.NewContainerService(repo, nil, auditSvc)
 
 	userID := uuid.New()

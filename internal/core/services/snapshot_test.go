@@ -18,7 +18,7 @@ import (
 func TestCreateSnapshot_Success(t *testing.T) {
 	repo := new(MockSnapshotRepo)
 	volRepo := new(MockVolumeRepo)
-	docker := new(MockDockerClient)
+	docker := new(MockComputeBackend)
 	eventSvc := new(MockEventService)
 	auditSvc := new(MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
@@ -40,8 +40,8 @@ func TestCreateSnapshot_Success(t *testing.T) {
 
 	// Async expectations
 	docker.On("RunTask", mock.Anything, mock.Anything).Return("task-123", nil)
-	docker.On("WaitContainer", mock.Anything, "task-123").Return(0, nil)
-	docker.On("RemoveContainer", mock.Anything, "task-123").Return(nil)
+	docker.On("WaitTask", mock.Anything, "task-123").Return(int64(0), nil)
+	docker.On("DeleteInstance", mock.Anything, "task-123").Return(nil)
 	repo.On("Update", mock.Anything, mock.AnythingOfType("*domain.Snapshot")).Return(nil)
 
 	snap, err := svc.CreateSnapshot(ctx, volID, "Test snapshot")
@@ -62,7 +62,7 @@ func TestCreateSnapshot_Success(t *testing.T) {
 func TestRestoreSnapshot_Success(t *testing.T) {
 	repo := new(MockSnapshotRepo)
 	volRepo := new(MockVolumeRepo)
-	docker := new(MockDockerClient)
+	docker := new(MockComputeBackend)
 	eventSvc := new(MockEventService)
 	auditSvc := new(MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
@@ -82,8 +82,8 @@ func TestRestoreSnapshot_Success(t *testing.T) {
 	repo.On("GetByID", ctx, snapID).Return(snap, nil)
 	docker.On("CreateVolume", ctx, mock.Anything).Return(nil)
 	docker.On("RunTask", ctx, mock.Anything).Return("task-123", nil)
-	docker.On("WaitContainer", ctx, "task-123").Return(0, nil)
-	docker.On("RemoveContainer", ctx, "task-123").Return(nil)
+	docker.On("WaitTask", ctx, "task-123").Return(int64(0), nil)
+	docker.On("DeleteInstance", ctx, "task-123").Return(nil)
 	volRepo.On("Create", ctx, mock.AnythingOfType("*domain.Volume")).Return(nil)
 
 	eventSvc.On("RecordEvent", ctx, "VOLUME_RESTORE", mock.Anything, "VOLUME", mock.Anything).Return(nil)
@@ -104,7 +104,7 @@ func TestRestoreSnapshot_Success(t *testing.T) {
 func TestDeleteSnapshot_Success(t *testing.T) {
 	repo := new(MockSnapshotRepo)
 	volRepo := new(MockVolumeRepo)
-	docker := new(MockDockerClient)
+	docker := new(MockComputeBackend)
 	eventSvc := new(MockEventService)
 	auditSvc := new(MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))

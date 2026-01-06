@@ -14,16 +14,16 @@ import (
 
 type VolumeService struct {
 	repo     ports.VolumeRepository
-	docker   ports.DockerClient
+	compute  ports.ComputeBackend
 	eventSvc ports.EventService
 	auditSvc ports.AuditService
 	logger   *slog.Logger
 }
 
-func NewVolumeService(repo ports.VolumeRepository, docker ports.DockerClient, eventSvc ports.EventService, auditSvc ports.AuditService, logger *slog.Logger) *VolumeService {
+func NewVolumeService(repo ports.VolumeRepository, compute ports.ComputeBackend, eventSvc ports.EventService, auditSvc ports.AuditService, logger *slog.Logger) *VolumeService {
 	return &VolumeService{
 		repo:     repo,
-		docker:   docker,
+		compute:  compute,
 		eventSvc: eventSvc,
 		auditSvc: auditSvc,
 		logger:   logger,
@@ -44,7 +44,7 @@ func (s *VolumeService) CreateVolume(ctx context.Context, name string, sizeGB in
 
 	// 2. Create Docker Volume
 	dockerName := "thecloud-vol-" + vol.ID.String()[:8]
-	if err := s.docker.CreateVolume(ctx, dockerName); err != nil {
+	if err := s.compute.CreateVolume(ctx, dockerName); err != nil {
 		s.logger.Error("failed to create docker volume", "name", dockerName, "error", err)
 		return nil, errors.Wrap(errors.Internal, "failed to create volume", err)
 	}
@@ -52,7 +52,7 @@ func (s *VolumeService) CreateVolume(ctx context.Context, name string, sizeGB in
 	// 3. Persist to DB
 	if err := s.repo.Create(ctx, vol); err != nil {
 		// Rollback Docker Volume
-		_ = s.docker.DeleteVolume(ctx, dockerName)
+		_ = s.compute.DeleteVolume(ctx, dockerName)
 		return nil, err
 	}
 
@@ -94,7 +94,7 @@ func (s *VolumeService) DeleteVolume(ctx context.Context, idOrName string) error
 
 	// 1. Delete Docker Volume
 	dockerName := "thecloud-vol-" + vol.ID.String()[:8]
-	if err := s.docker.DeleteVolume(ctx, dockerName); err != nil {
+	if err := s.compute.DeleteVolume(ctx, dockerName); err != nil {
 		s.logger.Warn("failed to delete docker volume", "name", dockerName, "error", err)
 	}
 

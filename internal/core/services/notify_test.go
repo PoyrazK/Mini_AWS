@@ -15,7 +15,7 @@ import (
 func TestNotifyService_CreateTopic(t *testing.T) {
 	repo := new(MockNotifyRepo)
 	eventSvc := new(MockEventService)
-	auditSvc := new(services.MockAuditService)
+	auditSvc := new(MockAuditService)
 	svc := services.NewNotifyService(repo, nil, eventSvc, auditSvc)
 
 	userID := uuid.New()
@@ -39,7 +39,7 @@ func TestNotifyService_Publish(t *testing.T) {
 	repo := new(MockNotifyRepo)
 	queueSvc := new(MockQueueService)
 	eventSvc := new(MockEventService)
-	auditSvc := new(services.MockAuditService)
+	auditSvc := new(MockAuditService)
 	svc := services.NewNotifyService(repo, queueSvc, eventSvc, auditSvc)
 
 	userID := uuid.New()

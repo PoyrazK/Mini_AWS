@@ -19,7 +19,7 @@ func TestQueueService_CreateQueue(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		mockRepo := new(MockQueueRepo)
 		mockEventSvc := new(MockEventService)
-		auditSvc := new(services.MockAuditService)
+		auditSvc := new(MockAuditService)
 		svc := services.NewQueueService(mockRepo, mockEventSvc, auditSvc)
 
 		mockRepo.On("GetByName", ctx, "test-queue", userID).Return(nil, nil)
@@ -39,7 +39,7 @@ func TestQueueService_CreateQueue(t *testing.T) {
 	t.Run("AlreadyExists", func(t *testing.T) {
 		mockRepo := new(MockQueueRepo)
 		mockEventSvc := new(MockEventService)
-		auditSvc := new(services.MockAuditService)
+		auditSvc := new(MockAuditService)
 		svc := services.NewQueueService(mockRepo, mockEventSvc, auditSvc)
 
 		existing := &domain.Queue{ID: uuid.New(), Name: "test-queue", UserID: userID}
@@ -56,7 +56,7 @@ func TestQueueService_CreateQueue(t *testing.T) {
 	t.Run("Unauthorized", func(t *testing.T) {
 		mockRepo := new(MockQueueRepo)
 		mockEventSvc := new(MockEventService)
-		auditSvc := new(services.MockAuditService)
+		auditSvc := new(MockAuditService)
 		svc := services.NewQueueService(mockRepo, mockEventSvc, auditSvc)
 
 		_, err := svc.CreateQueue(context.Background(), "test-queue", nil)
@@ -74,7 +74,7 @@ func TestQueueService_SendMessage(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		mockRepo := new(MockQueueRepo)
 		mockEventSvc := new(MockEventService)
-		auditSvc := new(services.MockAuditService)
+		auditSvc := new(MockAuditService)
 		svc := services.NewQueueService(mockRepo, mockEventSvc, auditSvc)
 
 		mockRepo.On("GetByID", ctx, queueID, userID).Return(queue, nil)
@@ -92,7 +92,7 @@ func TestQueueService_SendMessage(t *testing.T) {
 	t.Run("MessageTooLarge", func(t *testing.T) {
 		mockRepo := new(MockQueueRepo)
 		mockEventSvc := new(MockEventService)
-		auditSvc := new(services.MockAuditService)
+		auditSvc := new(MockAuditService)
 		svc := services.NewQueueService(mockRepo, mockEventSvc, auditSvc)
 
 		mockRepo.On("GetByID", ctx, queueID, userID).Return(queue, nil)
@@ -114,7 +114,7 @@ func TestQueueService_ReceiveMessages(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		mockRepo := new(MockQueueRepo)
 		mockEventSvc := new(MockEventService)
-		auditSvc := new(services.MockAuditService)
+		auditSvc := new(MockAuditService)
 		svc := services.NewQueueService(mockRepo, mockEventSvc, auditSvc)
 
 		mockRepo.On("GetByID", ctx, queueID, userID).Return(queue, nil)

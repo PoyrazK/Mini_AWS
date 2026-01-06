@@ -19,7 +19,7 @@ import (
 
 type CacheService struct {
 	repo     ports.CacheRepository
-	docker   ports.DockerClient
+	compute  ports.ComputeBackend
 	vpcRepo  ports.VpcRepository
 	eventSvc ports.EventService
 	auditSvc ports.AuditService
@@ -28,7 +28,7 @@ type CacheService struct {
 
 func NewCacheService(
 	repo ports.CacheRepository,
-	docker ports.DockerClient,
+	compute ports.ComputeBackend,
 	vpcRepo ports.VpcRepository,
 	eventSvc ports.EventService,
 	auditSvc ports.AuditService,
@@ -36,7 +36,7 @@ func NewCacheService(
 ) *CacheService {
 	return &CacheService{
 		repo:     repo,
-		docker:   docker,
+		compute:  compute,
 		vpcRepo:  vpcRepo,
 		eventSvc: eventSvc,
 		auditSvc: auditSvc,
@@ -103,7 +103,7 @@ func (s *CacheService) CreateCache(ctx context.Context, name, version string, me
 	// Expose default port
 	portMapping := []string{"0:6379"}
 
-	containerID, err := s.docker.CreateContainer(ctx, dockerName, imageName, portMapping, networkID, nil, nil, cmd)
+	containerID, err := s.compute.CreateInstance(ctx, dockerName, imageName, portMapping, networkID, nil, nil, cmd)
 	if err != nil {
 		s.logger.Error("failed to create cache container", "error", err)
 		cache.Status = domain.CacheStatusFailed
@@ -112,7 +112,7 @@ func (s *CacheService) CreateCache(ctx context.Context, name, version string, me
 	}
 
 	// Get assigned port
-	port, err := s.docker.GetContainerPort(ctx, containerID, "6379")
+	port, err := s.compute.GetInstancePort(ctx, containerID, "6379")
 	if err != nil {
 		s.logger.Error("failed to get cache port", "error", err)
 		// Don't fail completely, try to recover later or let user retry
@@ -159,10 +159,10 @@ func (s *CacheService) DeleteCache(ctx context.Context, idOrName string) error {
 	}
 
 	if cache.ContainerID != "" {
-		if err := s.docker.StopContainer(ctx, cache.ContainerID); err != nil {
+		if err := s.compute.StopInstance(ctx, cache.ContainerID); err != nil {
 			s.logger.Warn("failed to stop cache container", "container_id", cache.ContainerID, "error", err)
 		}
-		if err := s.docker.RemoveContainer(ctx, cache.ContainerID); err != nil {
+		if err := s.compute.DeleteInstance(ctx, cache.ContainerID); err != nil {
 			s.logger.Warn("failed to remove cache container", "container_id", cache.ContainerID, "error", err)
 		}
 	}
@@ -217,7 +217,7 @@ func (s *CacheService) FlushCache(ctx context.Context, idOrName string) error {
 	}
 	cmd = append(cmd, "FLUSHALL")
 
-	output, err := s.docker.Exec(ctx, cache.ContainerID, cmd)
+	output, err := s.compute.Exec(ctx, cache.ContainerID, cmd)
 	if err != nil {
 		return errors.Wrap(errors.Internal, "failed to flush cache: "+output, err)
 	}
@@ -237,7 +237,7 @@ func (s *CacheService) GetCacheStats(ctx context.Context, idOrName string) (*por
 		return nil, errors.New(errors.InstanceNotRunning, "cache is not running")
 	}
 
-	stream, err := s.docker.GetContainerStats(ctx, cache.ContainerID)
+	stream, err := s.compute.GetInstanceStats(ctx, cache.ContainerID)
 	if err != nil {
 		return nil, err
 	}
@@ -268,7 +268,7 @@ func (s *CacheService) GetCacheStats(ctx context.Context, idOrName string) (*por
 	}
 	cmd = append(cmd, "INFO")
 
-	output, err := s.docker.Exec(ctx, cache.ContainerID, cmd)
+	output, err := s.compute.Exec(ctx, cache.ContainerID, cmd)
 	if err == nil {
 		result.ConnectedClients = parseRedisClients(output)
 		result.TotalKeys = parseRedisKeys(output)

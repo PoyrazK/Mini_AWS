@@ -48,7 +48,7 @@ func (a *DockerAdapter) Ping(ctx context.Context) error {
 	return err
 }
 
-func (a *DockerAdapter) CreateContainer(ctx context.Context, name, imageName string, ports []string, networkID string, volumeBinds []string, env []string, cmd []string) (string, error) {
+func (a *DockerAdapter) CreateInstance(ctx context.Context, name, imageName string, ports []string, networkID string, volumeBinds []string, env []string, cmd []string) (string, error) {
 	// 1. Ensure image exists (pull if not) - with timeout
 	pullCtx, pullCancel := context.WithTimeout(ctx, ImagePullTimeout)
 	defer pullCancel()
@@ -111,7 +111,7 @@ func (a *DockerAdapter) CreateContainer(ctx context.Context, name, imageName str
 	return resp.ID, nil
 }
 
-func (a *DockerAdapter) StopContainer(ctx context.Context, name string) error {
+func (a *DockerAdapter) StopInstance(ctx context.Context, name string) error {
 	err := a.cli.ContainerStop(ctx, name, container.StopOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to stop container %s: %w", name, err)
@@ -119,7 +119,7 @@ func (a *DockerAdapter) StopContainer(ctx context.Context, name string) error {
 	return nil
 }
 
-func (a *DockerAdapter) RemoveContainer(ctx context.Context, containerID string) error {
+func (a *DockerAdapter) DeleteInstance(ctx context.Context, containerID string) error {
 	err := a.cli.ContainerRemove(ctx, containerID, container.RemoveOptions{Force: true})
 	if err != nil {
 		if errdefs.IsNotFound(err) {
@@ -130,7 +130,7 @@ func (a *DockerAdapter) RemoveContainer(ctx context.Context, containerID string)
 	return nil
 }
 
-func (a *DockerAdapter) GetLogs(ctx context.Context, containerID string) (io.ReadCloser, error) {
+func (a *DockerAdapter) GetInstanceLogs(ctx context.Context, containerID string) (io.ReadCloser, error) {
 	options := container.LogsOptions{
 		ShowStdout: true,
 		ShowStderr: true,
@@ -154,7 +154,7 @@ func (a *DockerAdapter) GetLogs(ctx context.Context, containerID string) (io.Rea
 	return r, nil
 }
 
-func (a *DockerAdapter) GetContainerStats(ctx context.Context, containerID string) (io.ReadCloser, error) {
+func (a *DockerAdapter) GetInstanceStats(ctx context.Context, containerID string) (io.ReadCloser, error) {
 	// Stream: false = get one snapshot
 	stats, err := a.cli.ContainerStats(ctx, containerID, false)
 	if err != nil {
@@ -163,7 +163,7 @@ func (a *DockerAdapter) GetContainerStats(ctx context.Context, containerID strin
 	return stats.Body, nil
 }
 
-func (a *DockerAdapter) GetContainerPort(ctx context.Context, containerID string, containerPort string) (int, error) {
+func (a *DockerAdapter) GetInstancePort(ctx context.Context, containerID string, containerPort string) (int, error) {
 	inspect, err := a.cli.ContainerInspect(ctx, containerID)
 	if err != nil {
 		return 0, fmt.Errorf("failed to inspect container: %w", err)
@@ -194,7 +194,7 @@ func (a *DockerAdapter) CreateNetwork(ctx context.Context, name string) (string,
 	return resp.ID, nil
 }
 
-func (a *DockerAdapter) RemoveNetwork(ctx context.Context, networkID string) error {
+func (a *DockerAdapter) DeleteNetwork(ctx context.Context, networkID string) error {
 	err := a.cli.NetworkRemove(ctx, networkID)
 	if err != nil {
 		return fmt.Errorf("failed to remove network %s: %w", networkID, err)
@@ -268,7 +268,7 @@ func (a *DockerAdapter) RunTask(ctx context.Context, opts ports.RunTaskOptions) 
 	return resp.ID, nil
 }
 
-func (a *DockerAdapter) WaitContainer(ctx context.Context, containerID string) (int64, error) {
+func (a *DockerAdapter) WaitTask(ctx context.Context, containerID string) (int64, error) {
 	statusCh, errCh := a.cli.ContainerWait(ctx, containerID, container.WaitConditionNotRunning)
 	select {
 	case err := <-errCh:

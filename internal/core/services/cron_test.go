@@ -15,7 +15,7 @@ import (
 func TestCronService_CreateJob(t *testing.T) {
 	repo := new(MockCronRepo)
 	eventSvc := new(MockEventService)
-	auditSvc := new(services.MockAuditService)
+	auditSvc := new(MockAuditService)
 	svc := services.NewCronService(repo, eventSvc, auditSvc)
 
 	userID := uuid.New()
@@ -37,7 +37,7 @@ func TestCronService_CreateJob(t *testing.T) {
 
 func TestCronService_PauseResume(t *testing.T) {
 	repo := new(MockCronRepo)
-	auditSvc := new(services.MockAuditService)
+	auditSvc := new(MockAuditService)
 	svc := services.NewCronService(repo, nil, auditSvc)
 
 	userID := uuid.New()
