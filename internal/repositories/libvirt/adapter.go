@@ -7,7 +7,10 @@ import (
 	"log/slog"
 	"net"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/digitalocean/go-libvirt"
@@ -21,6 +24,9 @@ type LibvirtAdapter struct {
 	conn   *libvirt.Libvirt
 	logger *slog.Logger
 	uri    string
+
+	mu           sync.RWMutex
+	portMappings map[string]map[string]int // instanceID -> internalPort -> hostPort
 }
 
 func NewLibvirtAdapter(logger *slog.Logger, uri string) (*LibvirtAdapter, error) {
@@ -41,9 +47,10 @@ func NewLibvirtAdapter(logger *slog.Logger, uri string) (*LibvirtAdapter, error)
 	}
 
 	return &LibvirtAdapter{
-		conn:   l,
-		logger: logger,
-		uri:    uri,
+		conn:         l,
+		logger:       logger,
+		uri:          uri,
+		portMappings: make(map[string]map[string]int),
 	}, nil
 }
 
@@ -101,9 +108,76 @@ func (a *LibvirtAdapter) CreateInstance(ctx context.Context, name, imageName str
 		return "", fmt.Errorf("failed to start domain: %w", err)
 	}
 
-	// Determine UUID (Name is used as ID here usually, but libvirt has UUID)
-	// We return Name as ID to keep standard with arguments
+	// 4. Port Forwarding (Best effort)
+	if len(ports) > 0 {
+		go func() {
+			// Wait for VM to get an IP
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+			defer cancel()
+
+			ip, err := a.waitInitialIP(ctx, name)
+			if err != nil {
+				a.logger.Error("failed to get ip for port forwarding", "instance", name, "error", err)
+				return
+			}
+
+			for _, p := range ports {
+				// Format: [hostPort:]containerPort
+				parts := strings.Split(p, ":")
+				var hostPort, containerPort string
+				if len(parts) == 2 {
+					hostPort = parts[0]
+					containerPort = parts[1]
+				} else {
+					hostPort = "0"
+					containerPort = parts[0]
+				}
+
+				hPort := 0
+				if hostPort == "0" {
+					// Allocate random port (deterministic for simplicity in this POC)
+					hPort = 30000 + int(uuid.New().ID()%10000)
+				} else {
+					fmt.Sscanf(hostPort, "%d", &hPort)
+				}
+
+				if hPort > 0 {
+					a.mu.Lock()
+					if a.portMappings[name] == nil {
+						a.portMappings[name] = make(map[string]int)
+					}
+					a.portMappings[name][containerPort] = hPort
+					a.mu.Unlock()
+
+					a.logger.Info("setting up port forwarding", "host", hPort, "vm", containerPort, "ip", ip)
+					// iptables -t nat -A PREROUTING -p tcp --dport <hPort> -j DNAT --to <ip>:<containerPort>
+					path, _ := exec.LookPath("iptables")
+					if path != "" {
+						cmd := exec.Command("sudo", "iptables", "-t", "nat", "-A", "PREROUTING", "-p", "tcp", "--dport", fmt.Sprintf("%d", hPort), "-j", "DNAT", "--to", ip+":"+containerPort)
+						_ = cmd.Run()
+					}
+				}
+			}
+		}()
+	}
+
 	return name, nil
+}
+
+func (a *LibvirtAdapter) waitInitialIP(ctx context.Context, id string) (string, error) {
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return "", ctx.Err()
+		case <-ticker.C:
+			ip, err := a.GetInstanceIP(ctx, id)
+			if err == nil && ip != "" {
+				return ip, nil
+			}
+		}
+	}
 }
 
 func (a *LibvirtAdapter) StopInstance(ctx context.Context, id string) error {
@@ -134,6 +208,17 @@ func (a *LibvirtAdapter) DeleteInstance(ctx context.Context, id string) error {
 	if err := a.conn.DomainUndefine(dom); err != nil {
 		return fmt.Errorf("failed to undefine domain: %w", err)
 	}
+
+	// Cleanup port mappings and iptables rules if possible
+	a.mu.Lock()
+	if mappings, ok := a.portMappings[id]; ok {
+		for _, hPort := range mappings {
+			// Best effort cleanup: iptables -t nat -D PREROUTING ...
+			_ = exec.Command("sudo", "iptables", "-t", "nat", "-D", "PREROUTING", "-p", "tcp", "--dport", fmt.Sprintf("%d", hPort), "-j", "DNAT").Run()
+		}
+		delete(a.portMappings, id)
+	}
+	a.mu.Unlock()
 
 	// Try to delete root volume?
 	// Name-root
@@ -192,7 +277,16 @@ func (a *LibvirtAdapter) GetInstanceStats(ctx context.Context, id string) (io.Re
 }
 
 func (a *LibvirtAdapter) GetInstancePort(ctx context.Context, id string, internalPort string) (int, error) {
-	return 0, fmt.Errorf("port forwarding not supported in libvirt adapter")
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+
+	if mappings, ok := a.portMappings[id]; ok {
+		if hostPort, ok := mappings[internalPort]; ok {
+			return hostPort, nil
+		}
+	}
+
+	return 0, fmt.Errorf("no host port mapping found for instance %s port %s", id, internalPort)
 }
 
 func (a *LibvirtAdapter) GetInstanceIP(ctx context.Context, id string) (string, error) {
@@ -425,22 +519,69 @@ func (a *LibvirtAdapter) CreateVolumeSnapshot(ctx context.Context, volumeID stri
 	if err != nil {
 		return fmt.Errorf("failed to find volume: %w", err)
 	}
-	_ = vol // Prevent unused variable error
 
-	// We can read volume content via stream or direct file access if local.
-	// For simulation on local fs, we can just copy the file?
-	// But qcow2 is a format. We want a tarball of the FILESYSTEM inside the qcow2?
-	// SnapshotService expects a tarball of the content.
-	// Opening a qcow2 and mounting it requires nbd or guestmount.
-	// This is getting complex for a "Mini AWS" without root.
+	volPath, err := a.conn.StorageVolGetPath(vol)
+	if err != nil {
+		return fmt.Errorf("failed to get volume path: %w", err)
+	}
 
-	// If we assume the "volume" is just a raw file we can tar it.
-	// But we initialized it as qcow2.
+	// Use qemu-img to convert the volume to a temporary qcow2
+	tmpQcow2 := destinationPath + ".qcow2"
+	cmd := exec.Command("qemu-img", "convert", "-O", "qcow2", volPath, tmpQcow2)
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("qemu-img convert failed: %w", err)
+	}
+	defer os.Remove(tmpQcow2)
 
-	// For now, return not implemented to allow compilation but indicate gap.
-	return fmt.Errorf("not implemented: libvirt volume snapshot requires running agent or qemu-img convert")
+	// Now tar it to match the SnapshotService expectation (tarball of contents)
+	// Actually, if we just want a "blob", a tarred qcow2 is fine.
+	tarCmd := exec.Command("tar", "czf", destinationPath, "-C", filepath.Dir(tmpQcow2), filepath.Base(tmpQcow2))
+	if err := tarCmd.Run(); err != nil {
+		return fmt.Errorf("tar archive failed: %w", err)
+	}
+
+	return nil
 }
 
 func (a *LibvirtAdapter) RestoreVolumeSnapshot(ctx context.Context, volumeID string, sourcePath string) error {
-	return fmt.Errorf("not implemented: libvirt volume restore")
+	pool, err := a.conn.StoragePoolLookupByName(defaultPoolName)
+	if err != nil {
+		return fmt.Errorf("failed to find default storage pool: %w", err)
+	}
+
+	vol, err := a.conn.StorageVolLookupByName(pool, volumeID)
+	if err != nil {
+		return fmt.Errorf("failed to find volume: %w", err)
+	}
+
+	volPath, err := a.conn.StorageVolGetPath(vol)
+	if err != nil {
+		return fmt.Errorf("failed to get volume path: %w", err)
+	}
+
+	// 1. Untar
+	tmpDir, err := os.MkdirTemp("", "restore-")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(tmpDir)
+
+	untarCmd := exec.Command("tar", "xzf", sourcePath, "-C", tmpDir)
+	if err := untarCmd.Run(); err != nil {
+		return fmt.Errorf("untar failed: %w", err)
+	}
+
+	files, _ := os.ReadDir(tmpDir)
+	if len(files) == 0 {
+		return fmt.Errorf("empty snapshot archive")
+	}
+	tmpQcow2 := filepath.Join(tmpDir, files[0].Name())
+
+	// 2. Restore using qemu-img
+	cmd := exec.Command("qemu-img", "convert", "-O", "qcow2", tmpQcow2, volPath)
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("qemu-img restore failed: %w", err)
+	}
+
+	return nil
 }
