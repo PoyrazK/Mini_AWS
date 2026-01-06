@@ -853,6 +853,11 @@ func (m *MockComputeBackend) Exec(ctx context.Context, containerID string, cmd [
 	args := m.Called(ctx, containerID, cmd)
 	return args.String(0), args.Error(1)
 }
+
+func (m *MockComputeBackend) GetInstanceIP(ctx context.Context, id string) (string, error) {
+	args := m.Called(ctx, id)
+	return args.String(0), args.Error(1)
+}
 func (m *MockComputeBackend) CreateVolumeSnapshot(ctx context.Context, volumeID string, destinationPath string) error {
 	args := m.Called(ctx, volumeID, destinationPath)
 	return args.Error(0)

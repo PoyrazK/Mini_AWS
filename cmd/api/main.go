@@ -139,7 +139,7 @@ func main() {
 	var lbProxy ports.LBProxyAdapter
 
 	if cfg.ComputeBackend == "libvirt" {
-		lbProxy = libvirt.NewLBProxyAdapter()
+		lbProxy = libvirt.NewLBProxyAdapter(computeBackend)
 	} else {
 		lbProxy, err = docker.NewLBProxyAdapter(instanceRepo, vpcRepo)
 		if err != nil {

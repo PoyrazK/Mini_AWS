@@ -331,6 +331,22 @@ func (a *DockerAdapter) RestoreVolumeSnapshot(ctx context.Context, volumeID stri
 	return nil
 }
 
+func (a *DockerAdapter) GetInstanceIP(ctx context.Context, id string) (string, error) {
+	// Inspect container
+	json, err := a.cli.ContainerInspect(ctx, id)
+	if err != nil {
+		return "", fmt.Errorf("failed to inspect container: %w", err)
+	}
+
+	// Try to get IP from first network
+	for _, net := range json.NetworkSettings.Networks {
+		if net.IPAddress != "" {
+			return net.IPAddress, nil
+		}
+	}
+	return "", fmt.Errorf("no IP address found for container %s", id)
+}
+
 func (a *DockerAdapter) RunTask(ctx context.Context, opts ports.RunTaskOptions) (string, error) {
 	// 1. Ensure image exists
 	pullCtx, pullCancel := context.WithTimeout(ctx, ImagePullTimeout)

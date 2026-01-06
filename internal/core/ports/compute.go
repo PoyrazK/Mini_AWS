@@ -14,6 +14,7 @@ type ComputeBackend interface {
 	GetInstanceLogs(ctx context.Context, id string) (io.ReadCloser, error)
 	GetInstanceStats(ctx context.Context, id string) (io.ReadCloser, error)
 	GetInstancePort(ctx context.Context, id string, internalPort string) (int, error)
+	GetInstanceIP(ctx context.Context, id string) (string, error)
 
 	// Execution
 	Exec(ctx context.Context, id string, cmd []string) (string, error)

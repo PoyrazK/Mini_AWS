@@ -195,6 +195,56 @@ func (a *LibvirtAdapter) GetInstancePort(ctx context.Context, id string, interna
 	return 0, fmt.Errorf("port forwarding not supported in libvirt adapter")
 }
 
+func (a *LibvirtAdapter) GetInstanceIP(ctx context.Context, id string) (string, error) {
+	// 1. Get Domain
+	dom, err := a.conn.DomainLookupByName(id)
+	if err != nil {
+		return "", fmt.Errorf("domain not found: %w", err)
+	}
+
+	// 2. We need the MAC address to look up DHCP leases.
+	// We can get XML desc and parse it.
+	xmlDesc, err := a.conn.DomainGetXMLDesc(dom, 0)
+	if err != nil {
+		return "", fmt.Errorf("failed to get domain xml: %w", err)
+	}
+
+	// Extract MAC using string parsing (dirty but lighter than XML decoder for one field)
+	// Look for <mac address='XX:XX:XX:XX:XX:XX'/>
+	// This assumes one interface.
+	start := strings.Index(xmlDesc, "<mac address='")
+	if start == -1 {
+		return "", fmt.Errorf("no mac address found in xml")
+	}
+	start += len("<mac address='")
+	end := strings.Index(xmlDesc[start:], "'/>")
+	if end == -1 {
+		return "", fmt.Errorf("malformed xml mac address")
+	}
+	mac := xmlDesc[start : start+end]
+
+	// 3. Lookup leases in default network
+	// We assume "default" network
+	net, err := a.conn.NetworkLookupByName("default")
+	if err != nil {
+		return "", fmt.Errorf("default network not found: %w", err)
+	}
+
+	// Pass nil for mac to get all leases (simplifies type handling of OptString)
+	leases, _, err := a.conn.NetworkGetDhcpLeases(net, nil, 0, 0)
+	if err != nil {
+		return "", fmt.Errorf("failed to get leases: %w", err)
+	}
+
+	for _, lease := range leases {
+		if len(lease.Mac) > 0 && lease.Mac[0] == mac {
+			return lease.Ipaddr, nil
+		}
+	}
+
+	return "", fmt.Errorf("no ip lease found for %s (%s)", id, mac)
+}
+
 func (a *LibvirtAdapter) Exec(ctx context.Context, id string, cmd []string) (string, error) {
 	return "", fmt.Errorf("exec not supported in libvirt adapter")
 }
