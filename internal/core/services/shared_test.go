@@ -916,3 +916,57 @@ func (m *MockSnapshotRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	args := m.Called(ctx, id)
 	return args.Error(0)
 }
+
+// MockRoleRepo
+type MockRoleRepo struct {
+	mock.Mock
+}
+
+func (m *MockRoleRepo) CreateRole(ctx context.Context, role *domain.Role) error {
+	args := m.Called(ctx, role)
+	return args.Error(0)
+}
+func (m *MockRoleRepo) GetRoleByID(ctx context.Context, id uuid.UUID) (*domain.Role, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Role), args.Error(1)
+}
+func (m *MockRoleRepo) GetRoleByName(ctx context.Context, name string) (*domain.Role, error) {
+	args := m.Called(ctx, name)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Role), args.Error(1)
+}
+func (m *MockRoleRepo) ListRoles(ctx context.Context) ([]*domain.Role, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Role), args.Error(1)
+}
+func (m *MockRoleRepo) UpdateRole(ctx context.Context, role *domain.Role) error {
+	args := m.Called(ctx, role)
+	return args.Error(0)
+}
+func (m *MockRoleRepo) DeleteRole(ctx context.Context, id uuid.UUID) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+func (m *MockRoleRepo) AddPermissionToRole(ctx context.Context, roleID uuid.UUID, permission domain.Permission) error {
+	args := m.Called(ctx, roleID, permission)
+	return args.Error(0)
+}
+func (m *MockRoleRepo) RemovePermissionFromRole(ctx context.Context, roleID uuid.UUID, permission domain.Permission) error {
+	args := m.Called(ctx, roleID, permission)
+	return args.Error(0)
+}
+func (m *MockRoleRepo) GetPermissionsForRole(ctx context.Context, roleID uuid.UUID) ([]domain.Permission, error) {
+	args := m.Called(ctx, roleID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]domain.Permission), args.Error(1)
+}
