@@ -5,6 +5,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
+	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/errors"
 )
@@ -43,4 +44,23 @@ func GetUserID(c *gin.Context) uuid.UUID {
 		return uuid.Nil
 	}
 	return userID
+}
+
+func Permission(rbac ports.RBACService, permission domain.Permission) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID := GetUserID(c)
+		if userID == uuid.Nil {
+			Error(c, errors.New(errors.Unauthorized, "authentication required"))
+			c.Abort()
+			return
+		}
+
+		if err := rbac.Authorize(c.Request.Context(), userID, permission); err != nil {
+			Error(c, err)
+			c.Abort()
+			return
+		}
+
+		c.Next()
+	}
 }

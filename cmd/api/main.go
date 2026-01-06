@@ -19,6 +19,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	_ "github.com/poyrazk/thecloud/docs/swagger"
+	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	httphandlers "github.com/poyrazk/thecloud/internal/handlers"
@@ -105,6 +106,8 @@ func main() {
 	identitySvc := services.NewIdentityService(identityRepo, auditSvc)
 	authSvc := services.NewAuthService(userRepo, identitySvc, auditSvc)
 	pwdResetSvc := services.NewPasswordResetService(pwdResetRepo, userRepo)
+	rbacRepo := postgres.NewRBACRepository(db)
+	rbacSvc := services.NewRBACService(userRepo, rbacRepo, logger)
 
 	auditHandler := httphandlers.NewAuditHandler(auditSvc)
 	identityHandler := httphandlers.NewIdentityHandler(identitySvc)
@@ -246,23 +249,23 @@ func main() {
 	instanceGroup := r.Group("/instances")
 	instanceGroup.Use(httputil.Auth(identitySvc))
 	{
-		instanceGroup.POST("", instanceHandler.Launch)
-		instanceGroup.GET("", instanceHandler.List)
-		instanceGroup.GET("/:id", instanceHandler.Get)
-		instanceGroup.POST("/:id/stop", instanceHandler.Stop)
-		instanceGroup.GET("/:id/logs", instanceHandler.GetLogs)
-		instanceGroup.GET("/:id/stats", instanceHandler.GetStats)
-		instanceGroup.DELETE("/:id", instanceHandler.Terminate)
+		instanceGroup.POST("", httputil.Permission(rbacSvc, domain.PermissionInstanceLaunch), instanceHandler.Launch)
+		instanceGroup.GET("", httputil.Permission(rbacSvc, domain.PermissionInstanceRead), instanceHandler.List)
+		instanceGroup.GET("/:id", httputil.Permission(rbacSvc, domain.PermissionInstanceRead), instanceHandler.Get)
+		instanceGroup.POST("/:id/stop", httputil.Permission(rbacSvc, domain.PermissionInstanceUpdate), instanceHandler.Stop)
+		instanceGroup.GET("/:id/logs", httputil.Permission(rbacSvc, domain.PermissionInstanceRead), instanceHandler.GetLogs)
+		instanceGroup.GET("/:id/stats", httputil.Permission(rbacSvc, domain.PermissionInstanceRead), instanceHandler.GetStats)
+		instanceGroup.DELETE("/:id", httputil.Permission(rbacSvc, domain.PermissionInstanceTerminate), instanceHandler.Terminate)
 	}
 
 	// VPC Routes (Protected)
 	vpcGroup := r.Group("/vpcs")
 	vpcGroup.Use(httputil.Auth(identitySvc))
 	{
-		vpcGroup.POST("", vpcHandler.Create)
-		vpcGroup.GET("", vpcHandler.List)
-		vpcGroup.GET("/:id", vpcHandler.Get)
-		vpcGroup.DELETE("/:id", vpcHandler.Delete)
+		vpcGroup.POST("", httputil.Permission(rbacSvc, domain.PermissionVpcCreate), vpcHandler.Create)
+		vpcGroup.GET("", httputil.Permission(rbacSvc, domain.PermissionVpcRead), vpcHandler.List)
+		vpcGroup.GET("/:id", httputil.Permission(rbacSvc, domain.PermissionVpcRead), vpcHandler.Get)
+		vpcGroup.DELETE("/:id", httputil.Permission(rbacSvc, domain.PermissionVpcDelete), vpcHandler.Delete)
 	}
 
 	// Storage Routes (Protected)
@@ -293,10 +296,10 @@ func main() {
 	volumeGroup := r.Group("/volumes")
 	volumeGroup.Use(httputil.Auth(identitySvc))
 	{
-		volumeGroup.POST("", volumeHandler.Create)
-		volumeGroup.GET("", volumeHandler.List)
-		volumeGroup.GET("/:id", volumeHandler.Get)
-		volumeGroup.DELETE("/:id", volumeHandler.Delete)
+		volumeGroup.POST("", httputil.Permission(rbacSvc, domain.PermissionVolumeCreate), volumeHandler.Create)
+		volumeGroup.GET("", httputil.Permission(rbacSvc, domain.PermissionVolumeRead), volumeHandler.List)
+		volumeGroup.GET("/:id", httputil.Permission(rbacSvc, domain.PermissionVolumeRead), volumeHandler.Get)
+		volumeGroup.DELETE("/:id", httputil.Permission(rbacSvc, domain.PermissionVolumeDelete), volumeHandler.Delete)
 	}
 
 	// Dashboard Routes (Protected)
@@ -313,11 +316,11 @@ func main() {
 	snapshotGroup := r.Group("/snapshots")
 	snapshotGroup.Use(httputil.Auth(identitySvc))
 	{
-		snapshotGroup.POST("", snapshotHandler.Create)
-		snapshotGroup.GET("", snapshotHandler.List)
-		snapshotGroup.GET("/:id", snapshotHandler.Get)
-		snapshotGroup.DELETE("/:id", snapshotHandler.Delete)
-		snapshotGroup.POST("/:id/restore", snapshotHandler.Restore)
+		snapshotGroup.POST("", httputil.Permission(rbacSvc, domain.PermissionSnapshotCreate), snapshotHandler.Create)
+		snapshotGroup.GET("", httputil.Permission(rbacSvc, domain.PermissionSnapshotRead), snapshotHandler.List)
+		snapshotGroup.GET("/:id", httputil.Permission(rbacSvc, domain.PermissionSnapshotRead), snapshotHandler.Get)
+		snapshotGroup.DELETE("/:id", httputil.Permission(rbacSvc, domain.PermissionSnapshotDelete), snapshotHandler.Delete)
+		snapshotGroup.POST("/:id/restore", httputil.Permission(rbacSvc, domain.PermissionSnapshotRestore), snapshotHandler.Restore)
 	}
 
 	// Load Balancer Routes (Protected)
