@@ -325,6 +325,7 @@ func main() {
 		rbacGroup.POST("/roles", httputil.Permission(rbacSvc, domain.PermissionFullAccess), rbacHandler.CreateRole)
 		rbacGroup.GET("/roles", httputil.Permission(rbacSvc, domain.PermissionFullAccess), rbacHandler.ListRoles)
 		rbacGroup.GET("/roles/:id", httputil.Permission(rbacSvc, domain.PermissionFullAccess), rbacHandler.GetRole)
+		rbacGroup.PUT("/roles/:id", httputil.Permission(rbacSvc, domain.PermissionFullAccess), rbacHandler.UpdateRole)
 		rbacGroup.DELETE("/roles/:id", httputil.Permission(rbacSvc, domain.PermissionFullAccess), rbacHandler.DeleteRole)
 		rbacGroup.POST("/roles/:id/permissions", httputil.Permission(rbacSvc, domain.PermissionFullAccess), rbacHandler.AddPermission)
 		rbacGroup.DELETE("/roles/:id/permissions/:permission", httputil.Permission(rbacSvc, domain.PermissionFullAccess), rbacHandler.RemovePermission)
