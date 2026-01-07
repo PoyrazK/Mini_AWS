@@ -242,6 +242,7 @@ func main() {
 	// Rate Limiter (5 req/sec, burst 10)
 	limiter := ratelimit.NewIPRateLimiter(rate.Limit(5), 10, logger)
 	r.Use(ratelimit.Middleware(limiter))
+	r.Use(httputil.Metrics())
 
 	// 6. Routes
 	r.GET("/health/live", healthHandler.Live)

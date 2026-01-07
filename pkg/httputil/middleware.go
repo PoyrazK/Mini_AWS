@@ -4,9 +4,31 @@ import (
 	"log/slog"
 	"time"
 
+	"strconv"
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/poyrazk/thecloud/internal/platform"
 )
+
+func Metrics() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		start := time.Now()
+		path := c.FullPath()
+		if path == "" {
+			path = "unknown"
+		}
+
+		c.Next()
+
+		duration := time.Since(start).Seconds()
+		status := strconv.Itoa(c.Writer.Status())
+		method := c.Request.Method
+
+		platform.HTTPRequestsTotal.WithLabelValues(method, path, status).Inc()
+		platform.HTTPRequestDuration.WithLabelValues(method, path).Observe(duration)
+	}
+}
 
 const HeaderXRequestID = "X-Request-ID"
 
