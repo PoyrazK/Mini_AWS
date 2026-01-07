@@ -258,6 +258,7 @@ func TestStopInstance_Success(t *testing.T) {
 
 	repo.On("GetByID", ctx, instID).Return(inst, nil)
 	compute.On("StopInstance", ctx, "c123").Return(nil)
+	compute.On("Type").Return("mock")
 	repo.On("Update", ctx, mock.MatchedBy(func(i *domain.Instance) bool {
 		return i.Status == domain.StatusStopped
 	})).Return(nil)

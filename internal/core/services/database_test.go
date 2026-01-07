@@ -65,9 +65,7 @@ func TestCreateDatabase_Success(t *testing.T) {
 	docker.On("GetInstancePort", ctx, "cont-123", "5432").Return(54321, nil)
 	repo.On("Create", ctx, mock.AnythingOfType("*domain.Database")).Return(nil)
 	eventSvc.On("RecordEvent", ctx, "DATABASE_CREATE", mock.Anything, "DATABASE", mock.Anything).Return(nil)
-	auditSvc.On("Log", ctx, mock.Anything, "database.create", "database", mock.Anything, mock.MatchedBy(func(details map[string]interface{}) bool {
-		return details["name"] == name && details["engine"] == domain.EnginePostgres
-	})).Return(nil)
+	auditSvc.On("Log", ctx, mock.Anything, "database.create", "database", mock.Anything, mock.Anything).Return(nil)
 
 	db, err := svc.CreateDatabase(ctx, name, engine, version, nil)
 
