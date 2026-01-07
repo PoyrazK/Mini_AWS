@@ -1202,3 +1202,61 @@ func (m *MockFunctionRepository) GetInvocations(ctx context.Context, functionID 
 	}
 	return args.Get(0).([]*domain.Invocation), args.Error(1)
 }
+
+// MockContainerRepository
+type MockContainerRepository struct {
+	mock.Mock
+}
+
+func (m *MockContainerRepository) CreateDeployment(ctx context.Context, dep *domain.Deployment) error {
+	args := m.Called(ctx, dep)
+	return args.Error(0)
+}
+func (m *MockContainerRepository) GetDeploymentByID(ctx context.Context, id, userID uuid.UUID) (*domain.Deployment, error) {
+	args := m.Called(ctx, id, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Deployment), args.Error(1)
+}
+func (m *MockContainerRepository) ListDeployments(ctx context.Context, userID uuid.UUID) ([]*domain.Deployment, error) {
+	args := m.Called(ctx, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Deployment), args.Error(1)
+}
+func (m *MockContainerRepository) UpdateDeployment(ctx context.Context, dep *domain.Deployment) error {
+	args := m.Called(ctx, dep)
+	return args.Error(0)
+}
+func (m *MockContainerRepository) DeleteDeployment(ctx context.Context, id uuid.UUID) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+
+// Replication management
+func (m *MockContainerRepository) AddContainer(ctx context.Context, deploymentID, instanceID uuid.UUID) error {
+	args := m.Called(ctx, deploymentID, instanceID)
+	return args.Error(0)
+}
+func (m *MockContainerRepository) RemoveContainer(ctx context.Context, deploymentID, instanceID uuid.UUID) error {
+	args := m.Called(ctx, deploymentID, instanceID)
+	return args.Error(0)
+}
+func (m *MockContainerRepository) GetContainers(ctx context.Context, deploymentID uuid.UUID) ([]uuid.UUID, error) {
+	args := m.Called(ctx, deploymentID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]uuid.UUID), args.Error(1)
+}
+
+// Worker
+func (m *MockContainerRepository) ListAllDeployments(ctx context.Context) ([]*domain.Deployment, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Deployment), args.Error(1)
+}
