@@ -99,6 +99,44 @@ func (h *RBACHandler) GetRole(c *gin.Context) {
 	c.JSON(http.StatusOK, role)
 }
 
+// UpdateRole godoc
+// @Summary Update role details
+// @Description Updates an existing role's description or permissions
+// @Tags RBAC
+// @Accept json
+// @Produce json
+// @Param id path string true "Role ID"
+// @Param request body CreateRoleRequest true "Role details"
+// @Success 200 {object} domain.Role
+// @Router /rbac/roles/{id} [put]
+func (h *RBACHandler) UpdateRole(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		httputil.Error(c, err)
+		return
+	}
+
+	var req CreateRoleRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		httputil.Error(c, err)
+		return
+	}
+
+	role := &domain.Role{
+		ID:          id,
+		Name:        req.Name,
+		Description: req.Description,
+		Permissions: req.Permissions,
+	}
+
+	if err := h.svc.UpdateRole(c.Request.Context(), role); err != nil {
+		httputil.Error(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, role)
+}
+
 // DeleteRole godoc
 // @Summary Delete role
 // @Description Deletes a role by ID
