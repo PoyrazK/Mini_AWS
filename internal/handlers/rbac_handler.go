@@ -181,3 +181,47 @@ func (h *RBACHandler) RemovePermission(c *gin.Context) {
 
 	c.Status(http.StatusNoContent)
 }
+
+type BindRoleRequest struct {
+	UserID   uuid.UUID `json:"user_id" binding:"required"`
+	RoleName string    `json:"role_name" binding:"required"`
+}
+
+// BindRole godoc
+// @Summary Bind role to user
+// @Description Assigns a role to a user
+// @Tags RBAC
+// @Accept json
+// @Param request body BindRoleRequest true "Binding details"
+// @Success 204
+// @Router /rbac/bindings [post]
+func (h *RBACHandler) BindRole(c *gin.Context) {
+	var req BindRoleRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		httputil.Error(c, err)
+		return
+	}
+
+	if err := h.svc.BindRole(c.Request.Context(), req.UserID, req.RoleName); err != nil {
+		httputil.Error(c, err)
+		return
+	}
+
+	c.Status(http.StatusNoContent)
+}
+
+// ListRoleBindings godoc
+// @Summary List role bindings
+// @Description Returns all user-role assignments
+// @Tags RBAC
+// @Produce json
+// @Success 200 {array} domain.User
+// @Router /rbac/bindings [get]
+func (h *RBACHandler) ListRoleBindings(c *gin.Context) {
+	bindings, err := h.svc.ListRoleBindings(c.Request.Context())
+	if err != nil {
+		httputil.Error(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, bindings)
+}
