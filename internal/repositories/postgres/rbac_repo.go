@@ -17,18 +17,26 @@ func NewRBACRepository(db *pgxpool.Pool) *rbacRepository {
 }
 
 func (r *rbacRepository) CreateRole(ctx context.Context, role *domain.Role) error {
-	_, err := r.db.Exec(ctx, "INSERT INTO roles (id, name, description) VALUES ($1, $2, $3)",
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	_, err = tx.Exec(ctx, "INSERT INTO roles (id, name, description) VALUES ($1, $2, $3)",
 		role.ID, role.Name, role.Description)
 	if err != nil {
 		return err
 	}
 
 	for _, p := range role.Permissions {
-		if err := r.AddPermissionToRole(ctx, role.ID, p); err != nil {
+		_, err = tx.Exec(ctx, "INSERT INTO role_permissions (role_id, permission) VALUES ($1, $2)",
+			role.ID, string(p))
+		if err != nil {
 			return err
 		}
 	}
-	return nil
+	return tx.Commit(ctx)
 }
 
 func (r *rbacRepository) GetRoleByID(ctx context.Context, id uuid.UUID) (*domain.Role, error) {
@@ -89,12 +97,36 @@ func (r *rbacRepository) ListRoles(ctx context.Context) ([]*domain.Role, error) 
 }
 
 func (r *rbacRepository) UpdateRole(ctx context.Context, role *domain.Role) error {
-	_, err := r.db.Exec(ctx, "UPDATE roles SET name = $1, description = $2 WHERE id = $3",
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	_, err = tx.Exec(ctx, "UPDATE roles SET name = $1, description = $2 WHERE id = $3",
 		role.Name, role.Description, role.ID)
-	return err
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.Exec(ctx, "DELETE FROM role_permissions WHERE role_id = $1", role.ID)
+	if err != nil {
+		return err
+	}
+
+	for _, p := range role.Permissions {
+		_, err = tx.Exec(ctx, "INSERT INTO role_permissions (role_id, permission) VALUES ($1, $2)",
+			role.ID, string(p))
+		if err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit(ctx)
 }
 
 func (r *rbacRepository) DeleteRole(ctx context.Context, id uuid.UUID) error {
+	// role_permissions should be deleted by cascade or manually
 	_, err := r.db.Exec(ctx, "DELETE FROM roles WHERE id = $1", id)
 	return err
 }
