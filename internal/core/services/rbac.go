@@ -46,9 +46,25 @@ func (s *rbacService) HasPermission(ctx context.Context, userID uuid.UUID, permi
 	// 2. Get role
 	role, err := s.roleRepo.GetRoleByName(ctx, user.Role)
 	if err != nil {
-		// If role not found in DB, default to viewer if it was just a string
-		s.logger.Warn("role not found in DB, checking if it is a default role", "role", user.Role)
-		return false, nil // For now, strict check
+		// Fallback to default roles if not found in DB
+		switch user.Role {
+		case domain.RoleAdmin:
+			return true, nil
+		case domain.RoleViewer:
+			if permission == domain.PermissionInstanceRead ||
+				permission == domain.PermissionVolumeRead ||
+				permission == domain.PermissionVpcRead {
+				return true, nil
+			}
+		case domain.RoleDeveloper:
+			// Developer gets most things except RBAC management
+			if permission != domain.PermissionFullAccess {
+				return true, nil
+			}
+		}
+
+		s.logger.Warn("role not found in DB and no default fallback", "role", user.Role)
+		return false, nil
 	}
 
 	// 3. Check permissions
@@ -99,15 +115,22 @@ func (s *rbacService) RemovePermissionFromRole(ctx context.Context, roleID uuid.
 	return s.roleRepo.RemovePermissionFromRole(ctx, roleID, permission)
 }
 
-func (s *rbacService) BindRole(ctx context.Context, userID uuid.UUID, roleName string) error {
+func (s *rbacService) BindRole(ctx context.Context, userIdentifier string, roleName string) error {
 	// 1. Verify role exists
 	_, err := s.roleRepo.GetRoleByName(ctx, roleName)
 	if err != nil {
 		return fmt.Errorf("role %s does not exist: %w", roleName, err)
 	}
 
-	// 2. Get user
-	user, err := s.userRepo.GetByID(ctx, userID)
+	// 2. Get user (by ID or Email)
+	var user *domain.User
+	userID, err := uuid.Parse(userIdentifier)
+	if err == nil {
+		user, err = s.userRepo.GetByID(ctx, userID)
+	} else {
+		user, err = s.userRepo.GetByEmail(ctx, userIdentifier)
+	}
+
 	if err != nil {
 		return fmt.Errorf("user not found: %w", err)
 	}
