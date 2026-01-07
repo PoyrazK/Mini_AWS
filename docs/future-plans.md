@@ -56,9 +56,9 @@ This document outlines our roadmap to becoming a real cloud system and how you c
 | **Distributed Clustering** | Hard | 📋 Planned | No |
 | **PostgreSQL HA** | Hard | 📋 Planned | No |
 | **RBAC System** | Medium | ✅ Done | No |
-| **Prometheus Integration** | Medium | 📋 Planned | ✅ Yes |
-| **Grafana Dashboards** | Easy | 📋 Planned | ✅ Yes |
-| **Alert Manager** | Medium | 📋 Planned | ✅ Yes |
+| **Prometheus Integration** | Medium | ✅ Done | ✅ Yes |
+| **Grafana Dashboards** | Easy | ✅ Done | ✅ Yes |
+| **Alert Manager** | Medium | ✅ Done | ✅ Yes |
 | **Centralized Logging** | Medium | 📋 Planned | No |
 | **Security Groups** | Medium | 📋 Planned | ✅ Yes |
 | **Network ACLs** | Medium | 📋 Planned | ✅ Yes |

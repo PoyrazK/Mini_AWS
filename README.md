@@ -11,7 +11,7 @@ To build the world's best open-source cloud platform that anyone can run, modify
 - **Block Storage**: Persistent volumes that survive instance termination
 - **Networking**: VPC with isolated Docker networks
 - **Identity**: API Key authentication ([Guide](docs/guides/authentication.md))
-- **Observability**: Real-time CPU/Memory metrics and System Events
+- **Observability**: Prometheus metrics and Grafana dashboards ([Guide](docs/guides/observability.md))
 - **Load Balancer**: Layer 7 HTTP traffic distribution
 - **Auto-Scaling**: Dynamic scaling of compute resources based on metrics
 - **Managed Databases (RDS)**: Launch PostgreSQL/MySQL instances with a single command ([Guide](docs/guides/rds.md))
