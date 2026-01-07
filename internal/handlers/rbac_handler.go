@@ -221,8 +221,8 @@ func (h *RBACHandler) RemovePermission(c *gin.Context) {
 }
 
 type BindRoleRequest struct {
-	UserID   uuid.UUID `json:"user_id" binding:"required"`
-	RoleName string    `json:"role_name" binding:"required"`
+	UserIdentifier string `json:"user_identifier" binding:"required"`
+	RoleName       string `json:"role_name" binding:"required"`
 }
 
 // BindRole godoc
@@ -240,7 +240,7 @@ func (h *RBACHandler) BindRole(c *gin.Context) {
 		return
 	}
 
-	if err := h.svc.BindRole(c.Request.Context(), req.UserID, req.RoleName); err != nil {
+	if err := h.svc.BindRole(c.Request.Context(), req.UserIdentifier, req.RoleName); err != nil {
 		httputil.Error(c, err)
 		return
 	}

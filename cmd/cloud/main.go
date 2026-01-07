@@ -44,6 +44,7 @@ func init() {
 	rootCmd.AddCommand(snapshotCmd)
 	rootCmd.AddCommand(volumeCmd)
 	rootCmd.AddCommand(iacCmd)
+	rootCmd.AddCommand(rolesCmd)
 }
 
 func main() {

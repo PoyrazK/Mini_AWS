@@ -1,4 +1,4 @@
-# The Cloud: Vision & Strategy 🛰️
+# The Cloud: Vision & Strategy
 
 **Mission:** Build the world's best open-source cloud platform that anyone can run, modify, and own.
 

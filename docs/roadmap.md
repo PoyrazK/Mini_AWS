@@ -5,18 +5,20 @@ Prioritized using the **RICE** method (Reach, Impact, Confidence, Effort).
 ## ✅ Phase 1: Core Foundation (Complete)
 - [x] Clean Architecture Scaffolding
 - [x] Docker Instance Management (Compute)
+- [x] Libvirt/KVM Instance Management (Virtual Machines)
 - [x] CLI v1 (List/Create/Stop)
 
-## ✅ Phase 2: Identity &amp; Security (Complete)
+## ✅ Phase 2: Identity & Security (Complete)
 - [x] API Key Management
 - [x] Secrets Manager (Encrypted storage)
 - [x] Audit Logging (Comprehensive trail)
-- [ ] RBAC (Role-Based Access Control)
+- [x] RBAC (Role-Based Access Control) - API & CLI Management
 
 ## ✅ Phase 3: Storage (Complete)
 - [x] Object Storage (S3-compatible API)
 - [x] Virtual Networks (Docker bridge management)
-- [x] Block Storage Volumes
+- [x] Block Storage Volumes (Local & QCOW2)
+- [x] Volume Snapshots (for Libvirt/KVM)
 
 ## ✅ Phase 4: Advanced Features (Complete)
 - [x] Port Mapping (access containers via localhost)
@@ -41,16 +43,17 @@ Prioritized using the **RICE** method (Reach, Impact, Confidence, Effort).
 - [x] CloudGateway - API routing and reverse proxy
 - [x] CloudContainers - Container orchestration with replication
 
-## 🚧 Phase 7: Console &amp; Polish (In Progress)
-- [ ] Next.js Web Dashboard
+## 🚧 Phase 7: Console & Polish (In Progress)
+- [ ] Next.js Web Dashboard (Modernized v2)
+- [ ] Multi-node cluster support
+- [ ] User-friendly permission builder
 
 ## 📋 Future Phases
-- [ ] RBAC Implementation
-- [ ] Volume Snapshots
-- [ ] CloudFormation Templates (IaC)
+- [ ] CloudFormation Templates (IaC Stacks)
 - [ ] Multi-region Support
 - [ ] Marketplace Templates
+- [ ] Managed Kubernetes (k8s-as-a-service)
 
 ---
 
-*Last updated: 2026-01-05*
+*Last updated: 2026-01-07*

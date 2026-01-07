@@ -37,4 +37,8 @@ type RBACService interface {
 	// Permission management
 	AddPermissionToRole(ctx context.Context, roleID uuid.UUID, permission domain.Permission) error
 	RemovePermissionFromRole(ctx context.Context, roleID uuid.UUID, permission domain.Permission) error
+
+	// Role binding (User-Role assignment)
+	BindRole(ctx context.Context, userIdentifier string, roleName string) error
+	ListRoleBindings(ctx context.Context) ([]*domain.User, error)
 }

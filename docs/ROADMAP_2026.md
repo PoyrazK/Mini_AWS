@@ -46,6 +46,7 @@ Transform The Cloud from an educational platform into a **production-grade, self
 ### 🎉 Recent Achievements (v0.3.0)
 - Multi-backend architecture with runtime switching
 - Full KVM/QEMU virtualization support
+- **Complete RBAC management system (API + CLI)**
 - Cloud-Init integration for VM provisioning
 - Production-ready CI/CD pipeline
 - Comprehensive documentation (50+ pages)
@@ -104,11 +105,12 @@ Transform The Cloud from an educational platform into a **production-grade, self
   - Request flow visualization
 
 **Security:**
-- [ ] **RBAC (Role-Based Access Control)**
-  - User roles (admin, developer, viewer)
-  - Resource-level permissions
-  - Policy engine (OPA)
-  - Service accounts
+- [x] **RBAC (Role-Based Access Control)**
+  - [x] User roles (admin, developer, viewer)
+  - [x] Resource-level permissions
+  - [x] API & CLI Management
+  - [ ] Policy engine (OPA)
+  - [ ] Service accounts
 
 - [ ] **Network Security**
   - Security groups

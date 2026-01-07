@@ -36,6 +36,7 @@ This document outlines our roadmap to becoming a real cloud system and how you c
 
 **Platform Services:**
 - [x] API key authentication
+- [x] RBAC (Role-Based Access Control)
 - [x] Secrets management
 - [x] Audit logging
 - [x] CLI tool
@@ -54,7 +55,7 @@ This document outlines our roadmap to becoming a real cloud system and how you c
 |---------|------------|--------|-------------------|
 | **Distributed Clustering** | Hard | 📋 Planned | No |
 | **PostgreSQL HA** | Hard | 📋 Planned | No |
-| **RBAC System** | Medium | 📋 Planned | No |
+| **RBAC System** | Medium | ✅ Done | No |
 | **Prometheus Integration** | Medium | 📋 Planned | ✅ Yes |
 | **Grafana Dashboards** | Easy | 📋 Planned | ✅ Yes |
 | **Alert Manager** | Medium | 📋 Planned | ✅ Yes |
@@ -159,7 +160,6 @@ This document outlines our roadmap to becoming a real cloud system and how you c
 
 **Hard:**
 - [ ] Build distributed clustering
-- [ ] Implement RBAC system
 - [ ] Add Kubernetes integration
 - [ ] Build multi-tenancy
 - [ ] Implement AIOps

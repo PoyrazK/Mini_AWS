@@ -1,11 +1,12 @@
-# The Cloud 🚀
+# The Cloud
 
 To build the world's best open-source cloud platform that anyone can run, modify, and own.
 
-## ✨ Features
+## Features
 - **Compute**: Multi-backend instance management (Docker or Libvirt/KVM)
   - Docker: Fast container-based instances
   - Libvirt: Full VM isolation with KVM/QEMU ([Guide](docs/guides/libvirt-backend.md))
+- **RBAC**: Role-Based Access Control with fine-grained permissions ([Guide](docs/guides/rbac.md))
 - **Storage**: S3-compatible object storage (Upload, Download, Delete)
 - **Block Storage**: Persistent volumes that survive instance termination
 - **Networking**: VPC with isolated Docker networks
@@ -24,7 +25,7 @@ To build the world's best open-source cloud platform that anyone can run, modify
 - **CloudContainers**: Managed container deployments with replication and auto-healing ([Guide](docs/services/cloud-containers.md))
 - **Console**: Interactive Next.js Dashboard for visual resource management
 
-## 🔐 Authentication
+## Authentication
 The Cloud uses API Key authentication with comprehensive security features.
 
 ### User Registration & Login
@@ -43,11 +44,18 @@ The Cloud uses API Key authentication with comprehensive security features.
 - **Regenerate Key**: `POST /auth/keys/:id/regenerate`
 - **Revoke Key**: `DELETE /auth/keys/:id`
 
-## 🩺 System Health
+## Role-Based Access Control (RBAC)
+Manage users and permissions via the CLI or API.
+
+- **Create Role**: `cloud roles create developer --permissions "instance:read,volume:read"`
+- **Bind Role**: `cloud roles bind user@example.com developer`
+- **List Bindings**: `cloud roles list-bindings`
+
+## System Health
 - **Liveness**: `GET /health/live` (Returns 200 OK)
 - **Readiness**: `GET /health/ready` (Returns 200 if DB/Docker connected, 503 if not)
 
-## 🚀 Quick Start (Backend)
+## Quick Start (Backend)
 ```bash
 # 1. Clone & Setup
 git clone https://github.com/PoyrazK/thecloud.git
@@ -56,10 +64,10 @@ make run
 
 # 2. Register & Login (Get API Key)
 curl -X POST http://localhost:8080/auth/register \
-  -d '{"email":"user@example.com", "password":"password", "name":"User"}'
+  -d '{"email":"user@example.com", "password":"StrongPassword123!", "name":"User"}'
 
 curl -X POST http://localhost:8080/auth/login \
-  -d '{"email":"user@example.com", "password":"password"}'
+  -d '{"email":"user@example.com", "password":"StrongPassword123!"}'
 # Copy the "api_key" from the response
 
 # 3. Test Access
@@ -67,7 +75,7 @@ curl -X POST http://localhost:8080/auth/login \
 curl -H "X-API-Key: YOUR_API_KEY" http://localhost:8080/instances
 ```
 
-## 🎮 Quick Start (Console - Frontend)
+## Quick Start (Console - Frontend)
 ```bash
 # 1. Enter web directory
 cd web
@@ -82,7 +90,7 @@ npm run dev
 # http://localhost:3000
 ```
 
-## 🏗️ Architecture
+## Architecture
 - **Frontend**: Next.js 14, Tailwind CSS, GSAP
 - **Backend**: Go (Clean Architecture, Hexagonal)
 - **Database**: PostgreSQL (pgx)
@@ -92,9 +100,9 @@ npm run dev
 - **Observability**: Prometheus Metrics & Real-time WebSockets
 - **CLI**: Cobra (command-based) + Survey (interactive)
 
-##  Documentation
+## Documentation
 
-### 🎓 Getting Started
+### Getting Started
 | Doc | Description |
 |-----|-------------|
 | [Development Guide](docs/development.md) | Setup on Windows, Mac, or Linux |
@@ -102,7 +110,7 @@ npm run dev
 | [Future Plans & Contributing](docs/future-plans.md) | How to contribute + feature backlog |
 | [Future Vision](docs/vision.md) | Long-term strategy and goals |
 
-### 🏛️ Architecture & Services
+### Architecture & Services
 | Doc | Description |
 |-----|-------------|
 | [Architecture Overview](docs/architecture.md) | System design and patterns |
@@ -115,10 +123,11 @@ npm run dev
 | [CloudGateway](docs/services/cloud-gateway.md) | Gateway & Proxy guide |
 | [CloudContainers](docs/services/cloud-containers.md) | Container Orchestration |
 
-### 📖 Guides
+### Guides
 | Guide | Description |
 |-------|-------------|
 | [Libvirt Backend](docs/guides/libvirt-backend.md) | KVM/QEMU virtualization setup and usage |
+| [RBAC Management](docs/guides/rbac.md) | Roles, permissions, and bindings |
 | [Auto-Scaling](docs/guides/autoscaling.md) | Scalability patterns and usage |
 | [Load Balancer](docs/guides/loadbalancer.md) | Traffic distribution guide |
 | [Managed Databases](docs/guides/rds.md) | RDS patterns and usage |
@@ -128,7 +137,7 @@ npm run dev
 | [Managed Caches](docs/guides/cache.md) | Redis cache management |
 | [Cloud Functions](docs/guides/functions.md) | Serverless execution |
 
-## 📊 KPIs
+## KPIs
 - Time to Hello World: < 5 min
 - API Latency (P95): < 200ms
 - CLI Success Rate: > 95%

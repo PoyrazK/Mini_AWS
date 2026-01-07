@@ -45,10 +45,10 @@ func (c *Client) UpdateRole(id uuid.UUID, name, description string, permissions 
 	return &role, err
 }
 
-func (c *Client) BindRole(userID uuid.UUID, roleName string) error {
+func (c *Client) BindRole(userIdentifier string, roleName string) error {
 	req := map[string]interface{}{
-		"user_id":   userID,
-		"role_name": roleName,
+		"user_identifier": userIdentifier,
+		"role_name":       roleName,
 	}
 	return c.post("/rbac/bindings", req, nil)
 }
