@@ -48,4 +48,4 @@ alerting:
           # - alertmanager:9093  # Uncomment when alertmanager is added
 
 rule_files:
-  # - "alerts/*.yml"  # Add alert rules here
+  - "alerts/*.yml"
