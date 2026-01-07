@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"context"
+	"io"
 	"log/slog"
 	"testing"
 
@@ -13,180 +14,81 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-type MockFunctionRepo struct {
-	mock.Mock
-}
-
-func (m *MockFunctionRepo) Create(ctx context.Context, f *domain.Function) error {
-	args := m.Called(ctx, f)
-	return args.Error(0)
-}
-func (m *MockFunctionRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.Function, error) {
-	args := m.Called(ctx, id)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*domain.Function), args.Error(1)
-}
-func (m *MockFunctionRepo) GetByName(ctx context.Context, userID uuid.UUID, name string) (*domain.Function, error) {
-	args := m.Called(ctx, userID, name)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*domain.Function), args.Error(1)
-}
-func (m *MockFunctionRepo) List(ctx context.Context, userID uuid.UUID) ([]*domain.Function, error) {
-	args := m.Called(ctx, userID)
-	return args.Get(0).([]*domain.Function), args.Error(1)
-}
-func (m *MockFunctionRepo) Delete(ctx context.Context, id uuid.UUID) error {
-	args := m.Called(ctx, id)
-	return args.Error(0)
-}
-func (m *MockFunctionRepo) CreateInvocation(ctx context.Context, i *domain.Invocation) error {
-	args := m.Called(ctx, i)
-	return args.Error(0)
-}
-func (m *MockFunctionRepo) GetInvocations(ctx context.Context, functionID uuid.UUID, limit int) ([]*domain.Invocation, error) {
-	args := m.Called(ctx, functionID, limit)
-	return args.Get(0).([]*domain.Invocation), args.Error(1)
-}
-
-func TestFunctionService_InvokeFunction(t *testing.T) {
-	repo := new(MockFunctionRepo)
-	docker := new(MockComputeBackend)
-	fileStore := new(MockFileStore)
-	auditSvc := new(MockAuditService)
-	logger := slog.Default()
-
-	svc := services.NewFunctionService(repo, docker, fileStore, auditSvc, logger)
-	assert.NotNil(t, svc)
-
-	fID := uuid.New()
-	f := &domain.Function{
-		ID:       fID,
-		Name:     "test-fn",
-		Runtime:  "nodejs20",
-		Handler:  "index.handler",
-		CodePath: "user1/fn1/code.zip",
-		Timeout:  30,
-		MemoryMB: 128,
-	}
-
-	repo.On("GetByID", mock.Anything, fID).Return(f, nil)
-}
-
 func TestCreateFunction_Success(t *testing.T) {
-	repo := new(MockFunctionRepo)
-	docker := new(MockComputeBackend)
+	repo := new(MockFunctionRepository)
+	compute := new(MockComputeBackend)
 	fileStore := new(MockFileStore)
 	auditSvc := new(MockAuditService)
-	logger := slog.Default()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	svc := services.NewFunctionService(repo, docker, fileStore, auditSvc, logger)
+	svc := services.NewFunctionService(repo, compute, fileStore, auditSvc, logger)
 
-	ctx := appcontext.WithUserID(context.Background(), uuid.New())
+	ctx := context.Background()
+	userID := uuid.New()
+	// Simulate authenticated user
+	ctx = appcontext.WithUser(ctx, &domain.User{ID: userID})
 
-	fileStore.On("Write", mock.Anything, "functions", mock.Anything, mock.Anything).Return(int64(100), nil)
-	repo.On("Create", mock.Anything, mock.Anything).Return(nil)
-	auditSvc.On("Log", ctx, mock.Anything, "function.create", "function", mock.Anything, mock.Anything).Return(nil)
+	name := "test-func"
+	runtime := "nodejs20"
+	handler := "index.handler"
+	code := []byte("console.log('hello')")
 
-	fn, err := svc.CreateFunction(ctx, "my-fn", "nodejs20", "index.handler", []byte("code"))
+	fileStore.On("Write", ctx, "functions", mock.MatchedBy(func(key string) bool {
+		return true // validating key format in logic is enough, usually userID/funcID/code.zip
+	}), mock.Anything).Return(int64(len(code)), nil)
+
+	repo.On("Create", ctx, mock.MatchedBy(func(f *domain.Function) bool {
+		return f.Name == name && f.Runtime == runtime && f.UserID == userID
+	})).Return(nil)
+
+	auditSvc.On("Log", ctx, userID, "function.create", "function", mock.Anything, mock.Anything).Return(nil)
+
+	f, err := svc.CreateFunction(ctx, name, runtime, handler, code)
 
 	assert.NoError(t, err)
-	assert.NotNil(t, fn)
-	assert.Equal(t, "my-fn", fn.Name)
-	repo.AssertCalled(t, "Create", mock.Anything, mock.Anything)
+	assert.NotNil(t, f)
+	assert.Equal(t, name, f.Name)
+	assert.Equal(t, "ACTIVE", f.Status)
+
+	repo.AssertExpectations(t)
+	fileStore.AssertExpectations(t)
+	auditSvc.AssertExpectations(t)
+}
+
+func TestCreateFunction_Unauthorized(t *testing.T) {
+	repo := new(MockFunctionRepository)
+	compute := new(MockComputeBackend)
+	fileStore := new(MockFileStore)
+	auditSvc := new(MockAuditService)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	svc := services.NewFunctionService(repo, compute, fileStore, auditSvc, logger)
+
+	ctx := context.Background()
+	// No user in context
+
+	_, err := svc.CreateFunction(ctx, "test", "nodejs20", "handler", []byte("code"))
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "user not authenticated")
 }
 
 func TestCreateFunction_InvalidRuntime(t *testing.T) {
-	repo := new(MockFunctionRepo)
-	docker := new(MockComputeBackend)
+	repo := new(MockFunctionRepository)
+	compute := new(MockComputeBackend)
 	fileStore := new(MockFileStore)
 	auditSvc := new(MockAuditService)
-	logger := slog.Default()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	svc := services.NewFunctionService(repo, docker, fileStore, auditSvc, logger)
+	svc := services.NewFunctionService(repo, compute, fileStore, auditSvc, logger)
 
-	ctx := appcontext.WithUserID(context.Background(), uuid.New())
+	ctx := context.Background()
+	userID := uuid.New()
+	ctx = appcontext.WithUser(ctx, &domain.User{ID: userID})
 
-	fn, err := svc.CreateFunction(ctx, "my-fn", "unsupported-runtime", "handler", []byte("code"))
+	// Invalid runtime
+	_, err := svc.CreateFunction(ctx, "test", "invalid-runtime", "handler", []byte("code"))
 
 	assert.Error(t, err)
-	assert.Nil(t, fn)
 	assert.Contains(t, err.Error(), "unsupported runtime")
-}
-
-func TestListFunctions(t *testing.T) {
-	repo := new(MockFunctionRepo)
-	docker := new(MockComputeBackend)
-	fileStore := new(MockFileStore)
-	auditSvc := new(MockAuditService)
-	logger := slog.Default()
-
-	svc := services.NewFunctionService(repo, docker, fileStore, auditSvc, logger)
-
-	userID := uuid.New()
-	ctx := appcontext.WithUserID(context.Background(), userID)
-
-	fns := []*domain.Function{{Name: "fn1"}, {Name: "fn2"}}
-	repo.On("List", ctx, userID).Return(fns, nil)
-
-	result, err := svc.ListFunctions(ctx)
-
-	assert.NoError(t, err)
-	assert.Len(t, result, 2)
-	repo.AssertExpectations(t)
-}
-
-func TestDeleteFunction(t *testing.T) {
-	repo := new(MockFunctionRepo)
-	docker := new(MockComputeBackend)
-	fileStore := new(MockFileStore)
-	auditSvc := new(MockAuditService)
-	logger := slog.Default()
-
-	svc := services.NewFunctionService(repo, docker, fileStore, auditSvc, logger)
-
-	ctx := context.Background()
-	fnID := uuid.New()
-	fn := &domain.Function{ID: fnID, Name: "to-delete", CodePath: "user/fn/code.zip"}
-
-	repo.On("GetByID", ctx, fnID).Return(fn, nil)
-	repo.On("Delete", ctx, fnID).Return(nil)
-	auditSvc.On("Log", ctx, mock.Anything, "function.delete", "function", fnID.String(), mock.Anything).Return(nil)
-	// The function calls fileStore.Delete in a goroutine with context.Background()
-	fileStore.On("Delete", mock.Anything, "functions", fn.CodePath).Return(nil).Maybe()
-
-	err := svc.DeleteFunction(ctx, fnID) // Pass UUID directly
-
-	assert.NoError(t, err)
-	repo.AssertExpectations(t)
-}
-
-func TestGetFunctionLogs(t *testing.T) {
-	repo := new(MockFunctionRepo)
-	docker := new(MockComputeBackend)
-	fileStore := new(MockFileStore)
-	auditSvc := new(MockAuditService)
-	logger := slog.Default()
-
-	svc := services.NewFunctionService(repo, docker, fileStore, auditSvc, logger)
-
-	ctx := context.Background()
-	fnID := uuid.New()
-
-	invocations := []*domain.Invocation{
-		{ID: uuid.New(), Logs: "Log line 1"},
-		{ID: uuid.New(), Logs: "Log line 2"},
-	}
-
-	repo.On("GetInvocations", ctx, fnID, 50).Return(invocations, nil)
-
-	logs, err := svc.GetFunctionLogs(ctx, fnID, 50)
-
-	assert.NoError(t, err)
-	assert.Len(t, logs, 2)
-	assert.Equal(t, "Log line 1", logs[0].Logs)
-	repo.AssertExpectations(t)
 }

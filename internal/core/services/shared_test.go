@@ -1156,3 +1156,42 @@ func (m *MockSnapshotService) RestoreSnapshot(ctx context.Context, snapshotID uu
 	}
 	return args.Get(0).(*domain.Volume), args.Error(1)
 }
+
+// MockFunctionRepository
+type MockFunctionRepository struct {
+mock.Mock
+}
+
+func (m *MockFunctionRepository) Create(ctx context.Context, function *domain.Function) error {
+args := m.Called(ctx, function)
+return args.Error(0)
+}
+func (m *MockFunctionRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Function, error) {
+args := m.Called(ctx, id)
+if args.Get(0) == nil {
+ nil, args.Error(1)
+}
+return args.Get(0).(*domain.Function), args.Error(1)
+}
+func (m *MockFunctionRepository) GetByName(ctx context.Context, name string) (*domain.Function, error) {
+args := m.Called(ctx, name)
+if args.Get(0) == nil {
+ nil, args.Error(1)
+}
+return args.Get(0).(*domain.Function), args.Error(1)
+}
+func (m *MockFunctionRepository) List(ctx context.Context) ([]*domain.Function, error) {
+args := m.Called(ctx)
+if args.Get(0) == nil {
+ nil, args.Error(1)
+}
+return args.Get(0).([]*domain.Function), args.Error(1)
+}
+func (m *MockFunctionRepository) Update(ctx context.Context, function *domain.Function) error {
+args := m.Called(ctx, function)
+return args.Error(0)
+}
+func (m *MockFunctionRepository) Delete(ctx context.Context, id uuid.UUID) error {
+args := m.Called(ctx, id)
+return args.Error(0)
+}
