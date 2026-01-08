@@ -129,7 +129,9 @@ func (r *SecurityGroupRepository) AddInstanceToGroup(ctx context.Context, instan
 	if err != nil {
 		return errors.Wrap(errors.Internal, "failed to start transaction", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() {
+		_ = tx.Rollback(ctx) // Rollback is safe to call even after Commit
+	}()
 
 	// Verify instance ownership
 	var instanceOwner uuid.UUID
@@ -177,7 +179,9 @@ func (r *SecurityGroupRepository) RemoveInstanceFromGroup(ctx context.Context, i
 	if err != nil {
 		return errors.Wrap(errors.Internal, "failed to start transaction", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() {
+		_ = tx.Rollback(ctx) // Rollback is safe to call even after Commit
+	}()
 
 	// Verify instance ownership
 	var instanceOwner uuid.UUID
