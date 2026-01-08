@@ -31,6 +31,11 @@ type LibvirtAdapter struct {
 
 	mu           sync.RWMutex
 	portMappings map[string]map[string]int // instanceID -> internalPort -> hostPort
+
+	// Network pool configuration
+	networkCounter int
+	poolStart      net.IP
+	poolEnd        net.IP
 }
 
 func NewLibvirtAdapter(logger *slog.Logger, uri string) (*LibvirtAdapter, error) {
@@ -52,10 +57,13 @@ func NewLibvirtAdapter(logger *slog.Logger, uri string) (*LibvirtAdapter, error)
 	}
 
 	return &LibvirtAdapter{
-		conn:         l,
-		logger:       logger,
-		uri:          uri,
-		portMappings: make(map[string]map[string]int),
+		conn:           l,
+		logger:         logger,
+		uri:            uri,
+		portMappings:   make(map[string]map[string]int),
+		networkCounter: 0,
+		poolStart:      net.ParseIP("192.168.100.0"),
+		poolEnd:        net.ParseIP("192.168.200.255"),
 	}, nil
 }
 
@@ -489,8 +497,11 @@ func (a *LibvirtAdapter) WaitTask(ctx context.Context, id string) (int64, error)
 }
 
 func (a *LibvirtAdapter) CreateNetwork(ctx context.Context, name string) (string, error) {
+	// Allocate network range from pool
+	gateway, rangeStart, rangeEnd := a.getNextNetworkRange()
+
 	// Simple NAT network
-	xml := generateNetworkXML(name, "virbr-"+name, "192.168.123.1", "192.168.123.2", "192.168.123.254")
+	xml := generateNetworkXML(name, "virbr-"+name, gateway, rangeStart, rangeEnd)
 
 	net, err := a.conn.NetworkDefineXML(xml)
 	if err != nil {
@@ -700,4 +711,39 @@ func (a *LibvirtAdapter) generateCloudInitISO(ctx context.Context, name string, 
 	}
 
 	return isoPath, nil
+}
+
+// getNextNetworkRange allocates the next /24 network from the pool
+func (a *LibvirtAdapter) getNextNetworkRange() (gateway, rangeStart, rangeEnd string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	// Calculate base IP: poolStart + (networkCounter * 256)
+	baseIP := make(net.IP, len(a.poolStart))
+	copy(baseIP, a.poolStart)
+
+	// Add offset for this network (each network gets a /24)
+	offset := a.networkCounter * 256
+	for i := len(baseIP) - 1; i >= 0 && offset > 0; i-- {
+		sum := int(baseIP[i]) + offset
+		baseIP[i] = byte(sum % 256)
+		offset = sum / 256
+	}
+
+	a.networkCounter++
+
+	// Gateway is .1, DHCP range is .2 to .254
+	gw := make(net.IP, len(baseIP))
+	copy(gw, baseIP)
+	gw[len(gw)-1] = 1
+
+	start := make(net.IP, len(baseIP))
+	copy(start, baseIP)
+	start[len(start)-1] = 2
+
+	end := make(net.IP, len(baseIP))
+	copy(end, baseIP)
+	end[len(end)-1] = 254
+
+	return gw.String(), start.String(), end.String()
 }

@@ -212,8 +212,9 @@ func (s *stackService) createVPC(ctx context.Context, stackID uuid.UUID, logical
 	if name == "" {
 		name = fmt.Sprintf("%s-%s", logicalID, stackID.String()[:8])
 	}
+	cidr, _ := props["CIDRBlock"].(string)
 
-	vpc, err := s.vpcSvc.CreateVPC(ctx, name)
+	vpc, err := s.vpcSvc.CreateVPC(ctx, name, cidr)
 	if err != nil {
 		return uuid.Nil, err
 	}
@@ -304,7 +305,7 @@ func (s *stackService) createInstance(ctx context.Context, stackID uuid.UUID, lo
 		vpcIDPtr = &vpcID
 	}
 
-	inst, err := s.instanceSvc.LaunchInstance(ctx, name, image, "80", vpcIDPtr, nil)
+	inst, err := s.instanceSvc.LaunchInstance(ctx, name, image, "80", vpcIDPtr, nil, nil)
 	if err != nil {
 		return uuid.Nil, err
 	}

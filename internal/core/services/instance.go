@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
+	"os/exec"
 	"strconv"
 	"strings"
 	"time"
@@ -18,29 +20,39 @@ import (
 	"github.com/poyrazk/thecloud/internal/platform"
 )
 
+// InstanceService manages the lifecycle of compute instances,
+// coordinating between database persistence, compute backends (Docker/Libvirt),
+// and network backends (OVS).
 type InstanceService struct {
 	repo       ports.InstanceRepository
 	vpcRepo    ports.VpcRepository
+	subnetRepo ports.SubnetRepository
 	volumeRepo ports.VolumeRepository
 	compute    ports.ComputeBackend
+	network    ports.NetworkBackend
 	eventSvc   ports.EventService
 	auditSvc   ports.AuditService
 	logger     *slog.Logger
 }
 
-func NewInstanceService(repo ports.InstanceRepository, vpcRepo ports.VpcRepository, volumeRepo ports.VolumeRepository, compute ports.ComputeBackend, eventSvc ports.EventService, auditSvc ports.AuditService, logger *slog.Logger) *InstanceService {
+// NewInstanceService initializes a new InstanceService with required dependencies.
+func NewInstanceService(repo ports.InstanceRepository, vpcRepo ports.VpcRepository, subnetRepo ports.SubnetRepository, volumeRepo ports.VolumeRepository, compute ports.ComputeBackend, network ports.NetworkBackend, eventSvc ports.EventService, auditSvc ports.AuditService, logger *slog.Logger) *InstanceService {
 	return &InstanceService{
 		repo:       repo,
 		vpcRepo:    vpcRepo,
+		subnetRepo: subnetRepo,
 		volumeRepo: volumeRepo,
 		compute:    compute,
+		network:    network,
 		eventSvc:   eventSvc,
 		auditSvc:   auditSvc,
 		logger:     logger,
 	}
 }
 
-func (s *InstanceService) LaunchInstance(ctx context.Context, name, image, ports string, vpcID *uuid.UUID, volumes []domain.VolumeAttachment) (*domain.Instance, error) {
+// LaunchInstance provisions a new instance, sets up its network (if VPC/Subnet provided),
+// and attaches any requested volumes.
+func (s *InstanceService) LaunchInstance(ctx context.Context, name, image, ports string, vpcID, subnetID *uuid.UUID, volumes []domain.VolumeAttachment) (*domain.Instance, error) {
 	// 1. Validate ports if provided
 	portList, err := s.parseAndValidatePorts(ports)
 	if err != nil {
@@ -56,6 +68,7 @@ func (s *InstanceService) LaunchInstance(ctx context.Context, name, image, ports
 		Status:    domain.StatusStarting,
 		Ports:     ports,
 		VpcID:     vpcID,
+		SubnetID:  subnetID,
 		Version:   1,
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
@@ -77,6 +90,24 @@ func (s *InstanceService) LaunchInstance(ctx context.Context, name, image, ports
 			return nil, err
 		}
 		networkID = vpc.NetworkID
+	}
+
+	// OVS Networking Setup (Pre-conditional)
+	if subnetID != nil && s.network != nil {
+		subnet, err := s.subnetRepo.GetByID(ctx, *subnetID)
+		if err != nil {
+			return nil, errors.Wrap(errors.NotFound, "subnet not found", err)
+		}
+
+		// Dynamic IP allocation
+		allocatedIP, err := s.allocateIP(ctx, subnet)
+		if err != nil {
+			return nil, errors.Wrap(errors.ResourceLimitExceeded, "failed to allocate IP in subnet", err)
+		}
+		inst.PrivateIP = allocatedIP
+
+		vethHost := fmt.Sprintf("veth-%s", inst.ID.String()[:8])
+		inst.OvsPort = vethHost
 	}
 
 	// 5. Process volume attachments
@@ -110,6 +141,35 @@ func (s *InstanceService) LaunchInstance(ctx context.Context, name, image, ports
 			"error": err.Error(),
 		})
 		return nil, errors.Wrap(errors.Internal, "failed to launch container", err)
+	}
+
+	// 4a. OVS Post-launch plumb
+	if inst.OvsPort != "" && s.network != nil {
+		vethContainer := fmt.Sprintf("eth0-%s", inst.ID.String()[:8])
+		if err := s.network.CreateVethPair(ctx, inst.OvsPort, vethContainer); err == nil {
+			vpc, _ := s.vpcRepo.GetByID(ctx, *inst.VpcID)
+			_ = s.network.AttachVethToBridge(ctx, vpc.NetworkID, inst.OvsPort)
+
+			// Set IP on the host simulation "container" end
+			if inst.SubnetID != nil {
+				subnet, _ := s.subnetRepo.GetByID(ctx, *inst.SubnetID)
+				if subnet != nil {
+					_, ipNet, _ := net.ParseCIDR(subnet.CIDRBlock)
+					ones, _ := ipNet.Mask.Size()
+					// In a real cloud, this happens inside the container namespace.
+					// For this demo, we do it on the host for the 'peer' end.
+					_ = s.network.SetVethIP(ctx, vethContainer, inst.PrivateIP, fmt.Sprintf("%d", ones))
+
+					// Ensure the "container" end is also up on host if simulating
+					cmd := exec.CommandContext(ctx, "ip", "link", "set", vethContainer, "up")
+					_ = cmd.Run()
+				}
+			}
+
+			// Note: Moving veth to container namespace requires the container PID,
+			// which Docker shim handles in a real cloud. For this local demo,
+			// we just create the veth pair on host.
+		}
 	}
 
 	s.logger.Info("container launched", "instance_id", inst.ID, "container_id", containerID)
@@ -185,6 +245,7 @@ func parsePort(s string) (int, error) {
 	return port, nil
 }
 
+// StopInstance halts a running instance's associated compute resource (e.g., container).
 func (s *InstanceService) StopInstance(ctx context.Context, idOrName string) error {
 	// 1. Get from DB (handles both Name and UUID)
 	inst, err := s.GetInstance(ctx, idOrName)
@@ -228,10 +289,12 @@ func (s *InstanceService) StopInstance(ctx context.Context, idOrName string) err
 	return nil
 }
 
+// ListInstances returns all instances owned by the current user.
 func (s *InstanceService) ListInstances(ctx context.Context) ([]*domain.Instance, error) {
 	return s.repo.List(ctx)
 }
 
+// GetInstance retrieves an instance by its UUID or name.
 func (s *InstanceService) GetInstance(ctx context.Context, idOrName string) (*domain.Instance, error) {
 	// 1. Try to parse as UUID
 	id, uuidErr := uuid.Parse(idOrName)
@@ -242,6 +305,7 @@ func (s *InstanceService) GetInstance(ctx context.Context, idOrName string) (*do
 	return s.repo.GetByName(ctx, idOrName)
 }
 
+// GetInstanceLogs retrieves the execution logs from the instance's compute resource.
 func (s *InstanceService) GetInstanceLogs(ctx context.Context, idOrName string) (string, error) {
 	inst, err := s.GetInstance(ctx, idOrName)
 	if err != nil {
@@ -266,6 +330,7 @@ func (s *InstanceService) GetInstanceLogs(ctx context.Context, idOrName string) 
 	return string(bytes), nil
 }
 
+// TerminateInstance permanently removes an instance and its associated compute resources.
 func (s *InstanceService) TerminateInstance(ctx context.Context, idOrName string) error {
 	// 1. Get from DB (handles both Name and UUID)
 	inst, err := s.GetInstance(ctx, idOrName)
@@ -345,6 +410,7 @@ func (s *InstanceService) releaseAttachedVolumes(ctx context.Context, instanceID
 	return nil
 }
 
+// GetInstanceStats retrieves real-time CPU and Memory usage for an instance.
 func (s *InstanceService) GetInstanceStats(ctx context.Context, idOrName string) (*domain.InstanceStats, error) {
 	inst, err := s.GetInstance(ctx, idOrName)
 	if err != nil {
@@ -428,4 +494,53 @@ func (s *InstanceService) updateVolumesAfterLaunch(ctx context.Context, volumes 
 			s.logger.Warn("failed to update volume status", "volume_id", vol.ID, "error", err)
 		}
 	}
+}
+func (s *InstanceService) allocateIP(ctx context.Context, subnet *domain.Subnet) (string, error) {
+	_, ipNet, err := net.ParseCIDR(subnet.CIDRBlock)
+	if err != nil {
+		return "", err
+	}
+
+	instances, err := s.repo.ListBySubnet(ctx, subnet.ID)
+	if err != nil {
+		return "", err
+	}
+
+	usedIPs := make(map[string]bool)
+	for _, inst := range instances {
+		if inst.PrivateIP != "" {
+			usedIPs[inst.PrivateIP] = true
+		}
+	}
+	usedIPs[subnet.GatewayIP] = true
+
+	// Find first available IP
+	ip := make(net.IP, len(ipNet.IP))
+	copy(ip, ipNet.IP)
+
+	for {
+		// Increment IP
+		for i := len(ip) - 1; i >= 0; i-- {
+			ip[i]++
+			if ip[i] > 0 {
+				break
+			}
+		}
+
+		if !ipNet.Contains(ip) {
+			break
+		}
+
+		if !usedIPs[ip.String()] && s.isValidHostIP(ip, ipNet) {
+			return ip.String(), nil
+		}
+	}
+
+	return "", fmt.Errorf("no available IPs in subnet")
+}
+
+func (s *InstanceService) isValidHostIP(ip net.IP, n *net.IPNet) bool {
+	// Simple check: not network address and not broadcast address (if /30 or larger)
+	// For simplicity in this demo, we just ensure it's in range and not gateway
+	return n.Contains(ip)
 }

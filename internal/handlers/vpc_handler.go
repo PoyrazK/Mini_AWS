@@ -30,7 +30,8 @@ func NewVpcHandler(svc ports.VpcService) *VpcHandler {
 // @Router /vpcs [post]
 func (h *VpcHandler) Create(c *gin.Context) {
 	var req struct {
-		Name string `json:"name" binding:"required"`
+		Name      string `json:"name" binding:"required"`
+		CIDRBlock string `json:"cidr_block"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -38,7 +39,7 @@ func (h *VpcHandler) Create(c *gin.Context) {
 		return
 	}
 
-	vpc, err := h.svc.CreateVPC(c.Request.Context(), req.Name)
+	vpc, err := h.svc.CreateVPC(c.Request.Context(), req.Name, req.CIDRBlock)
 	if err != nil {
 		httputil.Error(c, err)
 		return

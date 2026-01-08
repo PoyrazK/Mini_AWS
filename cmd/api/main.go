@@ -27,6 +27,8 @@ import (
 	"github.com/poyrazk/thecloud/internal/repositories/docker"
 	"github.com/poyrazk/thecloud/internal/repositories/filesystem"
 	"github.com/poyrazk/thecloud/internal/repositories/libvirt"
+	"github.com/poyrazk/thecloud/internal/repositories/noop"
+	"github.com/poyrazk/thecloud/internal/repositories/ovs"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/poyrazk/thecloud/pkg/httputil"
 	"github.com/poyrazk/thecloud/pkg/ratelimit"
@@ -129,11 +131,26 @@ func main() {
 	vpcRepo := postgres.NewVpcRepository(db)
 	eventRepo := postgres.NewEventRepository(db)
 	volumeRepo := postgres.NewVolumeRepository(db)
+	sgRepo := postgres.NewSecurityGroupRepository(db)
+	subnetRepo := postgres.NewSubnetRepository(db)
 
-	vpcSvc := services.NewVpcService(vpcRepo, computeBackend, auditSvc, logger)
+	var networkBackend ports.NetworkBackend
+	ovsAdapter, err := ovs.NewOvsAdapter(logger)
+	if err != nil {
+		logger.Warn("failed to initialize OVS adapter, using no-op network backend", "error", err)
+		networkBackend = noop.NewNoopNetworkAdapter(logger)
+	} else {
+		networkBackend = ovsAdapter
+	}
+
+	vpcSvc := services.NewVpcService(vpcRepo, networkBackend, auditSvc, logger, cfg.DefaultVPCCIDR)
+	subnetSvc := services.NewSubnetService(subnetRepo, vpcRepo, auditSvc, logger)
 	eventSvc := services.NewEventService(eventRepo, logger)
 	volumeSvc := services.NewVolumeService(volumeRepo, computeBackend, eventSvc, auditSvc, logger)
-	instanceSvc := services.NewInstanceService(instanceRepo, vpcRepo, volumeRepo, computeBackend, eventSvc, auditSvc, logger)
+	instanceSvc := services.NewInstanceService(instanceRepo, vpcRepo, subnetRepo, volumeRepo, computeBackend, networkBackend, eventSvc, auditSvc, logger)
+
+	sgSvc := services.NewSecurityGroupService(sgRepo, vpcRepo, networkBackend, auditSvc, logger)
+	sgHandler := httphandlers.NewSecurityGroupHandler(sgSvc)
 
 	lbRepo := postgres.NewLBRepository(db)
 	var lbProxy ports.LBProxyAdapter
@@ -152,6 +169,7 @@ func main() {
 	lbWorker := services.NewLBWorker(lbRepo, instanceRepo, lbProxy)
 
 	vpcHandler := httphandlers.NewVpcHandler(vpcSvc)
+	subnetHandler := httphandlers.NewSubnetHandler(subnetSvc)
 	instanceHandler := httphandlers.NewInstanceHandler(instanceSvc)
 	eventHandler := httphandlers.NewEventHandler(eventSvc)
 	volumeHandler := httphandlers.NewVolumeHandler(volumeSvc)
@@ -247,7 +265,27 @@ func main() {
 	// 6. Routes
 	r.GET("/health/live", healthHandler.Live)
 	r.GET("/health/ready", healthHandler.Ready)
-	r.GET("/health", healthHandler.Ready) // Alias for backward compatibility
+	r.GET("/health", healthHandler.Ready)
+
+	// OVS Health check
+	r.GET("/health/ovs", func(c *gin.Context) {
+		if networkBackend == nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "unavailable", "error": "network backend not initialized"})
+			return
+		}
+
+		// Check if using noop adapter (degraded mode)
+		if networkBackend.Type() == "noop" {
+			c.JSON(http.StatusOK, gin.H{"status": "degraded", "message": "using no-op network backend"})
+			return
+		}
+
+		if err := networkBackend.Ping(c.Request.Context()); err != nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "unhealthy", "error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"status": "healthy"})
+	})
 
 	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
@@ -293,6 +331,30 @@ func main() {
 		vpcGroup.GET("", httputil.Permission(rbacSvc, domain.PermissionVpcRead), vpcHandler.List)
 		vpcGroup.GET("/:id", httputil.Permission(rbacSvc, domain.PermissionVpcRead), vpcHandler.Get)
 		vpcGroup.DELETE("/:id", httputil.Permission(rbacSvc, domain.PermissionVpcDelete), vpcHandler.Delete)
+
+		// Subnet routes nested under VPC
+		vpcGroup.POST("/:vpc_id/subnets", httputil.Permission(rbacSvc, domain.PermissionVpcUpdate), subnetHandler.Create)
+		vpcGroup.GET("/:vpc_id/subnets", httputil.Permission(rbacSvc, domain.PermissionVpcRead), subnetHandler.List)
+	}
+
+	// standalone Subnet routes
+	subnetGroup := r.Group("/subnets")
+	subnetGroup.Use(httputil.Auth(identitySvc))
+	{
+		subnetGroup.GET("/:id", httputil.Permission(rbacSvc, domain.PermissionVpcRead), subnetHandler.Get)
+		subnetGroup.DELETE("/:id", httputil.Permission(rbacSvc, domain.PermissionVpcUpdate), subnetHandler.Delete)
+	}
+
+	// Security Group Routes (Protected)
+	sgGroup := r.Group("/security-groups")
+	sgGroup.Use(httputil.Auth(identitySvc))
+	{
+		sgGroup.POST("", sgHandler.Create)
+		sgGroup.GET("", sgHandler.List)
+		sgGroup.GET("/:id", sgHandler.Get)
+		sgGroup.DELETE("/:id", sgHandler.Delete)
+		sgGroup.POST("/:id/rules", sgHandler.AddRule)
+		sgGroup.POST("/attach", sgHandler.Attach)
 	}
 
 	// Storage Routes (Protected)

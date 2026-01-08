@@ -1,11 +1,38 @@
-.PHONY: run test test-coverage build migrate clean stop swagger
+.PHONY: run test test-coverage build migrate clean stop swagger reset clean-docker
+
+# Configuration
+PROJECT_PREFIX = cloud-
+COMPOSE_FILES = -f docker-compose.yml
 
 run: stop
-	docker compose up -d
-	go run cmd/api/main.go
+	docker compose $(COMPOSE_FILES) up -d --build
+	@echo "Services are running. API at http://localhost:8080"
+
+dev: build
+	docker compose $(COMPOSE_FILES) up -d --build
+	docker compose $(COMPOSE_FILES) logs -f api
 
 stop:
+	@echo "Stopping services..."
+	docker compose $(COMPOSE_FILES) stop
 	@fuser -k 8080/tcp 2>/dev/null || true
+
+# Nuclear cleanup for stale resources
+clean-docker:
+	@echo "Cleaning up stale Docker resources..."
+	@docker compose $(COMPOSE_FILES) down --remove-orphans 2>/dev/null || true
+	@# Remove any remaining containers with our prefix
+	@docker ps -a --filter "name=$(PROJECT_PREFIX)" -q | xargs -r docker rm -f
+	@# Remove project network specifically if it's stuck
+	@docker network rm $(PROJECT_PREFIX)network 2>/dev/null || true
+	@echo "Pruning stale networks..."
+	@docker network prune -f
+
+reset: clean-docker
+	@echo "Performing fresh start..."
+	rm -rf bin
+	docker compose $(COMPOSE_FILES) up -d --build
+	@echo "System reset complete."
 
 test:
 	go test ./...
@@ -28,19 +55,11 @@ install: build
 	cp bin/cloud $(HOME)/.local/bin/cloud
 	@./scripts/setup_path.sh
 
-setup-path:
-	@./scripts/setup_path.sh
-
 migrate:
 	@echo "Running migrations..."
 	@docker compose up -d postgres
 	@sleep 2
-	@go run cmd/api/main.go --migrate-only 2>/dev/null || echo "Migrations applied via server startup"
+	@go run cmd/api/main.go --migrate-only
 
-migrate-status:
-	@echo "Checking migration status..."
-	@docker compose exec postgres psql -U cloud -d thecloud -c "SELECT * FROM schema_migrations;" 2>/dev/null || echo "No migrations table found"
-
-clean:
+clean: clean-docker
 	rm -rf bin
-	docker compose down
