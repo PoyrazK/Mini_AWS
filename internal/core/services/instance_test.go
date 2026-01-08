@@ -288,3 +288,55 @@ func TestStopInstance_Success(t *testing.T) {
 	repo.AssertExpectations(t)
 	compute.AssertExpectations(t)
 }
+
+func TestLaunchInstance_WithSubnetAndNetworking(t *testing.T) {
+	repo := new(MockInstanceRepo)
+	vpcRepo := new(MockVpcRepo)
+	subnetRepo := new(MockSubnetRepo)
+	volumeRepo := new(MockVolumeRepo)
+	compute := new(MockComputeBackend)
+	network := new(MockNetworkBackend)
+	eventSvc := new(MockEventService)
+	auditSvc := new(MockAuditService)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	svc := services.NewInstanceService(repo, vpcRepo, subnetRepo, volumeRepo, compute, network, eventSvc, auditSvc, logger)
+
+	ctx := context.Background()
+	vpcID := uuid.New()
+	subnetID := uuid.New()
+	name := "net-inst"
+	image := "alpine"
+
+	vpc := &domain.VPC{ID: vpcID, NetworkID: "br-vpc-123"}
+	subnet := &domain.Subnet{
+		ID:        subnetID,
+		VPCID:     vpcID,
+		CIDRBlock: "10.0.1.0/24",
+		GatewayIP: "10.0.1.1",
+	}
+
+	vpcRepo.On("GetByID", ctx, vpcID).Return(vpc, nil)
+	subnetRepo.On("GetByID", ctx, subnetID).Return(subnet, nil)
+	repo.On("ListBySubnet", ctx, subnetID).Return([]*domain.Instance{}, nil) // No other instances
+
+	repo.On("Create", ctx, mock.AnythingOfType("*domain.Instance")).Return(nil)
+	compute.On("CreateInstance", ctx, mock.Anything, image, mock.Anything, "br-vpc-123", mock.Anything, mock.Anything, mock.Anything).Return("c-123", nil)
+
+	network.On("CreateVethPair", ctx, mock.Anything, mock.Anything).Return(nil)
+	network.On("AttachVethToBridge", ctx, "br-vpc-123", mock.Anything).Return(nil)
+	network.On("SetVethIP", ctx, mock.Anything, "10.0.1.2", "24").Return(nil)
+
+	repo.On("Update", ctx, mock.AnythingOfType("*domain.Instance")).Return(nil)
+	eventSvc.On("RecordEvent", ctx, "INSTANCE_LAUNCH", mock.Anything, "INSTANCE", mock.Anything).Return(nil)
+	auditSvc.On("Log", ctx, mock.Anything, "instance.launch", "instance", mock.Anything, mock.Anything).Return(nil)
+
+	inst, err := svc.LaunchInstance(ctx, name, image, "", &vpcID, &subnetID, nil)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, inst)
+	assert.Equal(t, "10.0.1.2", inst.PrivateIP) // First available after .1
+	assert.Contains(t, inst.OvsPort, "veth-")
+
+	repo.AssertExpectations(t)
+	network.AssertExpectations(t)
+}

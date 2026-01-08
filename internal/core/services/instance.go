@@ -503,8 +503,10 @@ func (s *InstanceService) allocateIP(ctx context.Context, subnet *domain.Subnet)
 	usedIPs[subnet.GatewayIP] = true
 
 	// Find first available IP
-	ip := ipNet.IP
-	for ipNet.Contains(ip) {
+	ip := make(net.IP, len(ipNet.IP))
+	copy(ip, ipNet.IP)
+
+	for {
 		// Increment IP
 		for i := len(ip) - 1; i >= 0; i-- {
 			ip[i]++
@@ -513,7 +515,11 @@ func (s *InstanceService) allocateIP(ctx context.Context, subnet *domain.Subnet)
 			}
 		}
 
-		if !usedIPs[ip.String()] && !ip.Equal(ipNet.IP) && s.isValidHostIP(ip, ipNet) {
+		if !ipNet.Contains(ip) {
+			break
+		}
+
+		if !usedIPs[ip.String()] && s.isValidHostIP(ip, ipNet) {
 			return ip.String(), nil
 		}
 	}
