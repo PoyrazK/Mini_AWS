@@ -169,17 +169,49 @@ func (a *OvsAdapter) DeleteFlowRule(ctx context.Context, bridge string, match st
 	return nil
 }
 
-func (a *OvsAdapter) ListFlowRules(ctx context.Context, bridge string) ([]ports.FlowRule, error) {
-	if !bridgeNameRegex.MatchString(bridge) {
-		return nil, errors.New(errors.InvalidInput, "invalid bridge name")
-	}
-
-	cmd := exec.CommandContext(ctx, a.ofctlPath, "dump-flows", bridge)
-	_, err := cmd.Output()
-	if err != nil {
-		return nil, errors.Wrap(errors.Internal, "failed to list flow rules", err)
-	}
-
+func (a *OvsAdapter) ListFlowRules(_ context.Context, _ string) ([]ports.FlowRule, error) {
 	// Parsing ovs-ofctl dump-flows output is complex and will be implemented in a follow-up.
 	return []ports.FlowRule{}, nil
+}
+
+func (a *OvsAdapter) CreateVethPair(ctx context.Context, hostEnd, containerEnd string) error {
+	cmd := exec.CommandContext(ctx, "ip", "link", "add", hostEnd, "type", "veth", "peer", "name", containerEnd)
+	if err := cmd.Run(); err != nil {
+		return errors.Wrap(errors.Internal, "failed to create veth pair", err)
+	}
+	return nil
+}
+
+func (a *OvsAdapter) AttachVethToBridge(ctx context.Context, bridge, vethEnd string) error {
+	if err := a.AddPort(ctx, bridge, vethEnd); err != nil {
+		return err
+	}
+
+	cmd := exec.CommandContext(ctx, "ip", "link", "set", vethEnd, "up")
+	if err := cmd.Run(); err != nil {
+		return errors.Wrap(errors.Internal, "failed to set veth up", err)
+	}
+
+	return nil
+}
+
+func (a *OvsAdapter) DeleteVethPair(ctx context.Context, hostEnd string) error {
+	cmd := exec.CommandContext(ctx, "ip", "link", "del", hostEnd)
+	if err := cmd.Run(); err != nil {
+		return errors.Wrap(errors.Internal, "failed to delete veth pair", err)
+	}
+	return nil
+}
+
+func (a *OvsAdapter) SetVethIP(ctx context.Context, vethEnd, ip, cidr string) error {
+	cmd := exec.CommandContext(ctx, "ip", "addr", "add", fmt.Sprintf("%s/%s", ip, cidr), "dev", vethEnd)
+	if err := cmd.Run(); err != nil {
+		return errors.Wrap(errors.Internal, "failed to set veth ip", err)
+	}
+
+	cmdUp := exec.CommandContext(ctx, "ip", "link", "set", vethEnd, "up")
+	if err := cmdUp.Run(); err != nil {
+		return errors.Wrap(errors.Internal, "failed to bring veth up", err)
+	}
+	return nil
 }

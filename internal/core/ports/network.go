@@ -32,6 +32,12 @@ type NetworkBackend interface {
 	DeleteFlowRule(ctx context.Context, bridge string, match string) error
 	ListFlowRules(ctx context.Context, bridge string) ([]FlowRule, error)
 
+	// Veth Pair Management (Instance binding)
+	CreateVethPair(ctx context.Context, hostEnd, containerEnd string) error
+	AttachVethToBridge(ctx context.Context, bridge, vethEnd string) error
+	DeleteVethPair(ctx context.Context, hostEnd string) error
+	SetVethIP(ctx context.Context, vethEnd, ip, cidr string) error
+
 	// Health & Type
 	Ping(ctx context.Context) error
 	Type() string
