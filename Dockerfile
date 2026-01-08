@@ -20,8 +20,8 @@ RUN CGO_ENABLED=0 go build -o /bin/api cmd/api/main.go
 # Production stage
 FROM alpine:3.19
 
-# Install runtime dependencies (ca-certificates for HTTPS, docker-cli optional if needed inside)
-RUN apk add --no-cache ca-certificates tzdata
+# Install runtime dependencies
+RUN apk add --no-cache ca-certificates tzdata openvswitch
 
 WORKDIR /app
 
