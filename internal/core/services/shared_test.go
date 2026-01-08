@@ -1419,3 +1419,36 @@ func (m *MockCronRepository) SaveJobRun(ctx context.Context, run *domain.CronJob
 	args := m.Called(ctx, run)
 	return args.Error(0)
 }
+
+// MockIdentityRepo
+type MockIdentityRepo struct{ mock.Mock }
+
+func (m *MockIdentityRepo) CreateAPIKey(ctx context.Context, apiKey *domain.APIKey) error {
+	args := m.Called(ctx, apiKey)
+	return args.Error(0)
+}
+func (m *MockIdentityRepo) GetAPIKeyByKey(ctx context.Context, key string) (*domain.APIKey, error) {
+	args := m.Called(ctx, key)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.APIKey), args.Error(1)
+}
+func (m *MockIdentityRepo) GetAPIKeyByID(ctx context.Context, id uuid.UUID) (*domain.APIKey, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.APIKey), args.Error(1)
+}
+func (m *MockIdentityRepo) ListAPIKeysByUserID(ctx context.Context, userID uuid.UUID) ([]*domain.APIKey, error) {
+	args := m.Called(ctx, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.APIKey), args.Error(1)
+}
+func (m *MockIdentityRepo) DeleteAPIKey(ctx context.Context, id uuid.UUID) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
