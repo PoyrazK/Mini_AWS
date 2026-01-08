@@ -886,6 +886,64 @@ func (m *MockComputeBackend) Type() string {
 	return args.String(0)
 }
 
+// MockNetworkBackend
+type MockNetworkBackend struct{ mock.Mock }
+
+func (m *MockNetworkBackend) CreateBridge(ctx context.Context, name string, vxlanID int) error {
+	args := m.Called(ctx, name, vxlanID)
+	return args.Error(0)
+}
+func (m *MockNetworkBackend) DeleteBridge(ctx context.Context, name string) error {
+	args := m.Called(ctx, name)
+	return args.Error(0)
+}
+func (m *MockNetworkBackend) ListBridges(ctx context.Context) ([]string, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]string), args.Error(1)
+}
+func (m *MockNetworkBackend) AddPort(ctx context.Context, bridge, portName string) error {
+	args := m.Called(ctx, bridge, portName)
+	return args.Error(0)
+}
+func (m *MockNetworkBackend) DeletePort(ctx context.Context, bridge, portName string) error {
+	args := m.Called(ctx, bridge, portName)
+	return args.Error(0)
+}
+func (m *MockNetworkBackend) CreateVXLANTunnel(ctx context.Context, bridge string, vni int, remoteIP string) error {
+	args := m.Called(ctx, bridge, vni, remoteIP)
+	return args.Error(0)
+}
+func (m *MockNetworkBackend) DeleteVXLANTunnel(ctx context.Context, bridge string, remoteIP string) error {
+	args := m.Called(ctx, bridge, remoteIP)
+	return args.Error(0)
+}
+func (m *MockNetworkBackend) AddFlowRule(ctx context.Context, bridge string, rule ports.FlowRule) error {
+	args := m.Called(ctx, bridge, rule)
+	return args.Error(0)
+}
+func (m *MockNetworkBackend) DeleteFlowRule(ctx context.Context, bridge string, match string) error {
+	args := m.Called(ctx, bridge, match)
+	return args.Error(0)
+}
+func (m *MockNetworkBackend) ListFlowRules(ctx context.Context, bridge string) ([]ports.FlowRule, error) {
+	args := m.Called(ctx, bridge)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]ports.FlowRule), args.Error(1)
+}
+func (m *MockNetworkBackend) Ping(ctx context.Context) error {
+	args := m.Called(ctx)
+	return args.Error(0)
+}
+func (m *MockNetworkBackend) Type() string {
+	args := m.Called()
+	return args.String(0)
+}
+
 // MockPasswordResetService
 type MockPasswordResetService struct {
 	mock.Mock
@@ -1058,8 +1116,8 @@ type MockVpcService struct {
 	mock.Mock
 }
 
-func (m *MockVpcService) CreateVPC(ctx context.Context, name string) (*domain.VPC, error) {
-	args := m.Called(ctx, name)
+func (m *MockVpcService) CreateVPC(ctx context.Context, name, cidrBlock string) (*domain.VPC, error) {
+	args := m.Called(ctx, name, cidrBlock)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}

@@ -16,7 +16,7 @@ type VpcRepository interface {
 }
 
 type VpcService interface {
-	CreateVPC(ctx context.Context, name string) (*domain.VPC, error)
+	CreateVPC(ctx context.Context, name, cidrBlock string) (*domain.VPC, error)
 	GetVPC(ctx context.Context, idOrName string) (*domain.VPC, error)
 	ListVPCs(ctx context.Context) ([]*domain.VPC, error)
 	DeleteVPC(ctx context.Context, idOrName string) error

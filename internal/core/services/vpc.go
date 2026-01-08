@@ -10,52 +10,71 @@ import (
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
+	"github.com/poyrazk/thecloud/internal/errors"
 )
 
 type VpcService struct {
 	repo     ports.VpcRepository
-	compute  ports.ComputeBackend
+	network  ports.NetworkBackend
 	auditSvc ports.AuditService
 	logger   *slog.Logger
 }
 
-func NewVpcService(repo ports.VpcRepository, compute ports.ComputeBackend, auditSvc ports.AuditService, logger *slog.Logger) *VpcService {
+func NewVpcService(repo ports.VpcRepository, network ports.NetworkBackend, auditSvc ports.AuditService, logger *slog.Logger) *VpcService {
 	return &VpcService{
 		repo:     repo,
-		compute:  compute,
+		network:  network,
 		auditSvc: auditSvc,
 		logger:   logger,
 	}
 }
 
-func (s *VpcService) CreateVPC(ctx context.Context, name string) (*domain.VPC, error) {
-	// 1. Create Docker network first
-	networkName := fmt.Sprintf("thecloud-vpc-%s", uuid.New().String()[:8])
-	dockerNetworkID, err := s.compute.CreateNetwork(ctx, networkName)
-	if err != nil {
-		return nil, err
+func (s *VpcService) CreateVPC(ctx context.Context, name, cidrBlock string) (*domain.VPC, error) {
+	if cidrBlock == "" {
+		cidrBlock = "10.0.0.0/16"
 	}
 
-	// 2. Persist to DB
+	userID := appcontext.UserIDFromContext(ctx)
+	vpcID := uuid.New()
+
+	// 1. Generate unique VNI (for demo purposes we use a hash based int)
+	vxlanID := int(vpcID[0]) + 100
+
+	// 2. Create OVS bridge
+	bridgeName := fmt.Sprintf("br-vpc-%s", vpcID.String()[:8])
+	if err := s.network.CreateBridge(ctx, bridgeName, vxlanID); err != nil {
+		return nil, errors.Wrap(errors.Internal, "failed to create OVS bridge", err)
+	}
+
+	// 3. Construct ARN
+	arn := fmt.Sprintf("arn:thecloud:vpc:local:%s:vpc/%s", userID.String(), vpcID.String())
+
+	// 4. Persist to DB
 	vpc := &domain.VPC{
-		ID:        uuid.New(),
-		UserID:    appcontext.UserIDFromContext(ctx),
+		ID:        vpcID,
+		UserID:    userID,
 		Name:      name,
-		NetworkID: dockerNetworkID,
+		CIDRBlock: cidrBlock,
+		NetworkID: bridgeName,
+		VXLANID:   vxlanID,
+		Status:    "active",
+		ARN:       arn,
 		CreatedAt: time.Now(),
 	}
 
 	if err := s.repo.Create(ctx, vpc); err != nil {
-		// Cleanup Docker network if DB fails
-		s.logger.Error("failed to create VPC in DB, rolling back network", "name", name, "error", err)
-		if rbErr := s.compute.DeleteNetwork(ctx, dockerNetworkID); rbErr != nil {
-			s.logger.Error("failed to rollback network", "network_id", dockerNetworkID, "error", rbErr)
+		// Cleanup OVS bridge if DB fails
+		s.logger.Error("failed to create VPC in DB, rolling back bridge", "name", name, "error", err)
+		if rbErr := s.network.DeleteBridge(ctx, bridgeName); rbErr != nil {
+			s.logger.Error("failed to rollback bridge", "bridge", bridgeName, "error", rbErr)
 		}
-		return nil, err
+		return nil, errors.Wrap(errors.Internal, "failed to create VPC in database", err)
 	}
 
 	_ = s.auditSvc.Log(ctx, vpc.UserID, "vpc.create", "vpc", vpc.ID.String(), map[string]interface{}{
-		"name": vpc.Name,
+		"name":       vpc.Name,
+		"cidr_block": vpc.CIDRBlock,
+		"arn":        vpc.ARN,
 	})
 
 	return vpc, nil
@@ -79,16 +98,16 @@ func (s *VpcService) DeleteVPC(ctx context.Context, idOrName string) error {
 		return err
 	}
 
-	// 1. Remove Docker network
-	if err := s.compute.DeleteNetwork(ctx, vpc.NetworkID); err != nil {
-		s.logger.Error("failed to remove docker network", "network_id", vpc.NetworkID, "error", err)
-		return err
+	// 1. Remove OVS bridge
+	if err := s.network.DeleteBridge(ctx, vpc.NetworkID); err != nil {
+		s.logger.Error("failed to remove OVS bridge", "bridge", vpc.NetworkID, "error", err)
+		return errors.Wrap(errors.Internal, "failed to remove OVS bridge", err)
 	}
-	s.logger.Info("vpc network removed", "network_id", vpc.NetworkID)
+	s.logger.Info("vpc bridge removed", "bridge", vpc.NetworkID)
 
 	// 2. Delete from DB
 	if err := s.repo.Delete(ctx, vpc.ID); err != nil {
-		return err
+		return errors.Wrap(errors.Internal, "failed to delete VPC from database", err)
 	}
 
 	_ = s.auditSvc.Log(ctx, vpc.UserID, "vpc.delete", "vpc", vpc.ID.String(), map[string]interface{}{
