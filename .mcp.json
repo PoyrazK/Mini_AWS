@@ -1,0 +1,15 @@
+{
+    "mcpServers": {
+        "sonarqube": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "@sonarsource/sonarqube-mcp-server"
+            ],
+            "env": {
+                "SONAR_URL": "https://sonarcloud.io",
+                "SONAR_TOKEN": "ad041b60255a867c84cead9db0700e3d074150d4"
+            }
+        }
+    }
+}
