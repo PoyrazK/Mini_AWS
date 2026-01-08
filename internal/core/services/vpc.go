@@ -14,24 +14,29 @@ import (
 )
 
 type VpcService struct {
-	repo     ports.VpcRepository
-	network  ports.NetworkBackend
-	auditSvc ports.AuditService
-	logger   *slog.Logger
+	repo        ports.VpcRepository
+	network     ports.NetworkBackend
+	auditSvc    ports.AuditService
+	logger      *slog.Logger
+	defaultCIDR string
 }
 
-func NewVpcService(repo ports.VpcRepository, network ports.NetworkBackend, auditSvc ports.AuditService, logger *slog.Logger) *VpcService {
+func NewVpcService(repo ports.VpcRepository, network ports.NetworkBackend, auditSvc ports.AuditService, logger *slog.Logger, defaultCIDR string) *VpcService {
+	if defaultCIDR == "" {
+		defaultCIDR = "10.0.0.0/16" // Fallback if not provided
+	}
 	return &VpcService{
-		repo:     repo,
-		network:  network,
-		auditSvc: auditSvc,
-		logger:   logger,
+		repo:        repo,
+		network:     network,
+		auditSvc:    auditSvc,
+		logger:      logger,
+		defaultCIDR: defaultCIDR,
 	}
 }
 
 func (s *VpcService) CreateVPC(ctx context.Context, name, cidrBlock string) (*domain.VPC, error) {
 	if cidrBlock == "" {
-		cidrBlock = "10.0.0.0/16"
+		cidrBlock = s.defaultCIDR
 	}
 
 	userID := appcontext.UserIDFromContext(ctx)

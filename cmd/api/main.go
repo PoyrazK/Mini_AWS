@@ -138,7 +138,7 @@ func main() {
 		logger.Warn("failed to initialize OVS adapter, falling back to mock or failing networking operations", "error", err)
 	}
 
-	vpcSvc := services.NewVpcService(vpcRepo, networkBackend, auditSvc, logger)
+	vpcSvc := services.NewVpcService(vpcRepo, networkBackend, auditSvc, logger, cfg.DefaultVPCCIDR)
 	subnetSvc := services.NewSubnetService(subnetRepo, vpcRepo, auditSvc, logger)
 	eventSvc := services.NewEventService(eventRepo, logger)
 	volumeSvc := services.NewVolumeService(volumeRepo, computeBackend, eventSvc, auditSvc, logger)

@@ -13,6 +13,9 @@ type Config struct {
 	Environment          string
 	SecretsEncryptionKey string
 	ComputeBackend       string
+	DefaultVPCCIDR       string
+	NetworkPoolStart     string
+	NetworkPoolEnd       string
 }
 
 func NewConfig() (*Config, error) {
@@ -24,6 +27,9 @@ func NewConfig() (*Config, error) {
 		Environment:          getEnv("APP_ENV", "development"),
 		SecretsEncryptionKey: os.Getenv("SECRETS_ENCRYPTION_KEY"),
 		ComputeBackend:       getEnv("COMPUTE_BACKEND", "docker"),
+		DefaultVPCCIDR:       getEnv("DEFAULT_VPC_CIDR", "10.0.0.0/16"),
+		NetworkPoolStart:     getEnv("NETWORK_POOL_START", "192.168.100.0"),
+		NetworkPoolEnd:       getEnv("NETWORK_POOL_END", "192.168.200.255"),
 	}, nil
 }
 

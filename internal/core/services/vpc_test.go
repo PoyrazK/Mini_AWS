@@ -20,7 +20,7 @@ func TestVpcService_Create_Success(t *testing.T) {
 	auditSvc := new(MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	svc := services.NewVpcService(vpcRepo, network, auditSvc, logger)
+	svc := services.NewVpcService(vpcRepo, network, auditSvc, logger, "10.0.0.0/16")
 	ctx := appcontext.WithUserID(context.Background(), uuid.New())
 	name := "test-vpc"
 	cidr := "10.0.0.0/16"
@@ -50,7 +50,7 @@ func TestVpcService_Create_DBFailure_RollsBackBridge(t *testing.T) {
 	auditSvc := new(MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	svc := services.NewVpcService(vpcRepo, network, auditSvc, logger)
+	svc := services.NewVpcService(vpcRepo, network, auditSvc, logger, "10.0.0.0/16")
 	ctx := context.Background()
 	name := "fail-vpc"
 
@@ -71,7 +71,7 @@ func TestVpcService_Delete_Success(t *testing.T) {
 	auditSvc := new(MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	svc := services.NewVpcService(vpcRepo, network, auditSvc, logger)
+	svc := services.NewVpcService(vpcRepo, network, auditSvc, logger, "10.0.0.0/16")
 	ctx := context.Background()
 	vpcID := uuid.New()
 	vpc := &domain.VPC{
@@ -98,7 +98,7 @@ func TestVpcService_List_Success(t *testing.T) {
 	auditSvc := new(MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	svc := services.NewVpcService(vpcRepo, network, auditSvc, logger)
+	svc := services.NewVpcService(vpcRepo, network, auditSvc, logger, "10.0.0.0/16")
 	ctx := context.Background()
 
 	vpcs := []*domain.VPC{{Name: "vpc1"}, {Name: "vpc2"}}
@@ -117,7 +117,7 @@ func TestVpcService_Get_ByName(t *testing.T) {
 	auditSvc := new(MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	svc := services.NewVpcService(vpcRepo, network, auditSvc, logger)
+	svc := services.NewVpcService(vpcRepo, network, auditSvc, logger, "10.0.0.0/16")
 	ctx := context.Background()
 	name := "my-vpc"
 	vpc := &domain.VPC{ID: uuid.New(), Name: name}
