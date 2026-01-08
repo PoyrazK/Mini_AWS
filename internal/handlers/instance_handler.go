@@ -33,11 +33,12 @@ type VolumeAttachmentRequest struct {
 }
 
 type LaunchRequest struct {
-	Name    string                    `json:"name" binding:"required"`
-	Image   string                    `json:"image" binding:"required"`
-	Ports   string                    `json:"ports"`
-	VpcID   string                    `json:"vpc_id"`
-	Volumes []VolumeAttachmentRequest `json:"volumes"`
+	Name     string                    `json:"name" binding:"required"`
+	Image    string                    `json:"image" binding:"required"`
+	Ports    string                    `json:"ports"`
+	VpcID    string                    `json:"vpc_id"`
+	SubnetID string                    `json:"subnet_id"`
+	Volumes  []VolumeAttachmentRequest `json:"volumes"`
 }
 
 // validateLaunchRequest performs custom validation beyond struct tags
@@ -132,7 +133,15 @@ func (h *InstanceHandler) Launch(c *gin.Context) {
 		})
 	}
 
-	inst, err := h.svc.LaunchInstance(c.Request.Context(), req.Name, req.Image, req.Ports, vpcUUID, volumes)
+	var subnetUUID *uuid.UUID
+	if req.SubnetID != "" {
+		id, err := uuid.Parse(req.SubnetID)
+		if err == nil {
+			subnetUUID = &id
+		}
+	}
+
+	inst, err := h.svc.LaunchInstance(c.Request.Context(), req.Name, req.Image, req.Ports, vpcUUID, subnetUUID, volumes)
 	if err != nil {
 		httputil.Error(c, err)
 		return

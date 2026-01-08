@@ -142,7 +142,7 @@ func main() {
 	subnetSvc := services.NewSubnetService(subnetRepo, vpcRepo, auditSvc, logger)
 	eventSvc := services.NewEventService(eventRepo, logger)
 	volumeSvc := services.NewVolumeService(volumeRepo, computeBackend, eventSvc, auditSvc, logger)
-	instanceSvc := services.NewInstanceService(instanceRepo, vpcRepo, volumeRepo, computeBackend, eventSvc, auditSvc, logger)
+	instanceSvc := services.NewInstanceService(instanceRepo, vpcRepo, subnetRepo, volumeRepo, computeBackend, networkBackend, eventSvc, auditSvc, logger)
 
 	sgSvc := services.NewSecurityGroupService(sgRepo, vpcRepo, networkBackend, auditSvc, logger)
 	sgHandler := httphandlers.NewSecurityGroupHandler(sgSvc)

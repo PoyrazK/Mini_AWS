@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"os"
 
 	"github.com/olekukonko/tablewriter"
@@ -15,118 +14,86 @@ var subnetCmd = &cobra.Command{
 	Short: "Manage Subnets within VPCs",
 }
 
-var subnetCreateCmd = &cobra.Command{
-	Use:   "create [name]",
-	Short: "Create a new subnet in a VPC",
+var subnetListCmd = &cobra.Command{
+	Use:   "list [vpc-id]",
+	Short: "List subnets in a VPC",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		vpcID, _ := cmd.Flags().GetString("vpc-id")
-		cidr, _ := cmd.Flags().GetString("cidr-block")
-		az, _ := cmd.Flags().GetString("az")
-
-		if vpcID == "" {
-			fmt.Println("Error: --vpc-id is required")
-			return
-		}
-
-		req := map[string]interface{}{
-			"name":              args[0],
-			"cidr_block":        cidr,
-			"availability_zone": az,
-		}
-
-		data, err := json.Marshal(req)
+		client := getClient()
+		vpcID := args[0]
+		subnets, err := client.ListSubnets(vpcID)
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
 			return
 		}
-
-		resp, err := makeRequest(http.MethodPost, fmt.Sprintf("/vpcs/%s/subnets", vpcID), data)
-		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
-		}
-		defer resp.Body.Close()
-
-		handleResponse(resp, "Subnet created")
-	},
-}
-
-var subnetListCmd = &cobra.Command{
-	Use:   "list",
-	Short: "List subnets in a VPC",
-	Run: func(cmd *cobra.Command, args []string) {
-		vpcID, _ := cmd.Flags().GetString("vpc-id")
-		if vpcID == "" {
-			fmt.Println("Error: --vpc-id is required")
-			return
-		}
-
-		resp, err := makeRequest(http.MethodGet, fmt.Sprintf("/vpcs/%s/subnets", vpcID), nil)
-		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode != http.StatusOK {
-			handleResponse(resp, "")
-			return
-		}
-
-		var result struct {
-			Data []map[string]interface{} `json:"data"`
-		}
-		json.NewDecoder(resp.Body).Decode(&result)
 
 		if outputJSON {
-			data, _ := json.MarshalIndent(result.Data, "", "  ")
+			data, _ := json.MarshalIndent(subnets, "", "  ")
 			fmt.Println(string(data))
 			return
 		}
 
 		table := tablewriter.NewWriter(os.Stdout)
-		table.Header([]string{"ID", "NAME", "CIDR", "AZ", "GATEWAY"})
+		table.Header([]string{"ID", "NAME", "CIDR", "AZ", "GATEWAY", "STATUS", "CREATED AT"})
 
-		for _, s := range result.Data {
+		for _, s := range subnets {
 			table.Append([]string{
-				s["id"].(string)[:8],
-				s["name"].(string),
-				s["cidr_block"].(string),
-				s["availability_zone"].(string),
-				s["gateway_ip"].(string),
+				s.ID[:8],
+				s.Name,
+				s.CIDRBlock,
+				s.AZ,
+				s.GatewayIP,
+				s.Status,
+				s.CreatedAt.Format("2006-01-02 15:04:05"),
 			})
 		}
 		table.Render()
 	},
 }
 
-var subnetRmCmd = &cobra.Command{
-	Use:   "rm [id]",
-	Short: "Remove a subnet",
-	Args:  cobra.ExactArgs(1),
+var subnetCreateCmd = &cobra.Command{
+	Use:   "create [vpc-id] [name] [cidr]",
+	Short: "Create a new subnet in a VPC",
+	Args:  cobra.ExactArgs(3),
 	Run: func(cmd *cobra.Command, args []string) {
-		resp, err := makeRequest(http.MethodDelete, fmt.Sprintf("/subnets/%s", args[0]), nil)
+		client := getClient()
+		vpcID := args[0]
+		name := args[1]
+		cidr := args[2]
+		az, _ := cmd.Flags().GetString("az")
+
+		subnet, err := client.CreateSubnet(vpcID, name, cidr, az)
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
 			return
 		}
-		defer resp.Body.Close()
 
-		handleResponse(resp, "Subnet removed")
+		fmt.Printf("Subnet created successfully: %s (%s)\n", subnet.Name, subnet.ID)
+	},
+}
+
+var subnetDeleteCmd = &cobra.Command{
+	Use:   "rm [subnet-id]",
+	Short: "Remove a subnet",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		client := getClient()
+		subnetID := args[0]
+
+		err := client.DeleteSubnet(subnetID)
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			return
+		}
+
+		fmt.Printf("Subnet %s deleted successfully\n", subnetID)
 	},
 }
 
 func init() {
-	subnetCreateCmd.Flags().String("vpc-id", "", "VPC ID")
-	subnetCreateCmd.Flags().String("cidr-block", "", "CIDR block (e.g. 10.0.1.0/24)")
-	subnetCreateCmd.Flags().String("az", "us-east-1a", "Availability Zone")
-	subnetCreateCmd.MarkFlagRequired("vpc-id")
-	subnetCreateCmd.MarkFlagRequired("cidr-block")
+	subnetCreateCmd.Flags().String("az", "us-east-1a", "Availability zone")
 
-	subnetListCmd.Flags().String("vpc-id", "", "VPC ID")
-	subnetListCmd.MarkFlagRequired("vpc-id")
-
-	subnetCmd.AddCommand(subnetCreateCmd, subnetListCmd, subnetRmCmd)
-	rootCmd.AddCommand(subnetCmd)
+	subnetCmd.AddCommand(subnetListCmd)
+	subnetCmd.AddCommand(subnetCreateCmd)
+	subnetCmd.AddCommand(subnetDeleteCmd)
 }

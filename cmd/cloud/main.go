@@ -45,6 +45,7 @@ func init() {
 	rootCmd.AddCommand(volumeCmd)
 	rootCmd.AddCommand(iacCmd)
 	rootCmd.AddCommand(rolesCmd)
+	rootCmd.AddCommand(subnetCmd)
 }
 
 func main() {
