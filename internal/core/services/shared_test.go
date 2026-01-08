@@ -1452,3 +1452,73 @@ func (m *MockIdentityRepo) DeleteAPIKey(ctx context.Context, id uuid.UUID) error
 	args := m.Called(ctx, id)
 	return args.Error(0)
 }
+
+// MockLBRepo
+type MockLBRepo struct{ mock.Mock }
+
+func (m *MockLBRepo) Create(ctx context.Context, lb *domain.LoadBalancer) error {
+	args := m.Called(ctx, lb)
+	return args.Error(0)
+}
+func (m *MockLBRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.LoadBalancer, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.LoadBalancer), args.Error(1)
+}
+func (m *MockLBRepo) GetByIdempotencyKey(ctx context.Context, key string) (*domain.LoadBalancer, error) {
+	args := m.Called(ctx, key)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.LoadBalancer), args.Error(1)
+}
+func (m *MockLBRepo) List(ctx context.Context) ([]*domain.LoadBalancer, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.LoadBalancer), args.Error(1)
+}
+func (m *MockLBRepo) ListAll(ctx context.Context) ([]*domain.LoadBalancer, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.LoadBalancer), args.Error(1)
+}
+func (m *MockLBRepo) Update(ctx context.Context, lb *domain.LoadBalancer) error {
+	args := m.Called(ctx, lb)
+	return args.Error(0)
+}
+func (m *MockLBRepo) Delete(ctx context.Context, id uuid.UUID) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+func (m *MockLBRepo) AddTarget(ctx context.Context, target *domain.LBTarget) error {
+	args := m.Called(ctx, target)
+	return args.Error(0)
+}
+func (m *MockLBRepo) RemoveTarget(ctx context.Context, lbID, instanceID uuid.UUID) error {
+	args := m.Called(ctx, lbID, instanceID)
+	return args.Error(0)
+}
+func (m *MockLBRepo) ListTargets(ctx context.Context, lbID uuid.UUID) ([]*domain.LBTarget, error) {
+	args := m.Called(ctx, lbID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.LBTarget), args.Error(1)
+}
+func (m *MockLBRepo) UpdateTargetHealth(ctx context.Context, lbID, instanceID uuid.UUID, health string) error {
+	args := m.Called(ctx, lbID, instanceID, health)
+	return args.Error(0)
+}
+func (m *MockLBRepo) GetTargetsForInstance(ctx context.Context, instanceID uuid.UUID) ([]*domain.LBTarget, error) {
+	args := m.Called(ctx, instanceID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.LBTarget), args.Error(1)
+}
