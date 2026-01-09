@@ -243,7 +243,7 @@ func TestAutoScalingWorker_RecordFailure(t *testing.T) {
 	mockRepo.On("GetAllPolicies", ctx, []uuid.UUID{groupID}).Return(map[uuid.UUID][]*domain.ScalingPolicy{}, nil)
 
 	// Simulate a failure during scale out - use context matcher to handle UserID context
-	mockInstSvc.On("LaunchInstance", mock.Anything, mock.Anything, "nginx", "80:80", mock.Anything, mock.Anything, mock.Anything).Return(nil, assert.AnError)
+	mockInstSvc.On("LaunchInstance", mock.Anything, mock.Anything, "nginx", "0:80", mock.Anything, mock.Anything, mock.Anything).Return(nil, assert.AnError)
 
 	// Should record failure - use Any() matcher for context
 	mockRepo.On("UpdateGroup", mock.Anything, mock.Anything).Return(nil)
@@ -290,7 +290,8 @@ func TestAutoScalingWorker_ResetFailures(t *testing.T) {
 
 	// Successful scale out should reset failures
 	newInstance := &domain.Instance{ID: uuid.New(), UserID: userID}
-	mockInstSvc.On("LaunchInstance", mock.Anything, mock.Anything, "nginx", "80:80", mock.Anything, mock.Anything, mock.Anything).Return(newInstance, nil)
+	mockInstSvc.On("LaunchInstance", mock.Anything, mock.Anything, "nginx", "0:80", mock.Anything, mock.Anything, mock.Anything).Return(newInstance, nil)
+	mockRepo.On("AddInstanceToGroup", mock.Anything, groupID, newInstance.ID).Return(nil)
 	mockEventSvc.On("RecordEvent", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	mockRepo.On("UpdateGroup", mock.Anything, mock.Anything).Return(nil)
