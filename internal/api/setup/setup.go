@@ -1,3 +1,6 @@
+// Package setup provides application initialization and configuration utilities
+// for the TheCloud API server, including dependency injection, routing setup,
+// and infrastructure bootstrapping.
 package setup
 
 import (

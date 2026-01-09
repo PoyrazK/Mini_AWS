@@ -32,11 +32,6 @@ import (
 // @in header
 // @name X-API-Key
 
-const (
-	bucketKeyRoute = "/:bucket/:key"
-	roleIDRoute    = "/roles/:id"
-)
-
 func main() {
 	// 1. Logger
 	logger := setup.InitLogger()
