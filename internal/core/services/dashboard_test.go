@@ -50,7 +50,9 @@ func (m *mockInstanceRepo) ListBySubnet(ctx context.Context, subnetID uuid.UUID)
 	return args.Get(0).([]*domain.Instance), args.Error(1)
 }
 func (m *mockInstanceRepo) Update(ctx context.Context, instance *domain.Instance) error {
-	// Mock implementation for Update
+	if instance == nil {
+		return context.Canceled // Just a dummy error to differentiate
+	}
 	args := m.Called(ctx, instance)
 	return args.Error(0)
 }
@@ -103,6 +105,9 @@ func (m *mockVolumeRepo) ListByInstanceID(ctx context.Context, instanceID uuid.U
 	return args.Get(0).([]*domain.Volume), args.Error(1)
 }
 func (m *mockVolumeRepo) Update(ctx context.Context, v *domain.Volume) error {
+	if v == nil {
+		return context.Canceled
+	}
 	// Mock implementation for Update
 	args := m.Called(ctx, v)
 	return args.Error(0)

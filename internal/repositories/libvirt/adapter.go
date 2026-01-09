@@ -524,7 +524,7 @@ func (a *LibvirtAdapter) CreateVolumeSnapshot(ctx context.Context, volumeID stri
 
 	volPath, err := a.conn.StorageVolGetPath(vol)
 	if err != nil {
-		return fmt.Errorf("failed to get volume path: %w", err)
+		return fmt.Errorf(errGetVolumePath, err)
 	}
 
 	// Use qemu-img to convert the volume to a temporary qcow2
@@ -562,7 +562,7 @@ func (a *LibvirtAdapter) RestoreVolumeSnapshot(ctx context.Context, volumeID str
 
 	volPath, err := a.conn.StorageVolGetPath(vol)
 	if err != nil {
-		return fmt.Errorf("failed to get volume path: %w", err)
+		return fmt.Errorf(errGetVolumePath, err)
 	}
 
 	// 1. Untar

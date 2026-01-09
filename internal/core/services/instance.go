@@ -80,7 +80,8 @@ func (s *InstanceService) LaunchInstance(ctx context.Context, name, image, ports
 	}
 
 	// 4. Call Docker to create actual container
-	dockerName := fmt.Sprintf("thecloud-%s", inst.ID.String()[:8])
+	// 4. Call Docker to create actual container
+	dockerName := s.formatContainerName(inst.ID)
 
 	// 4. Resolve networking config
 	networkID, allocatedIP, ovsPort, err := s.resolveNetworkConfig(ctx, vpcID, subnetID)
@@ -207,7 +208,7 @@ func (s *InstanceService) StopInstance(ctx context.Context, idOrName string) err
 	target := inst.ContainerID
 	if target == "" {
 		// Fallback to Reconstruction
-		target = fmt.Sprintf("thecloud-%s", inst.ID.String()[:8])
+		target = s.formatContainerName(inst.ID)
 	}
 
 	if err := s.compute.StopInstance(ctx, target); err != nil {
@@ -321,7 +322,7 @@ func (s *InstanceService) removeInstanceContainer(ctx context.Context, inst *dom
 	containerID := inst.ContainerID
 	if containerID == "" {
 		// Fallback to Reconstruction for legacy or missing ID
-		containerID = fmt.Sprintf("thecloud-%s", inst.ID.String()[:8])
+		containerID = s.formatContainerName(inst.ID)
 	}
 
 	if err := s.compute.DeleteInstance(ctx, containerID); err != nil {
@@ -461,28 +462,11 @@ func (s *InstanceService) allocateIP(ctx context.Context, subnet *domain.Subnet)
 	usedIPs[subnet.GatewayIP] = true
 
 	// Find first available IP
-	ip := make(net.IP, len(ipNet.IP))
-	copy(ip, ipNet.IP)
-
-	for {
-		// Increment IP
-		for i := len(ip) - 1; i >= 0; i-- {
-			ip[i]++
-			if ip[i] > 0 {
-				break
-			}
-		}
-
-		if !ipNet.Contains(ip) {
-			break
-		}
-
-		if !usedIPs[ip.String()] && s.isValidHostIP(ip, ipNet) {
-			return ip.String(), nil
-		}
+	ip, err := s.findAvailableIP(ipNet, usedIPs)
+	if err != nil {
+		return "", err
 	}
-
-	return "", fmt.Errorf("no available IPs in subnet")
+	return ip, nil
 }
 
 func (s *InstanceService) isValidHostIP(ip net.IP, n *net.IPNet) bool {
@@ -575,4 +559,32 @@ func (s *InstanceService) plumbNetwork(ctx context.Context, inst *domain.Instanc
 		}
 	}
 	return nil
+}
+
+func (s *InstanceService) formatContainerName(id uuid.UUID) string {
+	return fmt.Sprintf("thecloud-%s", id.String()[:8])
+}
+
+func (s *InstanceService) findAvailableIP(ipNet *net.IPNet, usedIPs map[string]bool) (string, error) {
+	ip := make(net.IP, len(ipNet.IP))
+	copy(ip, ipNet.IP)
+
+	for {
+		// Increment IP
+		for i := len(ip) - 1; i >= 0; i-- {
+			ip[i]++
+			if ip[i] > 0 {
+				break
+			}
+		}
+
+		if !ipNet.Contains(ip) {
+			break
+		}
+
+		if !usedIPs[ip.String()] && s.isValidHostIP(ip, ipNet) {
+			return ip.String(), nil
+		}
+	}
+	return "", fmt.Errorf("no available IPs in subnet")
 }
