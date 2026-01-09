@@ -14,7 +14,25 @@ The Cloud uses GitHub Actions for continuous integration and deployment. The pip
    - Builds and scans Docker images
    - Deploys to staging/production
 
-2. **Release Pipeline** (`.github/workflows/release.yml`)
+2. **Code Quality** (`.github/workflows/code-quality.yml`)
+   - Runs on: Push to `main` and all PRs
+   - Executes golangci-lint with comprehensive checks
+   - Enforces code standards and best practices
+   - Generates code quality reports
+
+3. **Load Testing** (`.github/workflows/load-tests.yml`)
+   - Runs on: Push to `main` (when test files change) or manual trigger
+   - Starts API server with PostgreSQL
+   - Executes k6 performance tests
+   - Validates API latency and throughput
+
+4. **SonarQube Analysis** (`.github/workflows/sonar.yml`)
+   - Runs on: Push to `main` and all PRs
+   - Performs static code analysis
+   - Reports code quality metrics
+   - Tracks technical debt and security issues
+
+5. **Release Pipeline** (`.github/workflows/release.yml`)
    - Runs on: Version tags (`v*`)
    - Creates GitHub releases
    - Publishes artifacts
@@ -374,9 +392,95 @@ Jobs run in parallel when possible:
    - Discord webhooks
    - Email alerts
 
+## Code Quality Pipeline
+
+### 1. golangci-lint
+
+**Purpose**: Enforce Go code quality standards
+
+**Steps**:
+- ✅ Checkout code
+- ✅ Setup Go 1.23
+- ✅ Run golangci-lint with configuration from `.golangci.yml`
+- ✅ Report violations in PR comments
+
+**Enabled Linters**:
+- `staticcheck` - Advanced static analysis
+- `unused` - Detect unused code
+- `errcheck` - Check error handling
+- `gosimple` - Suggest code simplifications
+- `govet` - Official Go tool
+- `ineffassign` - Detect inefficient assignments
+- `typecheck` - Type checking
+
+**Recent Improvements**:
+- ✅ Reduced cognitive complexity in InstanceService
+- ✅ Introduced parameter structs (reduced from 9→1 parameters)
+- ✅ Eliminated duplicate string literals
+- ✅ Added package documentation comments
+
+## Load Testing Pipeline
+
+### k6 Performance Tests
+
+**Purpose**: Validate API performance under load
+
+**Setup**:
+1. Start PostgreSQL service container
+2. Build API server from source
+3. Start server in background
+4. Wait for health check (max 30 seconds)
+
+**Test Configuration**:
+- Virtual Users: 10
+- Duration: 30 seconds
+- Test File: `tests/load/api-smoke.js`
+
+**Thresholds**:
+- HTTP request duration (p95) < 500ms
+- HTTP request failure rate < 1%
+
+**Cleanup**:
+- API server process stopped automatically
+- Services torn down
+
+## SonarQube Analysis
+
+### Static Analysis
+
+**Purpose**: Comprehensive code quality and security analysis
+
+**Triggers**:
+- Push to `main` branch
+- All pull requests
+
+**Metrics Tracked**:
+- Code smells and technical debt
+- Security vulnerabilities
+- Code coverage (imported from Codecov)
+- Duplication percentage
+- Maintainability rating
+- Reliability rating
+- Security rating
+
+**Quality Gates**:
+- New code coverage > 80%
+- No critical vulnerabilities
+- Maintainability rating ≥ A
+- No security hotspots
+
+**Recent Fixes**:
+- ✅ Removed sonarqube-mcp-server (297 files)
+- ✅ Fixed cognitive complexity issues
+- ✅ Resolved parameter count violations
+- ✅ Eliminated code duplication
+
 ## References
 
 - [GitHub Actions Documentation](https://docs.github.com/en/actions)
 - [Libvirt CI Testing](https://libvirt.org/ci.html)
 - [Docker Build Best Practices](https://docs.docker.com/develop/dev-best-practices/)
 - [Codecov Documentation](https://docs.codecov.com/)
+- [golangci-lint Linters](https://golangci-lint.run/usage/linters/)
+- [k6 Load Testing](https://k6.io/docs/)
+- [SonarQube Documentation](https://docs.sonarqube.org/)

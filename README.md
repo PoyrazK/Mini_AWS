@@ -101,6 +101,22 @@ npm run dev
 - **Observability**: Prometheus Metrics & Real-time WebSockets
 - **CLI**: Cobra (command-based) + Survey (interactive)
 
+## Recent Improvements 🚀
+
+### Code Quality
+- ✅ **Reduced Complexity**: Extracted helper methods to simplify `InstanceService` and `LibvirtAdapter`
+- ✅ **Better Structure**: Introduced parameter structs (reduced 9 params → 1 struct)
+- ✅ **Cleaner Code**: Eliminated duplicate string literals and improved readability
+- ✅ **Enhanced Security**: Addressed potential secret exposure in tests
+
+### CI/CD Enhancements
+- ✅ **Load Testing**: Automated k6 performance tests with API server startup
+- ✅ **Code Quality**: Integrated golangci-lint with 7+ linters
+- ✅ **Static Analysis**: SonarQube integration for continuous quality monitoring
+- ✅ **Smaller Repo**: Removed 297 unnecessary files (sonarqube-mcp-server)
+
+See [CHANGELOG.md](CHANGELOG.md) for detailed changes.
+
 ## Documentation
 
 ### Getting Started
