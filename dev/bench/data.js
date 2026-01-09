@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1767970506038,
+  "lastUpdate": 1767970889245,
   "repoUrl": "https://github.com/PoyrazK/thecloud",
   "entries": {
     "Go Benchmarks": [
@@ -288,6 +288,78 @@ window.BENCHMARK_DATA = {
             "value": 2,
             "unit": "allocs/op",
             "extra": "9077884 times\n4 procs"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "83272398+PoyrazK@users.noreply.github.com",
+            "name": "Poyraz Küçükarslan",
+            "username": "PoyrazK"
+          },
+          "committer": {
+            "email": "83272398+PoyrazK@users.noreply.github.com",
+            "name": "Poyraz Küçükarslan",
+            "username": "PoyrazK"
+          },
+          "distinct": true,
+          "id": "05a197d3ebdbaccc097d43dbaf970e72e5a7516f",
+          "message": "chore: remove sonarqube-mcp-server directory\n\n- Removed 297 files of SonarQube MCP server Java/Gradle project\n- This was a vendored/copied third-party project not needed for TheCloud\n- Reduces repository size and complexity\n- SonarQube analysis still works via GitHub Actions workflow",
+          "timestamp": "2026-01-09T18:00:41+03:00",
+          "tree_id": "e2b874edb40d58c70dffef16ab8c71fb799c9e20",
+          "url": "https://github.com/PoyrazK/thecloud/commit/05a197d3ebdbaccc097d43dbaf970e72e5a7516f"
+        },
+        "date": 1767970885112,
+        "tool": "go",
+        "benches": [
+          {
+            "name": "BenchmarkInstanceServiceList",
+            "value": 1.87,
+            "unit": "ns/op\t       0 B/op\t       0 allocs/op",
+            "extra": "642729123 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkInstanceServiceList - ns/op",
+            "value": 1.87,
+            "unit": "ns/op",
+            "extra": "642729123 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkInstanceServiceList - B/op",
+            "value": 0,
+            "unit": "B/op",
+            "extra": "642729123 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkInstanceServiceList - allocs/op",
+            "value": 0,
+            "unit": "allocs/op",
+            "extra": "642729123 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVPCServiceGet",
+            "value": 132.8,
+            "unit": "ns/op\t     192 B/op\t       2 allocs/op",
+            "extra": "9271734 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVPCServiceGet - ns/op",
+            "value": 132.8,
+            "unit": "ns/op",
+            "extra": "9271734 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVPCServiceGet - B/op",
+            "value": 192,
+            "unit": "B/op",
+            "extra": "9271734 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVPCServiceGet - allocs/op",
+            "value": 2,
+            "unit": "allocs/op",
+            "extra": "9271734 times\n4 procs"
           }
         ]
       }
