@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1767971364426,
+  "lastUpdate": 1767971456633,
   "repoUrl": "https://github.com/PoyrazK/thecloud",
   "entries": {
     "Go Benchmarks": [
@@ -428,6 +428,78 @@ window.BENCHMARK_DATA = {
             "value": 2,
             "unit": "allocs/op",
             "extra": "9277029 times\n4 procs"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "83272398+PoyrazK@users.noreply.github.com",
+            "name": "Poyraz Küçükarslan",
+            "username": "PoyrazK"
+          },
+          "committer": {
+            "email": "83272398+PoyrazK@users.noreply.github.com",
+            "name": "Poyraz Küçükarslan",
+            "username": "PoyrazK"
+          },
+          "distinct": true,
+          "id": "6cb460fa67f345c9d1e92324be7843f7c1aa930f",
+          "message": "docs: update documentation with recent improvements\n\n- Add Code Quality, Load Testing, and SonarQube sections to CI/CD docs\n- Create comprehensive CHANGELOG.md documenting all recent changes\n- Add 'Recent Improvements' section to README highlighting code quality wins\n- Document refactoring efforts (parameter structs, complexity reduction)\n- Add references to new CI/CD workflows and tools\n- Update links and add changelog reference",
+          "timestamp": "2026-01-09T18:10:24+03:00",
+          "tree_id": "cb3523f1765b792c6f812d15aafcf4ee0b9557d7",
+          "url": "https://github.com/PoyrazK/thecloud/commit/6cb460fa67f345c9d1e92324be7843f7c1aa930f"
+        },
+        "date": 1767971451597,
+        "tool": "go",
+        "benches": [
+          {
+            "name": "BenchmarkInstanceServiceList",
+            "value": 1.871,
+            "unit": "ns/op\t       0 B/op\t       0 allocs/op",
+            "extra": "639050972 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkInstanceServiceList - ns/op",
+            "value": 1.871,
+            "unit": "ns/op",
+            "extra": "639050972 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkInstanceServiceList - B/op",
+            "value": 0,
+            "unit": "B/op",
+            "extra": "639050972 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkInstanceServiceList - allocs/op",
+            "value": 0,
+            "unit": "allocs/op",
+            "extra": "639050972 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVPCServiceGet",
+            "value": 131.4,
+            "unit": "ns/op\t     192 B/op\t       2 allocs/op",
+            "extra": "9141504 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVPCServiceGet - ns/op",
+            "value": 131.4,
+            "unit": "ns/op",
+            "extra": "9141504 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVPCServiceGet - B/op",
+            "value": 192,
+            "unit": "B/op",
+            "extra": "9141504 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVPCServiceGet - allocs/op",
+            "value": 2,
+            "unit": "allocs/op",
+            "extra": "9141504 times\n4 procs"
           }
         ]
       }
