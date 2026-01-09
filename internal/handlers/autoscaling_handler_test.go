@@ -31,6 +31,7 @@ type mockAutoScalingService struct {
 	mock.Mock
 }
 
+//nolint:gocritic // Mock function signature matches interface, cannot reduce parameters
 func (m *mockAutoScalingService) CreateGroup(ctx context.Context, name string, vpcID uuid.UUID, image, ports string, min, max, desired int, lbID *uuid.UUID, idempotencyKey string) (*domain.ScalingGroup, error) {
 	args := m.Called(ctx, name, vpcID, image, ports, min, max, desired, lbID, idempotencyKey)
 	if args.Get(0) == nil {
@@ -59,6 +60,7 @@ func (m *mockAutoScalingService) DeleteGroup(ctx context.Context, id uuid.UUID) 
 	return m.Called(ctx, id).Error(0)
 }
 
+//nolint:gocritic // Mock function signature matches interface, cannot reduce parameters
 func (m *mockAutoScalingService) CreatePolicy(ctx context.Context, groupID uuid.UUID, name, metricType string, targetValue float64, scaleOut, scaleIn, cooldown int) (*domain.ScalingPolicy, error) {
 	args := m.Called(ctx, groupID, name, metricType, targetValue, scaleOut, scaleIn, cooldown)
 	if args.Get(0) == nil {
