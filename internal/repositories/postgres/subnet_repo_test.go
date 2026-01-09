@@ -61,6 +61,30 @@ func TestSubnetRepository_GetByID(t *testing.T) {
 	assert.Equal(t, id, s.ID)
 }
 
+func TestSubnetRepository_GetByName(t *testing.T) {
+	mock, err := pgxmock.NewPool()
+	assert.NoError(t, err)
+	defer mock.Close()
+
+	repo := NewSubnetRepository(mock)
+	id := uuid.New()
+	userID := uuid.New()
+	vpcID := uuid.New()
+	ctx := appcontext.WithUserID(context.Background(), userID)
+	now := time.Now()
+	name := "subnet-1"
+
+	mock.ExpectQuery("SELECT id, user_id, vpc_id, name, cidr_block::text, availability_zone, COALESCE\\(gateway_ip::text, ''\\), arn, status, created_at FROM subnets").
+		WithArgs(vpcID, name, userID).
+		WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "vpc_id", "name", "cidr_block", "availability_zone", "gateway_ip", "arn", "status", "created_at"}).
+			AddRow(id, userID, vpcID, name, "10.0.1.0/24", "us-east-1a", "10.0.1.1", "arn", "available", now))
+
+	s, err := repo.GetByName(ctx, vpcID, name)
+	assert.NoError(t, err)
+	assert.NotNil(t, s)
+	assert.Equal(t, id, s.ID)
+}
+
 func TestSubnetRepository_ListByVPC(t *testing.T) {
 	mock, err := pgxmock.NewPool()
 	assert.NoError(t, err)
@@ -80,4 +104,22 @@ func TestSubnetRepository_ListByVPC(t *testing.T) {
 	subnets, err := repo.ListByVPC(ctx, vpcID)
 	assert.NoError(t, err)
 	assert.Len(t, subnets, 1)
+}
+
+func TestSubnetRepository_Delete(t *testing.T) {
+	mock, err := pgxmock.NewPool()
+	assert.NoError(t, err)
+	defer mock.Close()
+
+	repo := NewSubnetRepository(mock)
+	id := uuid.New()
+	userID := uuid.New()
+	ctx := appcontext.WithUserID(context.Background(), userID)
+
+	mock.ExpectExec("DELETE FROM subnets").
+		WithArgs(id, userID).
+		WillReturnResult(pgxmock.NewResult("DELETE", 1))
+
+	err = repo.Delete(ctx, id)
+	assert.NoError(t, err)
 }

@@ -48,9 +48,11 @@ func (r *SnapshotRepository) ListByVolumeID(ctx context.Context, volumeID uuid.U
 	var snapshots []*domain.Snapshot
 	for rows.Next() {
 		s := &domain.Snapshot{}
-		if err := rows.Scan(&s.ID, &s.UserID, &s.VolumeID, &s.VolumeName, &s.SizeGB, &s.Status, &s.Description, &s.CreatedAt); err != nil {
+		var status string
+		if err := rows.Scan(&s.ID, &s.UserID, &s.VolumeID, &s.VolumeName, &s.SizeGB, &status, &s.Description, &s.CreatedAt); err != nil {
 			return nil, err
 		}
+		s.Status = domain.SnapshotStatus(status)
 		snapshots = append(snapshots, s)
 	}
 	return snapshots, nil

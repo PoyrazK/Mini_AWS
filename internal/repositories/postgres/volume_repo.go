@@ -19,7 +19,7 @@ func NewVolumeRepository(db DB) *VolumeRepository {
 func (r *VolumeRepository) Create(ctx context.Context, v *domain.Volume) error {
 	query := `INSERT INTO volumes (id, user_id, name, size_gb, status, instance_id, mount_path, created_at, updated_at) 
               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
-	_, err := r.db.Exec(ctx, query, v.ID, v.UserID, v.Name, v.SizeGB, v.Status, v.InstanceID, v.MountPath, v.CreatedAt, v.UpdatedAt)
+	_, err := r.db.Exec(ctx, query, v.ID, v.UserID, v.Name, v.SizeGB, string(v.Status), v.InstanceID, v.MountPath, v.CreatedAt, v.UpdatedAt)
 	return err
 }
 
@@ -95,7 +95,7 @@ func (r *VolumeRepository) ListByInstanceID(ctx context.Context, instanceID uuid
 
 func (r *VolumeRepository) Update(ctx context.Context, v *domain.Volume) error {
 	query := `UPDATE volumes SET status = $1, instance_id = $2, mount_path = $3, updated_at = $4 WHERE id = $5 AND user_id = $6`
-	_, err := r.db.Exec(ctx, query, v.Status, v.InstanceID, v.MountPath, v.UpdatedAt, v.ID, v.UserID)
+	_, err := r.db.Exec(ctx, query, string(v.Status), v.InstanceID, v.MountPath, v.UpdatedAt, v.ID, v.UserID)
 	return err
 }
 

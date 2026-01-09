@@ -42,9 +42,12 @@ func (r *DatabaseRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain
 		WHERE id = $1 AND user_id = $2
 	`
 	var db domain.Database
+	var engine, status string
 	err := r.db.QueryRow(ctx, query, id, userID).Scan(
-		&db.ID, &db.UserID, &db.Name, &db.Engine, &db.Version, &db.Status, &db.VpcID, &db.ContainerID, &db.Port, &db.Username, &db.Password, &db.CreatedAt, &db.UpdatedAt,
+		&db.ID, &db.UserID, &db.Name, &engine, &db.Version, &status, &db.VpcID, &db.ContainerID, &db.Port, &db.Username, &db.Password, &db.CreatedAt, &db.UpdatedAt,
 	)
+	db.Engine = domain.DatabaseEngine(engine)
+	db.Status = domain.DatabaseStatus(status)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, errors.New(errors.NotFound, fmt.Sprintf("database %s not found", id))
@@ -71,9 +74,12 @@ func (r *DatabaseRepository) List(ctx context.Context) ([]*domain.Database, erro
 	var databases []*domain.Database
 	for rows.Next() {
 		var db domain.Database
+		var engine, status string
 		err := rows.Scan(
-			&db.ID, &db.UserID, &db.Name, &db.Engine, &db.Version, &db.Status, &db.VpcID, &db.ContainerID, &db.Port, &db.Username, &db.Password, &db.CreatedAt, &db.UpdatedAt,
+			&db.ID, &db.UserID, &db.Name, &engine, &db.Version, &status, &db.VpcID, &db.ContainerID, &db.Port, &db.Username, &db.Password, &db.CreatedAt, &db.UpdatedAt,
 		)
+		db.Engine = domain.DatabaseEngine(engine)
+		db.Status = domain.DatabaseStatus(status)
 		if err != nil {
 			return nil, errors.Wrap(errors.Internal, "failed to scan database", err)
 		}

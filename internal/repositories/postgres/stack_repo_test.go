@@ -29,7 +29,7 @@ func TestStackRepository_Create(t *testing.T) {
 	}
 
 	mock.ExpectExec("INSERT INTO stacks").
-		WithArgs(s.ID, s.UserID, s.Name, s.Template, s.Parameters, s.Status, s.CreatedAt, s.UpdatedAt).
+		WithArgs(s.ID, s.UserID, s.Name, s.Template, s.Parameters, string(s.Status), s.CreatedAt, s.UpdatedAt).
 		WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 	err = repo.Create(context.Background(), s)
@@ -49,7 +49,7 @@ func TestStackRepository_GetByID(t *testing.T) {
 	mock.ExpectQuery("SELECT id, user_id, name, template, parameters, status, status_reason, created_at, updated_at FROM stacks").
 		WithArgs(id).
 		WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "name", "template", "parameters", "status", "status_reason", "created_at", "updated_at"}).
-			AddRow(id, userID, "test", "{}", nil, "ACTIVE", nil, now, now))
+			AddRow(id, userID, "test", "{}", nil, "ACTIVE", "", now, now))
 
 	mock.ExpectQuery("SELECT id, stack_id, logical_id, physical_id, resource_type, status, created_at FROM stack_resources").
 		WithArgs(id).
@@ -60,6 +60,28 @@ func TestStackRepository_GetByID(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, s)
 	assert.Len(t, s.Resources, 1)
+}
+
+func TestStackRepository_GetByName(t *testing.T) {
+	mock, err := pgxmock.NewPool()
+	assert.NoError(t, err)
+	defer mock.Close()
+
+	repo := NewStackRepository(mock)
+	id := uuid.New()
+	userID := uuid.New()
+	name := "test-stack"
+	now := time.Now()
+
+	mock.ExpectQuery("SELECT id, user_id, name, template, parameters, status, status_reason, created_at, updated_at FROM stacks").
+		WithArgs(userID, name).
+		WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "name", "template", "parameters", "status", "status_reason", "created_at", "updated_at"}).
+			AddRow(id, userID, name, "{}", nil, "ACTIVE", "", now, now))
+
+	s, err := repo.GetByName(context.Background(), userID, name)
+	assert.NoError(t, err)
+	assert.NotNil(t, s)
+	assert.Equal(t, id, s.ID)
 }
 
 func TestStackRepository_ListByUserID(t *testing.T) {
@@ -74,7 +96,7 @@ func TestStackRepository_ListByUserID(t *testing.T) {
 	mock.ExpectQuery("SELECT id, user_id, name, template, parameters, status, status_reason, created_at, updated_at FROM stacks").
 		WithArgs(userID).
 		WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "name", "template", "parameters", "status", "status_reason", "created_at", "updated_at"}).
-			AddRow(uuid.New(), userID, "s1", "{}", nil, "ACTIVE", nil, now, now))
+			AddRow(uuid.New(), userID, "s1", "{}", nil, "ACTIVE", "", now, now))
 
 	stacks, err := repo.ListByUserID(context.Background(), userID)
 	assert.NoError(t, err)
@@ -102,5 +124,58 @@ func TestStackRepository_AddResource(t *testing.T) {
 		WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 	err = repo.AddResource(context.Background(), res)
+	assert.NoError(t, err)
+}
+
+func TestStackRepository_Update(t *testing.T) {
+	mock, err := pgxmock.NewPool()
+	assert.NoError(t, err)
+	defer mock.Close()
+
+	repo := NewStackRepository(mock)
+	s := &domain.Stack{
+		ID:           uuid.New(),
+		Status:       "UPDATE_COMPLETE",
+		StatusReason: "reason",
+		UpdatedAt:    time.Now(),
+	}
+
+	mock.ExpectExec("UPDATE stacks").
+		WithArgs(string(s.Status), s.StatusReason, s.UpdatedAt, s.ID).
+		WillReturnResult(pgxmock.NewResult("UPDATE", 1))
+
+	err = repo.Update(context.Background(), s)
+	assert.NoError(t, err)
+}
+
+func TestStackRepository_Delete(t *testing.T) {
+	mock, err := pgxmock.NewPool()
+	assert.NoError(t, err)
+	defer mock.Close()
+
+	repo := NewStackRepository(mock)
+	id := uuid.New()
+
+	mock.ExpectExec("DELETE FROM stacks").
+		WithArgs(id).
+		WillReturnResult(pgxmock.NewResult("DELETE", 1))
+
+	err = repo.Delete(context.Background(), id)
+	assert.NoError(t, err)
+}
+
+func TestStackRepository_DeleteResources(t *testing.T) {
+	mock, err := pgxmock.NewPool()
+	assert.NoError(t, err)
+	defer mock.Close()
+
+	repo := NewStackRepository(mock)
+	stackID := uuid.New()
+
+	mock.ExpectExec("DELETE FROM stack_resources").
+		WithArgs(stackID).
+		WillReturnResult(pgxmock.NewResult("DELETE", 1))
+
+	err = repo.DeleteResources(context.Background(), stackID)
 	assert.NoError(t, err)
 }

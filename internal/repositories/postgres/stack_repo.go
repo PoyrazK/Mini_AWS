@@ -18,7 +18,7 @@ func NewStackRepository(db DB) *stackRepository {
 func (r *stackRepository) Create(ctx context.Context, s *domain.Stack) error {
 	_, err := r.db.Exec(ctx,
 		"INSERT INTO stacks (id, user_id, name, template, parameters, status, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
-		s.ID, s.UserID, s.Name, s.Template, s.Parameters, s.Status, s.CreatedAt, s.UpdatedAt)
+		s.ID, s.UserID, s.Name, s.Template, s.Parameters, string(s.Status), s.CreatedAt, s.UpdatedAt)
 	return err
 }
 
@@ -79,7 +79,7 @@ func (r *stackRepository) ListByUserID(ctx context.Context, userID uuid.UUID) ([
 func (r *stackRepository) Update(ctx context.Context, s *domain.Stack) error {
 	_, err := r.db.Exec(ctx,
 		"UPDATE stacks SET status = $1, status_reason = $2, updated_at = $3 WHERE id = $4",
-		s.Status, s.StatusReason, s.UpdatedAt, s.ID)
+		string(s.Status), s.StatusReason, s.UpdatedAt, s.ID)
 	return err
 }
 

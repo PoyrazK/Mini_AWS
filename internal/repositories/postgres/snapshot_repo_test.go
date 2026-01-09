@@ -77,3 +77,63 @@ func TestSnapshotRepository_ListByUserID(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, snapshots, 1)
 }
+
+func TestSnapshotRepository_ListByVolumeID(t *testing.T) {
+	mock, err := pgxmock.NewPool()
+	assert.NoError(t, err)
+	defer mock.Close()
+
+	repo := NewSnapshotRepository(mock)
+	volumeID := uuid.New()
+	userID := uuid.New()
+	ctx := appcontext.WithUserID(context.Background(), userID)
+	now := time.Now()
+
+	mock.ExpectQuery("SELECT id, user_id, volume_id, volume_name, size_gb, status, description, created_at FROM snapshots").
+		WithArgs(volumeID, userID).
+		WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "volume_id", "volume_name", "size_gb", "status", "description", "created_at"}).
+			AddRow(uuid.New(), userID, volumeID, "vol1", 10, "available", "desc", now))
+
+	snapshots, err := repo.ListByVolumeID(ctx, volumeID)
+	assert.NoError(t, err)
+	assert.Len(t, snapshots, 1)
+}
+
+func TestSnapshotRepository_Update(t *testing.T) {
+	mock, err := pgxmock.NewPool()
+	assert.NoError(t, err)
+	defer mock.Close()
+
+	repo := NewSnapshotRepository(mock)
+	s := &domain.Snapshot{
+		ID:          uuid.New(),
+		UserID:      uuid.New(),
+		Status:      "available",
+		Description: "updated desc",
+	}
+
+	mock.ExpectExec("UPDATE snapshots").
+		WithArgs(s.Status, s.Description, s.ID, s.UserID).
+		WillReturnResult(pgxmock.NewResult("UPDATE", 1))
+
+	err = repo.Update(context.Background(), s)
+	assert.NoError(t, err)
+}
+
+func TestSnapshotRepository_Delete(t *testing.T) {
+	mock, err := pgxmock.NewPool()
+	assert.NoError(t, err)
+	defer mock.Close()
+
+	repo := NewSnapshotRepository(mock)
+	id := uuid.New()
+	userID := uuid.New()
+	ctx := appcontext.WithUserID(context.Background(), userID)
+
+	mock.ExpectExec("DELETE FROM snapshots").
+		WithArgs(id, userID).
+		WillReturnResult(pgxmock.NewResult("DELETE", 1))
+
+	err = repo.Delete(ctx, id)
+	assert.NoError(t, err)
+}
