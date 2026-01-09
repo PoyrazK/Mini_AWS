@@ -17,7 +17,9 @@ import (
 
 const (
 	rolesPath    = "/rbac/roles"
+	bindPath     = "/rbac/bind"
 	testRoleName = "test-role"
+	adminRole    = "admin"
 )
 
 type mockRBACService struct {
@@ -124,7 +126,7 @@ func TestRBACHandlerListRoles(t *testing.T) {
 	r.GET(rolesPath, handler.ListRoles)
 
 	roles := []*domain.Role{
-		{ID: uuid.New(), Name: "admin"},
+		{ID: uuid.New(), Name: adminRole},
 		{ID: uuid.New(), Name: "viewer"},
 	}
 
@@ -136,7 +138,7 @@ func TestRBACHandlerListRoles(t *testing.T) {
 	r.ServeHTTP(w, httpReq)
 
 	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "admin")
+	assert.Contains(t, w.Body.String(), adminRole)
 	assert.Contains(t, w.Body.String(), "viewer")
 }
 
@@ -147,7 +149,7 @@ func TestRBACHandlerGetRoleByID(t *testing.T) {
 	r.GET(rolesPath+"/:id", handler.GetRole)
 
 	roleID := uuid.New()
-	role := &domain.Role{ID: roleID, Name: "admin"}
+	role := &domain.Role{ID: roleID, Name: adminRole}
 
 	svc.On("GetRoleByID", mock.Anything, roleID).Return(role, nil)
 
@@ -157,7 +159,7 @@ func TestRBACHandlerGetRoleByID(t *testing.T) {
 	r.ServeHTTP(w, httpReq)
 
 	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "admin")
+	assert.Contains(t, w.Body.String(), adminRole)
 }
 
 func TestRBACHandlerGetRoleByName(t *testing.T) {
@@ -226,10 +228,10 @@ func TestRBACHandlerBindRole(t *testing.T) {
 	svc, handler, r := setupRBACHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
-	r.POST("/rbac/bind", handler.BindRole)
+	r.POST(bindPath, handler.BindRole)
 
 	userEmail := "user@example.com"
-	roleName := "admin"
+	roleName := adminRole
 
 	body, err := json.Marshal(map[string]string{
 		"user_identifier": userEmail,
@@ -240,7 +242,7 @@ func TestRBACHandlerBindRole(t *testing.T) {
 	svc.On("BindRole", mock.Anything, userEmail, roleName).Return(nil)
 
 	w := httptest.NewRecorder()
-	httpReq, err := http.NewRequest("POST", "/rbac/bind", bytes.NewBuffer(body))
+	httpReq, err := http.NewRequest("POST", bindPath, bytes.NewBuffer(body))
 	assert.NoError(t, err)
 	r.ServeHTTP(w, httpReq)
 
