@@ -5,17 +5,16 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/errors"
 )
 
 type LBRepository struct {
-	db *pgxpool.Pool
+	db DB
 }
 
-func NewLBRepository(db *pgxpool.Pool) *LBRepository {
+func NewLBRepository(db DB) *LBRepository {
 	return &LBRepository{db: db}
 }
 
@@ -42,8 +41,9 @@ func (r *LBRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.LoadB
 		WHERE id = $1 AND user_id = $2
 	`
 	var lb domain.LoadBalancer
+	var status string
 	err := r.db.QueryRow(ctx, query, id, userID).Scan(
-		&lb.ID, &lb.UserID, &lb.IdempotencyKey, &lb.Name, &lb.VpcID, &lb.Port, &lb.Algorithm, &lb.Status, &lb.Version, &lb.CreatedAt,
+		&lb.ID, &lb.UserID, &lb.IdempotencyKey, &lb.Name, &lb.VpcID, &lb.Port, &lb.Algorithm, &status, &lb.Version, &lb.CreatedAt,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -51,6 +51,7 @@ func (r *LBRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.LoadB
 		}
 		return nil, errors.Wrap(errors.Internal, "failed to get load balancer", err)
 	}
+	lb.Status = domain.LBStatus(status)
 	return &lb, nil
 }
 
@@ -65,8 +66,9 @@ func (r *LBRepository) GetByIdempotencyKey(ctx context.Context, key string) (*do
 		WHERE idempotency_key = $1 AND user_id = $2
 	`
 	var lb domain.LoadBalancer
+	var status string
 	err := r.db.QueryRow(ctx, query, key, userID).Scan(
-		&lb.ID, &lb.UserID, &lb.IdempotencyKey, &lb.Name, &lb.VpcID, &lb.Port, &lb.Algorithm, &lb.Status, &lb.Version, &lb.CreatedAt,
+		&lb.ID, &lb.UserID, &lb.IdempotencyKey, &lb.Name, &lb.VpcID, &lb.Port, &lb.Algorithm, &status, &lb.Version, &lb.CreatedAt,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -74,6 +76,7 @@ func (r *LBRepository) GetByIdempotencyKey(ctx context.Context, key string) (*do
 		}
 		return nil, errors.Wrap(errors.Internal, "failed to get load balancer by idempotency key", err)
 	}
+	lb.Status = domain.LBStatus(status)
 	return &lb, nil
 }
 
@@ -94,12 +97,14 @@ func (r *LBRepository) List(ctx context.Context) ([]*domain.LoadBalancer, error)
 	var lbs []*domain.LoadBalancer
 	for rows.Next() {
 		var lb domain.LoadBalancer
+		var status string
 		err := rows.Scan(
-			&lb.ID, &lb.UserID, &lb.IdempotencyKey, &lb.Name, &lb.VpcID, &lb.Port, &lb.Algorithm, &lb.Status, &lb.Version, &lb.CreatedAt,
+			&lb.ID, &lb.UserID, &lb.IdempotencyKey, &lb.Name, &lb.VpcID, &lb.Port, &lb.Algorithm, &status, &lb.Version, &lb.CreatedAt,
 		)
 		if err != nil {
 			return nil, errors.Wrap(errors.Internal, "failed to scan load balancer", err)
 		}
+		lb.Status = domain.LBStatus(status)
 		lbs = append(lbs, &lb)
 	}
 	return lbs, nil
@@ -120,12 +125,14 @@ func (r *LBRepository) ListAll(ctx context.Context) ([]*domain.LoadBalancer, err
 	var lbs []*domain.LoadBalancer
 	for rows.Next() {
 		var lb domain.LoadBalancer
+		var status string
 		err := rows.Scan(
-			&lb.ID, &lb.UserID, &lb.IdempotencyKey, &lb.Name, &lb.VpcID, &lb.Port, &lb.Algorithm, &lb.Status, &lb.Version, &lb.CreatedAt,
+			&lb.ID, &lb.UserID, &lb.IdempotencyKey, &lb.Name, &lb.VpcID, &lb.Port, &lb.Algorithm, &status, &lb.Version, &lb.CreatedAt,
 		)
 		if err != nil {
 			return nil, errors.Wrap(errors.Internal, "failed to scan load balancer", err)
 		}
+		lb.Status = domain.LBStatus(status)
 		lbs = append(lbs, &lb)
 	}
 	return lbs, nil

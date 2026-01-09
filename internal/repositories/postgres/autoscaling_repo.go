@@ -7,17 +7,16 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	errs "github.com/poyrazk/thecloud/internal/errors"
 )
 
 type AutoScalingRepo struct {
-	db *pgxpool.Pool
+	db DB
 }
 
-func NewAutoScalingRepo(db *pgxpool.Pool) *AutoScalingRepo {
+func NewAutoScalingRepo(db DB) *AutoScalingRepo {
 	return &AutoScalingRepo{db: db}
 }
 
@@ -56,11 +55,13 @@ func (r *AutoScalingRepo) GetGroupByID(ctx context.Context, id uuid.UUID) (*doma
 	var ports sql.NullString
 	var idk sql.NullString
 
+	var status string
 	err := r.db.QueryRow(ctx, query, id, userID).Scan(
 		&g.ID, &g.UserID, &idk, &g.Name, &g.VpcID, &lbID, &g.Image, &ports,
 		&g.MinInstances, &g.MaxInstances, &g.DesiredCount, &g.CurrentCount,
-		&g.Status, &g.Version, &g.CreatedAt, &g.UpdatedAt,
+		&status, &g.Version, &g.CreatedAt, &g.UpdatedAt,
 	)
+	g.Status = domain.ScalingGroupStatus(status)
 	if err == pgx.ErrNoRows {
 		return nil, errs.New(errs.NotFound, "scaling group not found")
 	}
@@ -89,11 +90,13 @@ func (r *AutoScalingRepo) GetGroupByIdempotencyKey(ctx context.Context, key stri
 	var ports sql.NullString
 	var idk sql.NullString // Should match key
 
+	var status string
 	err := r.db.QueryRow(ctx, query, key, userID).Scan(
 		&g.ID, &g.UserID, &idk, &g.Name, &g.VpcID, &lbID, &g.Image, &ports,
 		&g.MinInstances, &g.MaxInstances, &g.DesiredCount, &g.CurrentCount,
-		&g.Status, &g.Version, &g.CreatedAt, &g.UpdatedAt,
+		&status, &g.Version, &g.CreatedAt, &g.UpdatedAt,
 	)
+	g.Status = domain.ScalingGroupStatus(status)
 	if err == pgx.ErrNoRows {
 		return nil, errs.New(errs.NotFound, "scaling group not found")
 	}
@@ -130,14 +133,16 @@ func (r *AutoScalingRepo) ListGroups(ctx context.Context) ([]*domain.ScalingGrou
 		var lbID *uuid.UUID
 		var ports sql.NullString
 		var idk sql.NullString
+		var status string
 
 		if err := rows.Scan(
 			&g.ID, &g.UserID, &idk, &g.Name, &g.VpcID, &lbID, &g.Image, &ports,
 			&g.MinInstances, &g.MaxInstances, &g.DesiredCount, &g.CurrentCount,
-			&g.Status, &g.Version, &g.CreatedAt, &g.UpdatedAt,
+			&status, &g.Version, &g.CreatedAt, &g.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
+		g.Status = domain.ScalingGroupStatus(status)
 		g.LoadBalancerID = lbID
 		if ports.Valid {
 			g.Ports = ports.String
@@ -168,14 +173,16 @@ func (r *AutoScalingRepo) ListAllGroups(ctx context.Context) ([]*domain.ScalingG
 		var lbID *uuid.UUID
 		var ports sql.NullString
 		var idk sql.NullString
+		var status string
 
 		if err := rows.Scan(
 			&g.ID, &g.UserID, &idk, &g.Name, &g.VpcID, &lbID, &g.Image, &ports,
 			&g.MinInstances, &g.MaxInstances, &g.DesiredCount, &g.CurrentCount,
-			&g.Status, &g.Version, &g.CreatedAt, &g.UpdatedAt,
+			&status, &g.Version, &g.CreatedAt, &g.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
+		g.Status = domain.ScalingGroupStatus(status)
 		g.LoadBalancerID = lbID
 		if ports.Valid {
 			g.Ports = ports.String

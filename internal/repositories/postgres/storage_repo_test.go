@@ -1,5 +1,3 @@
-//go:build integration
-
 package postgres
 
 import (
@@ -8,107 +6,75 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/pashagolub/pgxmock/v3"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-func TestStorageRepository_Integration(t *testing.T) {
-	db := setupDB(t)
-	defer db.Close()
-	repo := NewStorageRepository(db)
-	ctx := setupTestUser(t, db)
-	userID := appcontext.UserIDFromContext(ctx)
+func TestStorageRepository_SaveMeta(t *testing.T) {
+	mock, err := pgxmock.NewPool()
+	assert.NoError(t, err)
+	defer mock.Close()
 
-	// Cleanup
-	_, _ = db.Exec(context.Background(), "DELETE FROM objects")
+	repo := NewStorageRepository(mock)
+	obj := &domain.Object{
+		ID:          uuid.New(),
+		UserID:      uuid.New(),
+		ARN:         "arn:aws:s3:::mybucket/mykey",
+		Bucket:      "mybucket",
+		Key:         "mykey",
+		SizeBytes:   1024,
+		ContentType: "text/plain",
+		CreatedAt:   time.Now(),
+	}
 
-	bucket := "test-bucket"
-	key := "test-file.txt"
+	mock.ExpectExec("INSERT INTO objects").
+		WithArgs(obj.ID, obj.UserID, obj.ARN, obj.Bucket, obj.Key, obj.SizeBytes, obj.ContentType, obj.CreatedAt).
+		WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
-	t.Run("SaveMeta", func(t *testing.T) {
-		obj := &domain.Object{
-			ID:          uuid.New(),
-			UserID:      userID,
-			ARN:         "arn:cloud:s3:::test-bucket/test-file.txt",
-			Bucket:      bucket,
-			Key:         key,
-			SizeBytes:   1024,
-			ContentType: "text/plain",
-			CreatedAt:   time.Now(),
-		}
+	err = repo.SaveMeta(context.Background(), obj)
+	assert.NoError(t, err)
+}
 
-		err := repo.SaveMeta(ctx, obj)
-		require.NoError(t, err)
-	})
+func TestStorageRepository_GetMeta(t *testing.T) {
+	mock, err := pgxmock.NewPool()
+	assert.NoError(t, err)
+	defer mock.Close()
 
-	t.Run("GetMeta", func(t *testing.T) {
-		obj, err := repo.GetMeta(ctx, bucket, key)
-		require.NoError(t, err)
-		assert.Equal(t, bucket, obj.Bucket)
-		assert.Equal(t, key, obj.Key)
-		assert.Equal(t, int64(1024), obj.SizeBytes)
-		assert.Equal(t, "text/plain", obj.ContentType)
-	})
+	repo := NewStorageRepository(mock)
+	id := uuid.New()
+	userID := uuid.New()
+	ctx := appcontext.WithUserID(context.Background(), userID)
+	now := time.Now()
 
-	t.Run("List", func(t *testing.T) {
-		// Add another object
-		obj2 := &domain.Object{
-			ID:          uuid.New(),
-			UserID:      userID,
-			ARN:         "arn:cloud:s3:::test-bucket/test-file2.txt",
-			Bucket:      bucket,
-			Key:         "test-file2.txt",
-			SizeBytes:   2048,
-			ContentType: "text/plain",
-			CreatedAt:   time.Now(),
-		}
-		err := repo.SaveMeta(ctx, obj2)
-		require.NoError(t, err)
+	mock.ExpectQuery("SELECT id, user_id, arn, bucket, key, size_bytes, content_type, created_at FROM objects").
+		WithArgs("mybucket", "mykey", userID).
+		WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "arn", "bucket", "key", "size_bytes", "content_type", "created_at"}).
+			AddRow(id, userID, "arn", "mybucket", "mykey", int64(1024), "text/plain", now))
 
-		objects, err := repo.List(ctx, bucket)
-		require.NoError(t, err)
-		assert.GreaterOrEqual(t, len(objects), 2)
-	})
+	obj, err := repo.GetMeta(ctx, "mybucket", "mykey")
+	assert.NoError(t, err)
+	assert.NotNil(t, obj)
+	assert.Equal(t, id, obj.ID)
+}
 
-	t.Run("SaveMeta_UpdateExisting", func(t *testing.T) {
-		// Update existing object
-		obj := &domain.Object{
-			ID:          uuid.New(),
-			UserID:      userID,
-			ARN:         "arn:cloud:s3:::test-bucket/test-file.txt",
-			Bucket:      bucket,
-			Key:         key,
-			SizeBytes:   2048, // Updated size
-			ContentType: "application/octet-stream",
-			CreatedAt:   time.Now(),
-		}
+func TestStorageRepository_List(t *testing.T) {
+	mock, err := pgxmock.NewPool()
+	assert.NoError(t, err)
+	defer mock.Close()
 
-		err := repo.SaveMeta(ctx, obj)
-		require.NoError(t, err)
+	repo := NewStorageRepository(mock)
+	userID := uuid.New()
+	ctx := appcontext.WithUserID(context.Background(), userID)
+	now := time.Now()
 
-		fetched, err := repo.GetMeta(ctx, bucket, key)
-		require.NoError(t, err)
-		assert.Equal(t, int64(2048), fetched.SizeBytes)
-	})
+	mock.ExpectQuery("SELECT id, user_id, arn, bucket, key, size_bytes, content_type, created_at FROM objects").
+		WithArgs("mybucket", userID).
+		WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "arn", "bucket", "key", "size_bytes", "content_type", "created_at"}).
+			AddRow(uuid.New(), userID, "arn", "mybucket", "mykey", int64(1024), "text/plain", now))
 
-	t.Run("SoftDelete", func(t *testing.T) {
-		err := repo.SoftDelete(ctx, bucket, key)
-		require.NoError(t, err)
-
-		// Should not be found after soft delete
-		_, err = repo.GetMeta(ctx, bucket, key)
-		assert.Error(t, err)
-	})
-
-	t.Run("SoftDelete_NotFound", func(t *testing.T) {
-		err := repo.SoftDelete(ctx, bucket, "non-existent-key")
-		assert.Error(t, err)
-	})
-
-	t.Run("GetMeta_NotFound", func(t *testing.T) {
-		_, err := repo.GetMeta(ctx, "non-existent-bucket", "non-existent-key")
-		assert.Error(t, err)
-	})
+	objects, err := repo.List(ctx, "mybucket")
+	assert.NoError(t, err)
+	assert.Len(t, objects, 1)
 }

@@ -1,0 +1,208 @@
+package services_test
+
+import (
+	"context"
+	"log/slog"
+	"os"
+	"testing"
+
+	"github.com/google/uuid"
+	appcontext "github.com/poyrazk/thecloud/internal/core/context"
+	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/core/ports"
+	"github.com/poyrazk/thecloud/internal/core/services"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+)
+
+func setupSecurityGroupServiceTest(t *testing.T) (*MockSecurityGroupRepo, *MockVpcRepo, *MockNetworkBackend, *MockAuditService, ports.SecurityGroupService) {
+	repo := new(MockSecurityGroupRepo)
+	vpcRepo := new(MockVpcRepo)
+	network := new(MockNetworkBackend)
+	auditSvc := new(MockAuditService)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	svc := services.NewSecurityGroupService(repo, vpcRepo, network, auditSvc, logger)
+	return repo, vpcRepo, network, auditSvc, svc
+}
+
+func TestSecurityGroupService_CreateGroup(t *testing.T) {
+	repo, _, _, auditSvc, svc := setupSecurityGroupServiceTest(t)
+	defer repo.AssertExpectations(t)
+
+	userID := uuid.New()
+	ctx := appcontext.WithUserID(context.Background(), userID)
+	vpcID := uuid.New()
+
+	repo.On("Create", ctx, mock.Anything).Return(nil)
+	auditSvc.On("Log", ctx, userID, "security_group.create", "security_group", mock.Anything, mock.Anything).Return(nil)
+
+	sg, err := svc.CreateGroup(ctx, vpcID, "test-sg", "desc")
+
+	assert.NoError(t, err)
+	assert.NotNil(t, sg)
+	assert.Equal(t, "test-sg", sg.Name)
+	assert.Equal(t, vpcID, sg.VPCID)
+}
+
+func TestSecurityGroupService_GetGroup(t *testing.T) {
+	repo, _, _, _, svc := setupSecurityGroupServiceTest(t)
+	defer repo.AssertExpectations(t)
+
+	ctx := context.Background()
+	sgID := uuid.New()
+	vpcID := uuid.New()
+	sg := &domain.SecurityGroup{ID: sgID, Name: "test-sg"}
+
+	// By ID
+	repo.On("GetByID", ctx, sgID).Return(sg, nil).Once()
+	res, err := svc.GetGroup(ctx, sgID.String(), vpcID)
+	assert.NoError(t, err)
+	assert.Equal(t, sgID, res.ID)
+
+	// By Name
+	repo.On("GetByName", ctx, vpcID, "test-sg").Return(sg, nil).Once()
+	res, err = svc.GetGroup(ctx, "test-sg", vpcID)
+	assert.NoError(t, err)
+	assert.Equal(t, "test-sg", res.Name)
+}
+
+func TestSecurityGroupService_ListGroups(t *testing.T) {
+	repo, _, _, _, svc := setupSecurityGroupServiceTest(t)
+	defer repo.AssertExpectations(t)
+
+	ctx := context.Background()
+	vpcID := uuid.New()
+	sgs := []*domain.SecurityGroup{{ID: uuid.New(), VPCID: vpcID}}
+
+	repo.On("ListByVPC", ctx, vpcID).Return(sgs, nil)
+
+	res, err := svc.ListGroups(ctx, vpcID)
+	assert.NoError(t, err)
+	assert.Equal(t, sgs, res)
+}
+
+func TestSecurityGroupService_DeleteGroup(t *testing.T) {
+	repo, _, _, auditSvc, svc := setupSecurityGroupServiceTest(t)
+	defer repo.AssertExpectations(t)
+
+	userID := uuid.New()
+	ctx := appcontext.WithUserID(context.Background(), userID)
+	sgID := uuid.New()
+
+	repo.On("Delete", ctx, sgID).Return(nil)
+	auditSvc.On("Log", ctx, userID, "security_group.delete", "security_group", sgID.String(), mock.Anything).Return(nil)
+
+	err := svc.DeleteGroup(ctx, sgID)
+	assert.NoError(t, err)
+}
+
+func TestSecurityGroupService_AddRule(t *testing.T) {
+	repo, vpcRepo, network, auditSvc, svc := setupSecurityGroupServiceTest(t)
+	defer repo.AssertExpectations(t)
+
+	userID := uuid.New()
+	ctx := appcontext.WithUserID(context.Background(), userID)
+	sgID := uuid.New()
+	vpcID := uuid.New()
+	sg := &domain.SecurityGroup{ID: sgID, UserID: userID, VPCID: vpcID}
+	vpc := &domain.VPC{ID: vpcID, NetworkID: "net1"}
+	rule := domain.SecurityRule{Protocol: "tcp", PortMin: 80, PortMax: 80, CIDR: "0.0.0.0/0", Direction: domain.RuleIngress}
+
+	repo.On("GetByID", ctx, sgID).Return(sg, nil)
+	repo.On("AddRule", ctx, mock.Anything).Return(nil)
+	vpcRepo.On("GetByID", ctx, vpcID).Return(vpc, nil)
+	network.On("AddFlowRule", ctx, "net1", mock.Anything).Return(nil)
+	auditSvc.On("Log", ctx, userID, "security_group.add_rule", "security_group", sgID.String(), mock.Anything).Return(nil)
+
+	res, err := svc.AddRule(ctx, sgID, rule)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, res)
+	assert.Equal(t, sgID, res.GroupID)
+}
+
+func TestSecurityGroupService_AttachToInstance(t *testing.T) {
+	repo, vpcRepo, network, _, svc := setupSecurityGroupServiceTest(t)
+	defer repo.AssertExpectations(t)
+
+	ctx := context.Background()
+	instID := uuid.New()
+	sgID := uuid.New()
+	vpcID := uuid.New()
+	sg := &domain.SecurityGroup{ID: sgID, VPCID: vpcID}
+	vpc := &domain.VPC{ID: vpcID, NetworkID: "net1"}
+
+	repo.On("AddInstanceToGroup", ctx, instID, sgID).Return(nil)
+	repo.On("GetByID", ctx, sgID).Return(sg, nil)
+	vpcRepo.On("GetByID", ctx, vpcID).Return(vpc, nil)
+	network.On("AddFlowRule", ctx, "net1", mock.Anything).Return(nil)
+
+	err := svc.AttachToInstance(ctx, instID, sgID)
+	assert.NoError(t, err)
+}
+
+func TestSecurityGroupService_DetachFromInstance(t *testing.T) {
+	repo, _, _, _, svc := setupSecurityGroupServiceTest(t)
+	defer repo.AssertExpectations(t)
+
+	ctx := context.Background()
+	instID := uuid.New()
+	sgID := uuid.New()
+
+	repo.On("RemoveInstanceFromGroup", ctx, instID, sgID).Return(nil)
+
+	err := svc.DetachFromInstance(ctx, instID, sgID)
+	assert.NoError(t, err)
+}
+
+func TestSecurityGroupService_Errors(t *testing.T) {
+	ctx := context.Background()
+	sgID := uuid.New()
+
+	t.Run("Create_RepoError", func(t *testing.T) {
+		repo, _, _, _, svc := setupSecurityGroupServiceTest(t)
+		repo.On("Create", mock.Anything, mock.Anything).Return(assert.AnError)
+		_, err := svc.CreateGroup(ctx, uuid.New(), "n", "d")
+		assert.Error(t, err)
+	})
+
+	t.Run("Delete_RepoError", func(t *testing.T) {
+		repo, _, _, _, svc := setupSecurityGroupServiceTest(t)
+		repo.On("Delete", mock.Anything, sgID).Return(assert.AnError)
+		err := svc.DeleteGroup(ctx, sgID)
+		assert.Error(t, err)
+	})
+
+	t.Run("AddRule_GetGroupError", func(t *testing.T) {
+		repo, _, _, _, svc := setupSecurityGroupServiceTest(t)
+		repo.On("GetByID", mock.Anything, sgID).Return(nil, assert.AnError)
+		_, err := svc.AddRule(ctx, sgID, domain.SecurityRule{})
+		assert.Error(t, err)
+	})
+}
+
+func TestSecurityGroupService_TranslateToFlow(t *testing.T) {
+	repo, vpcRepo, network, auditSvc, svc := setupSecurityGroupServiceTest(t)
+	ctx := context.Background()
+	sgID := uuid.New()
+	vpcID := uuid.New()
+	vpc := &domain.VPC{ID: vpcID, NetworkID: "net1"}
+
+	rules := []domain.SecurityRule{
+		{Protocol: "udp", PortMin: 53, PortMax: 53, CIDR: "8.8.8.8/32", Direction: domain.RuleIngress},
+		{Protocol: "icmp", CIDR: "0.0.0.0/0", Direction: domain.RuleEgress},
+		{Protocol: "tcp", PortMin: 1000, PortMax: 2000, CIDR: "10.0.0.0/8", Direction: domain.RuleEgress},
+	}
+
+	for _, rule := range rules {
+		sgWithRule := &domain.SecurityGroup{ID: sgID, VPCID: vpcID, Rules: []domain.SecurityRule{rule}}
+		repo.On("GetByID", ctx, sgID).Return(sgWithRule, nil).Once()
+		repo.On("AddRule", ctx, mock.Anything).Return(nil).Once()
+		vpcRepo.On("GetByID", ctx, vpcID).Return(vpc, nil).Once()
+		network.On("AddFlowRule", ctx, "net1", mock.Anything).Return(nil).Once()
+		auditSvc.On("Log", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+
+		_, err := svc.AddRule(ctx, sgID, rule)
+		assert.NoError(t, err)
+	}
+}

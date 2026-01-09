@@ -7,7 +7,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
@@ -15,11 +14,11 @@ import (
 // PostgresQueueRepository implements a message queue system using PostgreSQL as the backend.
 // It supports visibility timeouts and message locking for concurrent processing.
 type PostgresQueueRepository struct {
-	db *pgxpool.Pool
+	db DB
 }
 
 // NewPostgresQueueRepository creates a new instance of PostgresQueueRepository.
-func NewPostgresQueueRepository(db *pgxpool.Pool) ports.QueueRepository {
+func NewPostgresQueueRepository(db DB) ports.QueueRepository {
 	return &PostgresQueueRepository{db: db}
 }
 
@@ -38,11 +37,13 @@ func (r *PostgresQueueRepository) Create(ctx context.Context, q *domain.Queue) e
 func (r *PostgresQueueRepository) GetByID(ctx context.Context, id, userID uuid.UUID) (*domain.Queue, error) {
 	q := &domain.Queue{}
 	query := `SELECT id, user_id, name, arn, visibility_timeout, retention_days, max_message_size, status, created_at, updated_at FROM queues WHERE id = $1 AND user_id = $2`
+	var status string
 	err := r.db.QueryRow(ctx, query, id, userID).Scan(
-		&q.ID, &q.UserID, &q.Name, &q.ARN, &q.VisibilityTimeout, &q.RetentionDays, &q.MaxMessageSize, &q.Status, &q.CreatedAt, &q.UpdatedAt)
+		&q.ID, &q.UserID, &q.Name, &q.ARN, &q.VisibilityTimeout, &q.RetentionDays, &q.MaxMessageSize, &status, &q.CreatedAt, &q.UpdatedAt)
 	if err == pgx.ErrNoRows {
 		return nil, nil
 	}
+	q.Status = domain.QueueStatus(status)
 	return q, err
 }
 
@@ -50,11 +51,13 @@ func (r *PostgresQueueRepository) GetByID(ctx context.Context, id, userID uuid.U
 func (r *PostgresQueueRepository) GetByName(ctx context.Context, name string, userID uuid.UUID) (*domain.Queue, error) {
 	q := &domain.Queue{}
 	query := `SELECT id, user_id, name, arn, visibility_timeout, retention_days, max_message_size, status, created_at, updated_at FROM queues WHERE name = $1 AND user_id = $2`
+	var status string
 	err := r.db.QueryRow(ctx, query, name, userID).Scan(
-		&q.ID, &q.UserID, &q.Name, &q.ARN, &q.VisibilityTimeout, &q.RetentionDays, &q.MaxMessageSize, &q.Status, &q.CreatedAt, &q.UpdatedAt)
+		&q.ID, &q.UserID, &q.Name, &q.ARN, &q.VisibilityTimeout, &q.RetentionDays, &q.MaxMessageSize, &status, &q.CreatedAt, &q.UpdatedAt)
 	if err == pgx.ErrNoRows {
 		return nil, nil
 	}
+	q.Status = domain.QueueStatus(status)
 	return q, err
 }
 
@@ -70,9 +73,11 @@ func (r *PostgresQueueRepository) List(ctx context.Context, userID uuid.UUID) ([
 	var queues []*domain.Queue
 	for rows.Next() {
 		q := &domain.Queue{}
-		if err := rows.Scan(&q.ID, &q.UserID, &q.Name, &q.ARN, &q.VisibilityTimeout, &q.RetentionDays, &q.MaxMessageSize, &q.Status, &q.CreatedAt, &q.UpdatedAt); err != nil {
+		var status string
+		if err := rows.Scan(&q.ID, &q.UserID, &q.Name, &q.ARN, &q.VisibilityTimeout, &q.RetentionDays, &q.MaxMessageSize, &status, &q.CreatedAt, &q.UpdatedAt); err != nil {
 			return nil, err
 		}
+		q.Status = domain.QueueStatus(status)
 		queues = append(queues, q)
 	}
 	return queues, nil

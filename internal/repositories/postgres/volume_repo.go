@@ -4,16 +4,15 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 )
 
 type VolumeRepository struct {
-	db *pgxpool.Pool
+	db DB
 }
 
-func NewVolumeRepository(db *pgxpool.Pool) *VolumeRepository {
+func NewVolumeRepository(db DB) *VolumeRepository {
 	return &VolumeRepository{db: db}
 }
 
@@ -28,10 +27,12 @@ func (r *VolumeRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.V
 	userID := appcontext.UserIDFromContext(ctx)
 	query := `SELECT id, user_id, name, size_gb, status, instance_id, mount_path, created_at, updated_at FROM volumes WHERE id = $1 AND user_id = $2`
 	v := &domain.Volume{}
-	err := r.db.QueryRow(ctx, query, id, userID).Scan(&v.ID, &v.UserID, &v.Name, &v.SizeGB, &v.Status, &v.InstanceID, &v.MountPath, &v.CreatedAt, &v.UpdatedAt)
+	var status string
+	err := r.db.QueryRow(ctx, query, id, userID).Scan(&v.ID, &v.UserID, &v.Name, &v.SizeGB, &status, &v.InstanceID, &v.MountPath, &v.CreatedAt, &v.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
+	v.Status = domain.VolumeStatus(status)
 	return v, nil
 }
 
@@ -39,10 +40,12 @@ func (r *VolumeRepository) GetByName(ctx context.Context, name string) (*domain.
 	userID := appcontext.UserIDFromContext(ctx)
 	query := `SELECT id, user_id, name, size_gb, status, instance_id, mount_path, created_at, updated_at FROM volumes WHERE name = $1 AND user_id = $2`
 	v := &domain.Volume{}
-	err := r.db.QueryRow(ctx, query, name, userID).Scan(&v.ID, &v.UserID, &v.Name, &v.SizeGB, &v.Status, &v.InstanceID, &v.MountPath, &v.CreatedAt, &v.UpdatedAt)
+	var status string
+	err := r.db.QueryRow(ctx, query, name, userID).Scan(&v.ID, &v.UserID, &v.Name, &v.SizeGB, &status, &v.InstanceID, &v.MountPath, &v.CreatedAt, &v.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
+	v.Status = domain.VolumeStatus(status)
 	return v, nil
 }
 
@@ -58,9 +61,11 @@ func (r *VolumeRepository) List(ctx context.Context) ([]*domain.Volume, error) {
 	var volumes []*domain.Volume
 	for rows.Next() {
 		v := &domain.Volume{}
-		if err := rows.Scan(&v.ID, &v.UserID, &v.Name, &v.SizeGB, &v.Status, &v.InstanceID, &v.MountPath, &v.CreatedAt, &v.UpdatedAt); err != nil {
+		var status string
+		if err := rows.Scan(&v.ID, &v.UserID, &v.Name, &v.SizeGB, &status, &v.InstanceID, &v.MountPath, &v.CreatedAt, &v.UpdatedAt); err != nil {
 			return nil, err
 		}
+		v.Status = domain.VolumeStatus(status)
 		volumes = append(volumes, v)
 	}
 	return volumes, nil
@@ -78,9 +83,11 @@ func (r *VolumeRepository) ListByInstanceID(ctx context.Context, instanceID uuid
 	var volumes []*domain.Volume
 	for rows.Next() {
 		v := &domain.Volume{}
-		if err := rows.Scan(&v.ID, &v.UserID, &v.Name, &v.SizeGB, &v.Status, &v.InstanceID, &v.MountPath, &v.CreatedAt, &v.UpdatedAt); err != nil {
+		var status string
+		if err := rows.Scan(&v.ID, &v.UserID, &v.Name, &v.SizeGB, &status, &v.InstanceID, &v.MountPath, &v.CreatedAt, &v.UpdatedAt); err != nil {
 			return nil, err
 		}
+		v.Status = domain.VolumeStatus(status)
 		volumes = append(volumes, v)
 	}
 	return volumes, nil

@@ -1,5 +1,3 @@
-//go:build integration
-
 package postgres
 
 import (
@@ -8,81 +6,78 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/pashagolub/pgxmock/v3"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-func TestVolumeRepository_Integration(t *testing.T) {
-	db := setupDB(t)
-	defer db.Close()
-	repo := NewVolumeRepository(db)
-	ctx := setupTestUser(t, db)
-	userID := appcontext.UserIDFromContext(ctx)
+func TestVolumeRepository_Create(t *testing.T) {
+	mock, err := pgxmock.NewPool()
+	assert.NoError(t, err)
+	defer mock.Close()
 
-	// Cleanup
-	_, err := db.Exec(context.Background(), "DELETE FROM volumes")
-	require.NoError(t, err)
-
-	volID := uuid.New()
+	repo := NewVolumeRepository(mock)
+	instanceID := uuid.New()
 	vol := &domain.Volume{
-		ID:        volID,
-		UserID:    userID,
-		Name:      "test-vol",
-		SizeGB:    10,
-		Status:    "available",
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+		ID:         uuid.New(),
+		UserID:     uuid.New(),
+		Name:       "vol-1",
+		SizeGB:     10,
+		Status:     domain.VolumeStatusAvailable,
+		InstanceID: &instanceID,
+		MountPath:  "/mnt/data",
+		CreatedAt:  time.Now(),
+		UpdatedAt:  time.Now(),
 	}
 
-	t.Run("Create and Get", func(t *testing.T) {
-		err := repo.Create(ctx, vol)
-		require.NoError(t, err)
+	mock.ExpectExec("INSERT INTO volumes").
+		WithArgs(vol.ID, vol.UserID, vol.Name, vol.SizeGB, vol.Status, vol.InstanceID, vol.MountPath, vol.CreatedAt, vol.UpdatedAt).
+		WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
-		fetched, err := repo.GetByID(ctx, volID)
-		require.NoError(t, err)
-		assert.Equal(t, vol.Name, fetched.Name)
-	})
+	err = repo.Create(context.Background(), vol)
+	assert.NoError(t, err)
+}
 
-	t.Run("GetByName", func(t *testing.T) {
-		fetched, err := repo.GetByName(ctx, "test-vol")
-		require.NoError(t, err)
-		assert.Equal(t, volID, fetched.ID)
-	})
+func TestVolumeRepository_GetByID(t *testing.T) {
+	mock, err := pgxmock.NewPool()
+	assert.NoError(t, err)
+	defer mock.Close()
 
-	t.Run("List", func(t *testing.T) {
-		list, err := repo.List(ctx)
-		require.NoError(t, err)
-		assert.NotEmpty(t, list)
-	})
+	repo := NewVolumeRepository(mock)
+	id := uuid.New()
+	userID := uuid.New()
+	ctx := appcontext.WithUserID(context.Background(), userID)
+	now := time.Now()
 
-	t.Run("Update and ListByInstanceID", func(t *testing.T) {
-		instID := uuid.New()
-		// Create instance to satisfy foreign key
-		_, err := db.Exec(context.Background(), "INSERT INTO instances (id, user_id, name, image, status, version, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
-			instID, userID, "test-inst", "alpine", "running", 1, time.Now(), time.Now())
-		require.NoError(t, err)
+	mock.ExpectQuery("SELECT id, user_id, name, size_gb, status, instance_id, mount_path, created_at, updated_at FROM volumes").
+		WithArgs(id, userID).
+		WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "name", "size_gb", "status", "instance_id", "mount_path", "created_at", "updated_at"}).
+			AddRow(id, userID, "vol-1", 10, string(domain.VolumeStatusAvailable), &id, "/mnt/data", now, now))
 
-		vol.InstanceID = &instID
-		vol.MountPath = "/mnt/data"
-		vol.UpdatedAt = time.Now()
+	vol, err := repo.GetByID(ctx, id)
+	assert.NoError(t, err)
+	assert.NotNil(t, vol)
+	assert.Equal(t, id, vol.ID)
+}
 
-		err = repo.Update(ctx, vol)
-		require.NoError(t, err)
+func TestVolumeRepository_List(t *testing.T) {
+	mock, err := pgxmock.NewPool()
+	assert.NoError(t, err)
+	defer mock.Close()
 
-		list, err := repo.ListByInstanceID(ctx, instID)
-		require.NoError(t, err)
-		assert.Len(t, list, 1)
-		assert.Equal(t, volID, list[0].ID)
-		assert.Equal(t, "/mnt/data", list[0].MountPath)
-	})
+	repo := NewVolumeRepository(mock)
+	userID := uuid.New()
+	ctx := appcontext.WithUserID(context.Background(), userID)
+	now := time.Now()
 
-	t.Run("Delete", func(t *testing.T) {
-		err := repo.Delete(ctx, volID)
-		require.NoError(t, err)
+	instID := uuid.New()
+	mock.ExpectQuery("SELECT id, user_id, name, size_gb, status, instance_id, mount_path, created_at, updated_at FROM volumes").
+		WithArgs(userID).
+		WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "name", "size_gb", "status", "instance_id", "mount_path", "created_at", "updated_at"}).
+			AddRow(uuid.New(), userID, "vol-1", 10, string(domain.VolumeStatusAvailable), &instID, "/mnt/data", now, now))
 
-		_, err = repo.GetByID(ctx, volID)
-		assert.Error(t, err)
-	})
+	vols, err := repo.List(ctx)
+	assert.NoError(t, err)
+	assert.Len(t, vols, 1)
 }

@@ -1,6 +1,7 @@
 package services_test
 
 import (
+	"archive/zip"
 	"bytes"
 	"context"
 	"io"
@@ -26,6 +27,18 @@ func setupFunctionServiceTest(t *testing.T) (*MockFunctionRepository, *MockCompu
 
 	svc := services.NewFunctionService(repo, compute, fileStore, auditSvc, logger)
 	return repo, compute, fileStore, auditSvc, svc
+}
+
+func createZip(t *testing.T, filename, content string) []byte {
+	buf := new(bytes.Buffer)
+	w := zip.NewWriter(buf)
+	f, err := w.Create(filename)
+	assert.NoError(t, err)
+	_, err = f.Write([]byte(content))
+	assert.NoError(t, err)
+	err = w.Close()
+	assert.NoError(t, err)
+	return buf.Bytes()
 }
 
 func TestCreateFunction_Success(t *testing.T) {
@@ -157,4 +170,198 @@ func TestDeleteFunction_Success(t *testing.T) {
 	time.Sleep(10 * time.Millisecond)
 
 	assert.NoError(t, err)
+}
+
+func TestFunctionService_ListFunctions(t *testing.T) {
+	repo, _, _, _, svc := setupFunctionServiceTest(t)
+	defer repo.AssertExpectations(t)
+
+	userID := uuid.New()
+	ctx := appcontext.WithUserID(context.Background(), userID)
+	fns := []*domain.Function{{ID: uuid.New(), UserID: userID}}
+
+	repo.On("List", ctx, userID).Return(fns, nil)
+
+	res, err := svc.ListFunctions(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, fns, res)
+}
+
+func TestFunctionService_GetFunction(t *testing.T) {
+	repo, _, _, _, svc := setupFunctionServiceTest(t)
+	defer repo.AssertExpectations(t)
+
+	id := uuid.New()
+	f := &domain.Function{ID: id}
+
+	repo.On("GetByID", mock.Anything, id).Return(f, nil)
+
+	res, err := svc.GetFunction(context.Background(), id)
+	assert.NoError(t, err)
+	assert.Equal(t, f, res)
+}
+
+func TestFunctionService_GetFunctionLogs(t *testing.T) {
+	repo, _, _, _, svc := setupFunctionServiceTest(t)
+	defer repo.AssertExpectations(t)
+
+	id := uuid.New()
+	invs := []*domain.Invocation{{ID: uuid.New()}}
+
+	repo.On("GetInvocations", mock.Anything, id, 10).Return(invs, nil)
+
+	res, err := svc.GetFunctionLogs(context.Background(), id, 10)
+	assert.NoError(t, err)
+	assert.Equal(t, invs, res)
+}
+
+func TestFunctionService_InvokeAsync(t *testing.T) {
+	repo, _, fileStore, auditSvc, svc := setupFunctionServiceTest(t)
+	defer repo.AssertExpectations(t)
+
+	id := uuid.New()
+	userID := uuid.New()
+	f := &domain.Function{ID: id, UserID: userID, CodePath: "c", Runtime: "nodejs20", Handler: "h", Timeout: 30}
+	repo.On("GetByID", mock.Anything, id).Return(f, nil)
+	auditSvc.On("Log", mock.Anything, userID, "function.invoke_async", "function", id.String(), mock.Anything).Return(nil)
+
+	// Mocks for the async goroutine
+	fileStore.On("Read", mock.Anything, "functions", "c").Return(nil, assert.AnError).Maybe()
+	repo.On("CreateInvocation", mock.Anything, mock.Anything).Return(nil).Maybe()
+
+	inv, err := svc.InvokeFunction(context.Background(), id, []byte("{}"), true)
+	assert.NoError(t, err)
+	assert.NotNil(t, inv)
+	assert.Equal(t, "PENDING", inv.Status)
+
+	// Wait a bit for the goroutine to finish its work
+	time.Sleep(10 * time.Millisecond)
+}
+
+func TestFunctionService_Errors(t *testing.T) {
+	ctx := appcontext.WithUserID(context.Background(), uuid.New())
+	fID := uuid.New()
+
+	t.Run("Create_StoreError", func(t *testing.T) {
+		_, _, fileStore, _, svc := setupFunctionServiceTest(t)
+		fileStore.On("Write", ctx, "functions", mock.Anything, mock.Anything).Return(int64(0), assert.AnError)
+		_, err := svc.CreateFunction(ctx, "n", "nodejs20", "h", []byte("c"))
+		assert.Error(t, err)
+	})
+
+	t.Run("Invoke_GetError", func(t *testing.T) {
+		repo, _, _, _, svc := setupFunctionServiceTest(t)
+		repo.On("GetByID", mock.Anything, fID).Return(nil, assert.AnError)
+		_, err := svc.InvokeFunction(ctx, fID, []byte("{}"), false)
+		assert.Error(t, err)
+	})
+}
+
+func TestFunctionService_ListFunctions_Unauthorized(t *testing.T) {
+	_, _, _, _, svc := setupFunctionServiceTest(t)
+	_, err := svc.ListFunctions(context.Background())
+	assert.Error(t, err)
+}
+
+func TestFunctionService_DeleteFunction_RepoError(t *testing.T) {
+	repo, _, _, _, svc := setupFunctionServiceTest(t)
+	id := uuid.New()
+	repo.On("GetByID", mock.Anything, id).Return(&domain.Function{ID: id}, nil)
+	repo.On("Delete", mock.Anything, id).Return(assert.AnError)
+
+	err := svc.DeleteFunction(context.Background(), id)
+	assert.Error(t, err)
+}
+
+func TestFunctionService_Invoke_RunTaskError(t *testing.T) {
+	repo, compute, fileStore, auditSvc, svc := setupFunctionServiceTest(t)
+	id := uuid.New()
+	userID := uuid.New()
+	f := &domain.Function{ID: id, UserID: userID, CodePath: "c", Runtime: "nodejs20", Handler: "h", Timeout: 30}
+	repo.On("GetByID", mock.Anything, id).Return(f, nil)
+	auditSvc.On("Log", mock.Anything, userID, "function.invoke", "function", id.String(), mock.Anything).Return(nil)
+	fileStore.On("Read", mock.Anything, "functions", "c").Return(io.NopCloser(bytes.NewReader(createZip(t, "h", "c"))), nil)
+
+	compute.On("RunTask", mock.Anything, mock.Anything).Return("", assert.AnError)
+	repo.On("CreateInvocation", mock.Anything, mock.MatchedBy(func(i *domain.Invocation) bool {
+		return i.Status == "FAILED"
+	})).Return(nil)
+
+	_, err := svc.InvokeFunction(context.Background(), id, []byte("{}"), false)
+	assert.Error(t, err)
+}
+
+func TestFunctionService_PrepareCode_Failures(t *testing.T) {
+	repo, _, fileStore, _, svc := setupFunctionServiceTest(t)
+	_ = repo
+	_ = svc
+	id := uuid.New()
+	_ = id
+
+	t.Run("ZipReadError", func(t *testing.T) {
+		fileStore.On("Read", mock.Anything, "functions", "c").Return(io.NopCloser(bytes.NewReader([]byte("not a zip"))), nil).Once()
+	})
+}
+
+func TestFunctionService_Invoke_ZipError(t *testing.T) {
+	repo, _, fileStore, auditSvc, svc := setupFunctionServiceTest(t)
+	id := uuid.New()
+	userID := uuid.New()
+	f := &domain.Function{ID: id, UserID: userID, CodePath: "c", Runtime: "nodejs20", Handler: "h", Timeout: 30}
+	repo.On("GetByID", mock.Anything, id).Return(f, nil)
+	auditSvc.On("Log", mock.Anything, userID, "function.invoke", "function", id.String(), mock.Anything).Return(nil)
+	fileStore.On("Read", mock.Anything, "functions", "c").Return(io.NopCloser(bytes.NewReader([]byte("not a zip"))), nil)
+
+	repo.On("CreateInvocation", mock.Anything, mock.MatchedBy(func(i *domain.Invocation) bool {
+		return i.Status == "FAILED"
+	})).Return(nil)
+
+	_, err := svc.InvokeFunction(context.Background(), id, []byte("{}"), false)
+	assert.Error(t, err)
+}
+
+func TestFunctionService_Invoke_WaitError(t *testing.T) {
+	repo, compute, fileStore, auditSvc, svc := setupFunctionServiceTest(t)
+	id := uuid.New()
+	userID := uuid.New()
+	f := &domain.Function{ID: id, UserID: userID, CodePath: "c", Runtime: "nodejs20", Handler: "h", Timeout: 30}
+	repo.On("GetByID", mock.Anything, id).Return(f, nil)
+	auditSvc.On("Log", mock.Anything, userID, "function.invoke", "function", id.String(), mock.Anything).Return(nil)
+	fileStore.On("Read", mock.Anything, "functions", "c").Return(io.NopCloser(bytes.NewReader(createZip(t, "h", "c"))), nil)
+
+	compute.On("RunTask", mock.Anything, mock.Anything).Return("c1", nil)
+	compute.On("WaitTask", mock.Anything, "c1").Return(int64(0), assert.AnError)
+	compute.On("GetInstanceLogs", mock.Anything, "c1").Return(nil, assert.AnError)
+	compute.On("DeleteInstance", mock.Anything, "c1").Return(nil)
+
+	repo.On("CreateInvocation", mock.Anything, mock.MatchedBy(func(i *domain.Invocation) bool {
+		return i.Status == "FAILED"
+	})).Return(nil)
+
+	inv, err := svc.InvokeFunction(context.Background(), id, []byte("{}"), false)
+	assert.NoError(t, err)
+	assert.Equal(t, "FAILED", inv.Status)
+}
+
+func TestFunctionService_PrepareCode_ZipSlip(t *testing.T) {
+	repo, _, fileStore, auditSvc, svc := setupFunctionServiceTest(t)
+	id := uuid.New()
+	userID := uuid.New()
+	f := &domain.Function{ID: id, UserID: userID, CodePath: "c", Runtime: "nodejs20", Handler: "h", Timeout: 30}
+	repo.On("GetByID", mock.Anything, id).Return(f, nil)
+	auditSvc.On("Log", mock.Anything, userID, "function.invoke", "function", id.String(), mock.Anything).Return(nil)
+
+	// ZIP SLIP: file name with ../
+	buf := new(bytes.Buffer)
+	w := zip.NewWriter(buf)
+	_, _ = w.Create("../etc/passwd")
+	_ = w.Close()
+
+	fileStore.On("Read", mock.Anything, "functions", "c").Return(io.NopCloser(bytes.NewReader(buf.Bytes())), nil)
+
+	repo.On("CreateInvocation", mock.Anything, mock.Anything).Return(nil)
+
+	_, err := svc.InvokeFunction(context.Background(), id, []byte("{}"), false)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid file path in zip")
 }

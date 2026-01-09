@@ -5,17 +5,16 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/errors"
 )
 
 type StorageRepository struct {
-	db *pgxpool.Pool
+	db DB
 }
 
-func NewStorageRepository(db *pgxpool.Pool) *StorageRepository {
+func NewStorageRepository(db DB) *StorageRepository {
 	return &StorageRepository{db: db}
 }
 

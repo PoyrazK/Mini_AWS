@@ -4,15 +4,14 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 )
 
 type stackRepository struct {
-	db *pgxpool.Pool
+	db DB
 }
 
-func NewStackRepository(db *pgxpool.Pool) *stackRepository {
+func NewStackRepository(db DB) *stackRepository {
 	return &stackRepository{db: db}
 }
 
@@ -25,9 +24,11 @@ func (r *stackRepository) Create(ctx context.Context, s *domain.Stack) error {
 
 func (r *stackRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Stack, error) {
 	s := &domain.Stack{}
+	var status string
 	err := r.db.QueryRow(ctx,
 		"SELECT id, user_id, name, template, parameters, status, status_reason, created_at, updated_at FROM stacks WHERE id = $1",
-		id).Scan(&s.ID, &s.UserID, &s.Name, &s.Template, &s.Parameters, &s.Status, &s.StatusReason, &s.CreatedAt, &s.UpdatedAt)
+		id).Scan(&s.ID, &s.UserID, &s.Name, &s.Template, &s.Parameters, &status, &s.StatusReason, &s.CreatedAt, &s.UpdatedAt)
+	s.Status = domain.StackStatus(status)
 	if err != nil {
 		return nil, err
 	}
@@ -42,9 +43,11 @@ func (r *stackRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.St
 
 func (r *stackRepository) GetByName(ctx context.Context, userID uuid.UUID, name string) (*domain.Stack, error) {
 	s := &domain.Stack{}
+	var status string
 	err := r.db.QueryRow(ctx,
 		"SELECT id, user_id, name, template, parameters, status, status_reason, created_at, updated_at FROM stacks WHERE user_id = $1 AND name = $2",
-		userID, name).Scan(&s.ID, &s.UserID, &s.Name, &s.Template, &s.Parameters, &s.Status, &s.StatusReason, &s.CreatedAt, &s.UpdatedAt)
+		userID, name).Scan(&s.ID, &s.UserID, &s.Name, &s.Template, &s.Parameters, &status, &s.StatusReason, &s.CreatedAt, &s.UpdatedAt)
+	s.Status = domain.StackStatus(status)
 	if err != nil {
 		return nil, err
 	}
@@ -63,9 +66,11 @@ func (r *stackRepository) ListByUserID(ctx context.Context, userID uuid.UUID) ([
 	var stacks []*domain.Stack
 	for rows.Next() {
 		s := &domain.Stack{}
-		if err := rows.Scan(&s.ID, &s.UserID, &s.Name, &s.Template, &s.Parameters, &s.Status, &s.StatusReason, &s.CreatedAt, &s.UpdatedAt); err != nil {
+		var status string
+		if err := rows.Scan(&s.ID, &s.UserID, &s.Name, &s.Template, &s.Parameters, &status, &s.StatusReason, &s.CreatedAt, &s.UpdatedAt); err != nil {
 			return nil, err
 		}
+		s.Status = domain.StackStatus(status)
 		stacks = append(stacks, s)
 	}
 	return stacks, nil

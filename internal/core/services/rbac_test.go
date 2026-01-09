@@ -275,3 +275,75 @@ func TestRBAC_Permissions(t *testing.T) {
 		assert.NoError(t, err)
 	})
 }
+
+func TestRBAC_Authorize_Error(t *testing.T) {
+	userRepo, _, svc := setupRBACServiceTest(t)
+	ctx := context.Background()
+	userID := uuid.New()
+
+	userRepo.On("GetByID", ctx, userID).Return(nil, assert.AnError)
+
+	err := svc.Authorize(ctx, userID, domain.PermissionInstanceRead)
+	assert.Error(t, err)
+}
+
+func TestRBAC_ListRoleBindings(t *testing.T) {
+	userRepo, _, svc := setupRBACServiceTest(t)
+	ctx := context.Background()
+	users := []*domain.User{{ID: uuid.New(), Email: "u1@e.c"}}
+
+	userRepo.On("List", ctx).Return(users, nil)
+
+	res, err := svc.ListRoleBindings(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, users, res)
+}
+
+func TestRBAC_GetRoleByName(t *testing.T) {
+	_, roleRepo, svc := setupRBACServiceTest(t)
+	ctx := context.Background()
+	role := &domain.Role{Name: "test"}
+
+	roleRepo.On("GetRoleByName", ctx, "test").Return(role, nil)
+
+	res, err := svc.GetRoleByName(ctx, "test")
+	assert.NoError(t, err)
+	assert.Equal(t, role, res)
+}
+
+func TestRBAC_Fallback_Developer(t *testing.T) {
+	ctx := context.Background()
+	userID := uuid.New()
+
+	t.Run("Allowed", func(t *testing.T) {
+		userRepo, roleRepo, svc := setupRBACServiceTest(t)
+		user := &domain.User{ID: userID, Role: domain.RoleDeveloper}
+		userRepo.On("GetByID", ctx, userID).Return(user, nil).Once()
+		roleRepo.On("GetRoleByName", ctx, string(domain.RoleDeveloper)).Return(nil, errors.New("not found")).Once()
+
+		err := svc.Authorize(ctx, userID, domain.PermissionInstanceRead)
+		assert.NoError(t, err)
+	})
+
+	t.Run("Denied_FullAccess", func(t *testing.T) {
+		userRepo, roleRepo, svc := setupRBACServiceTest(t)
+		user := &domain.User{ID: userID, Role: domain.RoleDeveloper}
+		userRepo.On("GetByID", ctx, userID).Return(user, nil).Once()
+		roleRepo.On("GetRoleByName", ctx, string(domain.RoleDeveloper)).Return(nil, errors.New("not found")).Once()
+
+		err := svc.Authorize(ctx, userID, domain.PermissionFullAccess)
+		assert.Error(t, err)
+	})
+}
+
+func TestRBAC_BindRole_UserNotFound(t *testing.T) {
+	userRepo, roleRepo, svc := setupRBACServiceTest(t)
+	ctx := context.Background()
+	roleName := "developer"
+
+	roleRepo.On("GetRoleByName", ctx, roleName).Return(&domain.Role{Name: roleName}, nil)
+	userRepo.On("GetByEmail", ctx, "missing@e.c").Return(nil, errors.New("not found"))
+
+	err := svc.BindRole(ctx, "missing@e.c", roleName)
+	assert.Error(t, err)
+}

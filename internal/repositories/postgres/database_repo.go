@@ -7,17 +7,16 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/errors"
 )
 
 type DatabaseRepository struct {
-	db *pgxpool.Pool
+	db DB
 }
 
-func NewDatabaseRepository(db *pgxpool.Pool) *DatabaseRepository {
+func NewDatabaseRepository(db DB) *DatabaseRepository {
 	return &DatabaseRepository{db: db}
 }
 

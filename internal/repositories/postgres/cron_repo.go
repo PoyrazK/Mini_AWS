@@ -4,16 +4,15 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
 
 type PostgresCronRepository struct {
-	db *pgxpool.Pool
+	db DB
 }
 
-func NewPostgresCronRepository(db *pgxpool.Pool) ports.CronRepository {
+func NewPostgresCronRepository(db DB) ports.CronRepository {
 	return &PostgresCronRepository{db: db}
 }
 
@@ -41,6 +40,7 @@ func (r *PostgresCronRepository) CreateJob(ctx context.Context, job *domain.Cron
 func (r *PostgresCronRepository) GetJobByID(ctx context.Context, id, userID uuid.UUID) (*domain.CronJob, error) {
 	query := `SELECT id, user_id, name, schedule, target_url, target_method, target_payload, status, last_run_at, next_run_at, created_at, updated_at FROM cron_jobs WHERE id = $1 AND user_id = $2`
 	var job domain.CronJob
+	var status string
 	err := r.db.QueryRow(ctx, query, id, userID).Scan(
 		&job.ID,
 		&job.UserID,
@@ -49,7 +49,7 @@ func (r *PostgresCronRepository) GetJobByID(ctx context.Context, id, userID uuid
 		&job.TargetURL,
 		&job.TargetMethod,
 		&job.TargetPayload,
-		&job.Status,
+		&status,
 		&job.LastRunAt,
 		&job.NextRunAt,
 		&job.CreatedAt,
@@ -58,6 +58,7 @@ func (r *PostgresCronRepository) GetJobByID(ctx context.Context, id, userID uuid
 	if err != nil {
 		return nil, err
 	}
+	job.Status = domain.CronStatus(status)
 	return &job, nil
 }
 
@@ -72,6 +73,7 @@ func (r *PostgresCronRepository) ListJobs(ctx context.Context, userID uuid.UUID)
 	var jobs []*domain.CronJob
 	for rows.Next() {
 		var job domain.CronJob
+		var status string
 		if err := rows.Scan(
 			&job.ID,
 			&job.UserID,
@@ -80,7 +82,7 @@ func (r *PostgresCronRepository) ListJobs(ctx context.Context, userID uuid.UUID)
 			&job.TargetURL,
 			&job.TargetMethod,
 			&job.TargetPayload,
-			&job.Status,
+			&status,
 			&job.LastRunAt,
 			&job.NextRunAt,
 			&job.CreatedAt,
@@ -88,6 +90,7 @@ func (r *PostgresCronRepository) ListJobs(ctx context.Context, userID uuid.UUID)
 		); err != nil {
 			return nil, err
 		}
+		job.Status = domain.CronStatus(status)
 		jobs = append(jobs, &job)
 	}
 	return jobs, nil
@@ -120,6 +123,7 @@ func (r *PostgresCronRepository) GetNextJobsToRun(ctx context.Context) ([]*domai
 	var jobs []*domain.CronJob
 	for rows.Next() {
 		var job domain.CronJob
+		var status string
 		if err := rows.Scan(
 			&job.ID,
 			&job.UserID,
@@ -128,7 +132,7 @@ func (r *PostgresCronRepository) GetNextJobsToRun(ctx context.Context) ([]*domai
 			&job.TargetURL,
 			&job.TargetMethod,
 			&job.TargetPayload,
-			&job.Status,
+			&status,
 			&job.LastRunAt,
 			&job.NextRunAt,
 			&job.CreatedAt,
@@ -136,6 +140,7 @@ func (r *PostgresCronRepository) GetNextJobsToRun(ctx context.Context) ([]*domai
 		); err != nil {
 			return nil, err
 		}
+		job.Status = domain.CronStatus(status)
 		jobs = append(jobs, &job)
 	}
 	return jobs, nil

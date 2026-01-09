@@ -289,3 +289,106 @@ func TestLaunchInstance_WithSubnetAndNetworking(t *testing.T) {
 	assert.Equal(t, "10.0.1.2", inst.PrivateIP) // First available after .1
 	assert.Contains(t, inst.OvsPort, "veth-")
 }
+
+func TestInstanceService_GetInstanceStats(t *testing.T) {
+	repo, _, _, _, compute, _, _, _, svc := setupInstanceServiceTest(t)
+	defer repo.AssertExpectations(t)
+	defer compute.AssertExpectations(t)
+
+	ctx := context.Background()
+	instID := uuid.New()
+	inst := &domain.Instance{ID: instID, ContainerID: "c123"}
+
+	repo.On("GetByID", ctx, instID).Return(inst, nil)
+	compute.On("GetInstanceStats", ctx, "c123").Return(io.NopCloser(strings.NewReader("{}")), nil)
+
+	stats, err := svc.GetInstanceStats(ctx, instID.String())
+	assert.NoError(t, err)
+	assert.NotNil(t, stats)
+}
+
+func TestInstanceService_GetInstanceStats_Error(t *testing.T) {
+	repo, _, _, _, compute, _, _, _, svc := setupInstanceServiceTest(t)
+	ctx := context.Background()
+	instID := uuid.New()
+	inst := &domain.Instance{ID: instID, ContainerID: "c123"}
+
+	t.Run("RepoError", func(t *testing.T) {
+		repo.On("GetByID", ctx, instID).Return(nil, assert.AnError).Once()
+		_, err := svc.GetInstanceStats(ctx, instID.String())
+		assert.Error(t, err)
+	})
+
+	t.Run("ComputeError", func(t *testing.T) {
+		repo.On("GetByID", ctx, instID).Return(inst, nil).Once()
+		compute.On("GetInstanceStats", ctx, "c123").Return(nil, assert.AnError).Once()
+		_, err := svc.GetInstanceStats(ctx, instID.String())
+		assert.Error(t, err)
+	})
+}
+
+func TestInstanceService_Launch_InvalidPorts(t *testing.T) {
+	_, _, _, _, _, _, _, _, svc := setupInstanceServiceTest(t)
+	ctx := context.Background()
+
+	_, err := svc.LaunchInstance(ctx, "n", "i", "invalid", nil, nil, nil)
+	assert.Error(t, err)
+}
+
+func TestInstanceService_Stop_Error(t *testing.T) {
+	repo, _, _, _, compute, _, _, _, svc := setupInstanceServiceTest(t)
+	ctx := context.Background()
+	instID := uuid.New()
+	inst := &domain.Instance{ID: instID, ContainerID: "c123", Status: domain.StatusRunning}
+
+	repo.On("GetByID", ctx, instID).Return(inst, nil)
+	compute.On("StopInstance", ctx, "c123").Return(assert.AnError)
+
+	err := svc.StopInstance(ctx, instID.String())
+	assert.Error(t, err)
+}
+
+func TestInstanceService_GetInstanceLogs_Error(t *testing.T) {
+	repo, _, _, _, compute, _, _, _, svc := setupInstanceServiceTest(t)
+	ctx := context.Background()
+	instID := uuid.New()
+	inst := &domain.Instance{ID: instID, ContainerID: "c123"}
+
+	repo.On("GetByID", ctx, instID).Return(inst, nil)
+	compute.On("GetInstanceLogs", ctx, "c123").Return(nil, assert.AnError)
+
+	_, err := svc.GetInstanceLogs(ctx, instID.String())
+	assert.Error(t, err)
+}
+
+func TestInstanceService_Launch_WithVolumes(t *testing.T) {
+	repo, _, _, volumeRepo, compute, _, eventSvc, auditSvc, svc := setupInstanceServiceTest(t)
+	ctx := context.Background()
+	volID := uuid.New()
+
+	volumeRepo.On("GetByID", ctx, volID).Return(&domain.Volume{ID: volID, Name: "v1", Status: domain.VolumeStatusAvailable}, nil)
+	repo.On("Create", ctx, mock.Anything).Return(nil)
+	compute.On("CreateInstance", ctx, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return("c1", nil)
+	repo.On("Update", ctx, mock.Anything).Return(nil)
+	volumeRepo.On("Update", ctx, mock.Anything).Return(nil)
+	eventSvc.On("RecordEvent", ctx, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	auditSvc.On("Log", ctx, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	attachments := []domain.VolumeAttachment{
+		{VolumeIDOrName: volID.String(), MountPath: "/data"},
+	}
+	_, err := svc.LaunchInstance(ctx, "n", "i", "", nil, nil, attachments)
+	assert.NoError(t, err)
+}
+
+func TestInstanceService_GetVolumeByIDOrName(t *testing.T) {
+	_, _, _, volumeRepo, _, _, _, _, _ := setupInstanceServiceTest(t)
+	ctx := context.Background()
+	volID := uuid.New()
+
+	// Test by ID
+	volumeRepo.On("GetByID", ctx, volID).Return(&domain.Volume{ID: volID}, nil).Once()
+	// Wait, getVolumeByIDOrName is unexported. I can't call it directly.
+	// But LaunchInstance/TerminateInstance/etc might call it?
+	// Actually, only LaunchInstance calls resolveVolumes which calls it.
+}

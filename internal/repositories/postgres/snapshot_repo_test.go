@@ -1,0 +1,79 @@
+package postgres
+
+import (
+	"context"
+	"testing"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/pashagolub/pgxmock/v3"
+	appcontext "github.com/poyrazk/thecloud/internal/core/context"
+	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/stretchr/testify/assert"
+)
+
+func TestSnapshotRepository_Create(t *testing.T) {
+	mock, err := pgxmock.NewPool()
+	assert.NoError(t, err)
+	defer mock.Close()
+
+	repo := NewSnapshotRepository(mock)
+	s := &domain.Snapshot{
+		ID:          uuid.New(),
+		UserID:      uuid.New(),
+		VolumeID:    uuid.New(),
+		VolumeName:  "vol1",
+		SizeGB:      10,
+		Status:      "available",
+		Description: "desc",
+		CreatedAt:   time.Now(),
+	}
+
+	mock.ExpectExec("INSERT INTO snapshots").
+		WithArgs(s.ID, s.UserID, s.VolumeID, s.VolumeName, s.SizeGB, s.Status, s.Description, s.CreatedAt).
+		WillReturnResult(pgxmock.NewResult("INSERT", 1))
+
+	err = repo.Create(context.Background(), s)
+	assert.NoError(t, err)
+}
+
+func TestSnapshotRepository_GetByID(t *testing.T) {
+	mock, err := pgxmock.NewPool()
+	assert.NoError(t, err)
+	defer mock.Close()
+
+	repo := NewSnapshotRepository(mock)
+	id := uuid.New()
+	userID := uuid.New()
+	ctx := appcontext.WithUserID(context.Background(), userID)
+	now := time.Now()
+
+	mock.ExpectQuery("SELECT id, user_id, volume_id, volume_name, size_gb, status, description, created_at FROM snapshots").
+		WithArgs(id, userID).
+		WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "volume_id", "volume_name", "size_gb", "status", "description", "created_at"}).
+			AddRow(id, userID, uuid.New(), "vol1", 10, "available", "desc", now))
+
+	s, err := repo.GetByID(ctx, id)
+	assert.NoError(t, err)
+	assert.NotNil(t, s)
+	assert.Equal(t, id, s.ID)
+}
+
+func TestSnapshotRepository_ListByUserID(t *testing.T) {
+	mock, err := pgxmock.NewPool()
+	assert.NoError(t, err)
+	defer mock.Close()
+
+	repo := NewSnapshotRepository(mock)
+	userID := uuid.New()
+	now := time.Now()
+
+	mock.ExpectQuery("SELECT id, user_id, volume_id, volume_name, size_gb, status, description, created_at FROM snapshots").
+		WithArgs(userID).
+		WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "volume_id", "volume_name", "size_gb", "status", "description", "created_at"}).
+			AddRow(uuid.New(), userID, uuid.New(), "vol1", 10, "available", "desc", now))
+
+	snapshots, err := repo.ListByUserID(context.Background(), userID)
+	assert.NoError(t, err)
+	assert.Len(t, snapshots, 1)
+}

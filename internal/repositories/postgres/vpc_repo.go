@@ -6,7 +6,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/errors"
@@ -14,11 +13,11 @@ import (
 
 // VpcRepository provides a PostgreSQL implementation for managing VPC metadata.
 type VpcRepository struct {
-	db *pgxpool.Pool
+	db DB
 }
 
 // NewVpcRepository creates a new VpcRepository with the given database pool.
-func NewVpcRepository(db *pgxpool.Pool) *VpcRepository {
+func NewVpcRepository(db DB) *VpcRepository {
 	return &VpcRepository{db: db}
 }
 

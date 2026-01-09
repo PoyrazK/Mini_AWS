@@ -4,15 +4,15 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/core/ports"
 )
 
 type rbacRepository struct {
-	db *pgxpool.Pool
+	db DB
 }
 
-func NewRBACRepository(db *pgxpool.Pool) *rbacRepository {
+func NewRBACRepository(db DB) ports.RoleRepository {
 	return &rbacRepository{db: db}
 }
 

@@ -5,17 +5,16 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/errors"
 )
 
 type SecurityGroupRepository struct {
-	db *pgxpool.Pool
+	db DB
 }
 
-func NewSecurityGroupRepository(db *pgxpool.Pool) *SecurityGroupRepository {
+func NewSecurityGroupRepository(db DB) *SecurityGroupRepository {
 	return &SecurityGroupRepository{db: db}
 }
 
@@ -256,9 +255,11 @@ func (r *SecurityGroupRepository) getRulesForGroup(ctx context.Context, groupID 
 	var rules []domain.SecurityRule
 	for rows.Next() {
 		var rule domain.SecurityRule
-		if err := rows.Scan(&rule.ID, &rule.GroupID, &rule.Direction, &rule.Protocol, &rule.PortMin, &rule.PortMax, &rule.CIDR, &rule.Priority, &rule.CreatedAt); err != nil {
+		var direction string
+		if err := rows.Scan(&rule.ID, &rule.GroupID, &direction, &rule.Protocol, &rule.PortMin, &rule.PortMax, &rule.CIDR, &rule.Priority, &rule.CreatedAt); err != nil {
 			return nil, err
 		}
+		rule.Direction = domain.RuleDirection(direction)
 		rules = append(rules, rule)
 	}
 	return rules, nil
