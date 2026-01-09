@@ -11,8 +11,60 @@ jobs:
   load-test:
     name: K6 Performance Test
     runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: thecloud_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    
     steps:
       - uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: true
+
+      - name: Build API Server
+        run: go build -o api ./cmd/api
+
+      - name: Start API Server
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/thecloud_test?sslmode=disable
+          PORT: 8080
+          JWT_SECRET: test-secret-for-load-testing-only
+          ENVIRONMENT: test
+        run: |
+          ./api &
+          API_PID=$!
+          echo "API_PID=$API_PID" >> $GITHUB_ENV
+          
+          # Wait for server to be ready (max 30 seconds)
+          echo "Waiting for API server to start..."
+          for i in {1..30}; do
+            if curl -f http://localhost:8080/health > /dev/null 2>&1; then
+              echo "API server is ready!"
+              break
+            fi
+            echo "Waiting... ($i/30)"
+            sleep 1
+          done
+          
+          # Verify server is actually running
+          if ! curl -f http://localhost:8080/health > /dev/null 2>&1; then
+            echo "ERROR: API server failed to start"
+            exit 1
+          fi
 
       - name: Setup k6
         uses: grafana/setup-k6-action@v1
@@ -22,3 +74,10 @@ jobs:
         with:
           path: tests/load/api-smoke.js
           flags: --vus 10 --duration 30s
+
+      - name: Stop API Server
+        if: always()
+        run: |
+          if [ ! -z "$API_PID" ]; then
+            kill $API_PID || true
+          fi
