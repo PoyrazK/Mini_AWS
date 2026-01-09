@@ -3,16 +3,15 @@ package postgres
 import (
 	"context"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 )
 
 type EventRepository struct {
-	db *pgxpool.Pool
+	db DB
 }
 
-func NewEventRepository(db *pgxpool.Pool) *EventRepository {
+func NewEventRepository(db DB) *EventRepository {
 	return &EventRepository{db: db}
 }
 

@@ -4,16 +4,15 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/errors"
 )
 
 type AuditRepository struct {
-	db *pgxpool.Pool
+	db DB
 }
 
-func NewAuditRepository(db *pgxpool.Pool) *AuditRepository {
+func NewAuditRepository(db DB) *AuditRepository {
 	return &AuditRepository{db: db}
 }
 

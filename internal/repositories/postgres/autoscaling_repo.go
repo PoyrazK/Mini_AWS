@@ -7,17 +7,16 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	errs "github.com/poyrazk/thecloud/internal/errors"
 )
 
 type AutoScalingRepo struct {
-	db *pgxpool.Pool
+	db DB
 }
 
-func NewAutoScalingRepo(db *pgxpool.Pool) *AutoScalingRepo {
+func NewAutoScalingRepo(db DB) *AutoScalingRepo {
 	return &AutoScalingRepo{db: db}
 }
 
@@ -56,11 +55,13 @@ func (r *AutoScalingRepo) GetGroupByID(ctx context.Context, id uuid.UUID) (*doma
 	var ports sql.NullString
 	var idk sql.NullString
 
+	var status string
 	err := r.db.QueryRow(ctx, query, id, userID).Scan(
 		&g.ID, &g.UserID, &idk, &g.Name, &g.VpcID, &lbID, &g.Image, &ports,
 		&g.MinInstances, &g.MaxInstances, &g.DesiredCount, &g.CurrentCount,
-		&g.Status, &g.Version, &g.CreatedAt, &g.UpdatedAt,
+		&status, &g.Version, &g.CreatedAt, &g.UpdatedAt,
 	)
+	g.Status = domain.ScalingGroupStatus(status)
 	if err == pgx.ErrNoRows {
 		return nil, errs.New(errs.NotFound, "scaling group not found")
 	}
@@ -89,11 +90,13 @@ func (r *AutoScalingRepo) GetGroupByIdempotencyKey(ctx context.Context, key stri
 	var ports sql.NullString
 	var idk sql.NullString // Should match key
 
+	var status string
 	err := r.db.QueryRow(ctx, query, key, userID).Scan(
 		&g.ID, &g.UserID, &idk, &g.Name, &g.VpcID, &lbID, &g.Image, &ports,
 		&g.MinInstances, &g.MaxInstances, &g.DesiredCount, &g.CurrentCount,
-		&g.Status, &g.Version, &g.CreatedAt, &g.UpdatedAt,
+		&status, &g.Version, &g.CreatedAt, &g.UpdatedAt,
 	)
+	g.Status = domain.ScalingGroupStatus(status)
 	if err == pgx.ErrNoRows {
 		return nil, errs.New(errs.NotFound, "scaling group not found")
 	}
@@ -130,14 +133,16 @@ func (r *AutoScalingRepo) ListGroups(ctx context.Context) ([]*domain.ScalingGrou
 		var lbID *uuid.UUID
 		var ports sql.NullString
 		var idk sql.NullString
+		var status string
 
 		if err := rows.Scan(
 			&g.ID, &g.UserID, &idk, &g.Name, &g.VpcID, &lbID, &g.Image, &ports,
 			&g.MinInstances, &g.MaxInstances, &g.DesiredCount, &g.CurrentCount,
-			&g.Status, &g.Version, &g.CreatedAt, &g.UpdatedAt,
+			&status, &g.Version, &g.CreatedAt, &g.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
+		g.Status = domain.ScalingGroupStatus(status)
 		g.LoadBalancerID = lbID
 		if ports.Valid {
 			g.Ports = ports.String
@@ -168,14 +173,16 @@ func (r *AutoScalingRepo) ListAllGroups(ctx context.Context) ([]*domain.ScalingG
 		var lbID *uuid.UUID
 		var ports sql.NullString
 		var idk sql.NullString
+		var status string
 
 		if err := rows.Scan(
 			&g.ID, &g.UserID, &idk, &g.Name, &g.VpcID, &lbID, &g.Image, &ports,
 			&g.MinInstances, &g.MaxInstances, &g.DesiredCount, &g.CurrentCount,
-			&g.Status, &g.Version, &g.CreatedAt, &g.UpdatedAt,
+			&status, &g.Version, &g.CreatedAt, &g.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
+		g.Status = domain.ScalingGroupStatus(status)
 		g.LoadBalancerID = lbID
 		if ports.Valid {
 			g.Ports = ports.String
@@ -198,25 +205,36 @@ func (r *AutoScalingRepo) CountGroupsByVPC(ctx context.Context, vpcID uuid.UUID)
 func (r *AutoScalingRepo) UpdateGroup(ctx context.Context, group *domain.ScalingGroup) error {
 	query := `
 		UPDATE scaling_groups
-		SET desired_count = $1, current_count = $2, status = $3, 
-			min_instances = $4, max_instances = $5,
-			failure_count = $6, last_failure_at = $7,
-			version = version + 1, updated_at = NOW()
-		WHERE id = $8 AND user_id = $9
+		SET name = $1, min_instances = $2, max_instances = $3, 
+			desired_count = $4, status = $5, updated_at = $6,
+			version = version + 1
+		WHERE id = $7 AND version = $8 AND user_id = $9
 	`
-	_, err := r.db.Exec(ctx, query,
-		group.DesiredCount, group.CurrentCount, group.Status,
-		group.MinInstances, group.MaxInstances,
-		group.FailureCount, group.LastFailureAt,
-		group.ID, group.UserID,
+	cmd, err := r.db.Exec(ctx, query,
+		group.Name, group.MinInstances, group.MaxInstances,
+		group.DesiredCount, group.Status, group.UpdatedAt,
+		group.ID, group.Version, group.UserID,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if cmd.RowsAffected() == 0 {
+		return errs.New(errs.Conflict, "scaling group update conflict or not found")
+	}
+	group.Version++
+	return nil
 }
 
 func (r *AutoScalingRepo) DeleteGroup(ctx context.Context, id uuid.UUID) error {
 	userID := appcontext.UserIDFromContext(ctx)
-	_, err := r.db.Exec(ctx, "DELETE FROM scaling_groups WHERE id = $1 AND user_id = $2", id, userID)
-	return err
+	cmd, err := r.db.Exec(ctx, "DELETE FROM scaling_groups WHERE id = $1 AND user_id = $2", id, userID)
+	if err != nil {
+		return err
+	}
+	if cmd.RowsAffected() == 0 {
+		return errs.New(errs.NotFound, "scaling group not found")
+	}
+	return nil
 }
 
 // Policies

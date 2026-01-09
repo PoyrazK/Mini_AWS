@@ -5,16 +5,15 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/errors"
 )
 
 type CacheRepository struct {
-	db *pgxpool.Pool
+	db DB
 }
 
-func NewCacheRepository(db *pgxpool.Pool) *CacheRepository {
+func NewCacheRepository(db DB) *CacheRepository {
 	return &CacheRepository{db: db}
 }
 
@@ -45,10 +44,13 @@ func (r *CacheRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Ca
 		WHERE id = $1
 	`
 	var cache domain.Cache
+	var engine, status string
 	err := r.db.QueryRow(ctx, query, id).Scan(
-		&cache.ID, &cache.UserID, &cache.Name, &cache.Engine, &cache.Version, &cache.Status, &cache.VpcID,
+		&cache.ID, &cache.UserID, &cache.Name, &engine, &cache.Version, &status, &cache.VpcID,
 		&cache.ContainerID, &cache.Port, &cache.Password, &cache.MemoryMB, &cache.CreatedAt, &cache.UpdatedAt,
 	)
+	cache.Engine = domain.CacheEngine(engine)
+	cache.Status = domain.CacheStatus(status)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, errors.New(errors.NotFound, "cache not found")
@@ -67,10 +69,13 @@ func (r *CacheRepository) GetByName(ctx context.Context, userID uuid.UUID, name 
 		WHERE user_id = $1 AND name = $2
 	`
 	var cache domain.Cache
+	var engine, status string
 	err := r.db.QueryRow(ctx, query, userID, name).Scan(
-		&cache.ID, &cache.UserID, &cache.Name, &cache.Engine, &cache.Version, &cache.Status, &cache.VpcID,
+		&cache.ID, &cache.UserID, &cache.Name, &engine, &cache.Version, &status, &cache.VpcID,
 		&cache.ContainerID, &cache.Port, &cache.Password, &cache.MemoryMB, &cache.CreatedAt, &cache.UpdatedAt,
 	)
+	cache.Engine = domain.CacheEngine(engine)
+	cache.Status = domain.CacheStatus(status)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, errors.New(errors.NotFound, "cache not found")
@@ -98,13 +103,16 @@ func (r *CacheRepository) List(ctx context.Context, userID uuid.UUID) ([]*domain
 	var caches []*domain.Cache
 	for rows.Next() {
 		var cache domain.Cache
+		var engine, status string
 		err := rows.Scan(
-			&cache.ID, &cache.UserID, &cache.Name, &cache.Engine, &cache.Version, &cache.Status, &cache.VpcID,
+			&cache.ID, &cache.UserID, &cache.Name, &engine, &cache.Version, &status, &cache.VpcID,
 			&cache.ContainerID, &cache.Port, &cache.Password, &cache.MemoryMB, &cache.CreatedAt, &cache.UpdatedAt,
 		)
 		if err != nil {
 			return nil, errors.Wrap(errors.Internal, "failed to scan cache", err)
 		}
+		cache.Engine = domain.CacheEngine(engine)
+		cache.Status = domain.CacheStatus(status)
 		caches = append(caches, &cache)
 	}
 	return caches, nil

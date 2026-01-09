@@ -7,7 +7,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/errors"
@@ -15,11 +14,11 @@ import (
 
 // InstanceRepository provides a PostgreSQL implementation for managing instance metadata.
 type InstanceRepository struct {
-	db *pgxpool.Pool
+	db DB
 }
 
 // NewInstanceRepository creates a new InstanceRepository with the given database pool.
-func NewInstanceRepository(db *pgxpool.Pool) *InstanceRepository {
+func NewInstanceRepository(db DB) *InstanceRepository {
 	return &InstanceRepository{db: db}
 }
 
@@ -30,7 +29,7 @@ func (r *InstanceRepository) Create(ctx context.Context, inst *domain.Instance) 
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NULLIF($10, '')::inet, $11, $12, $13, $14)
 	`
 	_, err := r.db.Exec(ctx, query,
-		inst.ID, inst.UserID, inst.Name, inst.Image, inst.ContainerID, inst.Status, inst.Ports, inst.VpcID, inst.SubnetID,
+		inst.ID, inst.UserID, inst.Name, inst.Image, inst.ContainerID, string(inst.Status), inst.Ports, inst.VpcID, inst.SubnetID,
 		inst.PrivateIP, inst.OvsPort, inst.Version, inst.CreatedAt, inst.UpdatedAt,
 	)
 	if err != nil {
@@ -48,9 +47,11 @@ func (r *InstanceRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain
 		WHERE id = $1 AND user_id = $2
 	`
 	var inst domain.Instance
+	var status string
 	err := r.db.QueryRow(ctx, query, id, userID).Scan(
-		&inst.ID, &inst.UserID, &inst.Name, &inst.Image, &inst.ContainerID, &inst.Status, &inst.Ports, &inst.VpcID, &inst.SubnetID, &inst.PrivateIP, &inst.OvsPort, &inst.Version, &inst.CreatedAt, &inst.UpdatedAt,
+		&inst.ID, &inst.UserID, &inst.Name, &inst.Image, &inst.ContainerID, &status, &inst.Ports, &inst.VpcID, &inst.SubnetID, &inst.PrivateIP, &inst.OvsPort, &inst.Version, &inst.CreatedAt, &inst.UpdatedAt,
 	)
+	inst.Status = domain.InstanceStatus(status)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, errors.New(errors.NotFound, fmt.Sprintf("instance %s not found", id))
@@ -69,9 +70,11 @@ func (r *InstanceRepository) GetByName(ctx context.Context, name string) (*domai
 		WHERE name = $1 AND user_id = $2
 	`
 	var inst domain.Instance
+	var status string
 	err := r.db.QueryRow(ctx, query, name, userID).Scan(
-		&inst.ID, &inst.UserID, &inst.Name, &inst.Image, &inst.ContainerID, &inst.Status, &inst.Ports, &inst.VpcID, &inst.SubnetID, &inst.PrivateIP, &inst.OvsPort, &inst.Version, &inst.CreatedAt, &inst.UpdatedAt,
+		&inst.ID, &inst.UserID, &inst.Name, &inst.Image, &inst.ContainerID, &status, &inst.Ports, &inst.VpcID, &inst.SubnetID, &inst.PrivateIP, &inst.OvsPort, &inst.Version, &inst.CreatedAt, &inst.UpdatedAt,
 	)
+	inst.Status = domain.InstanceStatus(status)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, errors.New(errors.NotFound, fmt.Sprintf("instance name %s not found", name))
@@ -99,12 +102,14 @@ func (r *InstanceRepository) List(ctx context.Context) ([]*domain.Instance, erro
 	var instances []*domain.Instance
 	for rows.Next() {
 		var inst domain.Instance
+		var status string
 		err := rows.Scan(
-			&inst.ID, &inst.UserID, &inst.Name, &inst.Image, &inst.ContainerID, &inst.Status, &inst.Ports, &inst.VpcID, &inst.SubnetID, &inst.PrivateIP, &inst.OvsPort, &inst.Version, &inst.CreatedAt, &inst.UpdatedAt,
+			&inst.ID, &inst.UserID, &inst.Name, &inst.Image, &inst.ContainerID, &status, &inst.Ports, &inst.VpcID, &inst.SubnetID, &inst.PrivateIP, &inst.OvsPort, &inst.Version, &inst.CreatedAt, &inst.UpdatedAt,
 		)
 		if err != nil {
 			return nil, errors.Wrap(errors.Internal, "failed to scan instance", err)
 		}
+		inst.Status = domain.InstanceStatus(status)
 		instances = append(instances, &inst)
 	}
 	return instances, nil
@@ -119,7 +124,7 @@ func (r *InstanceRepository) Update(ctx context.Context, inst *domain.Instance) 
 		WHERE id = $10 AND version = $11 AND user_id = $12
 	`
 	now := time.Now()
-	cmd, err := r.db.Exec(ctx, query, inst.Name, inst.Status, now, inst.ContainerID, inst.Ports, inst.VpcID, inst.SubnetID, inst.PrivateIP, inst.OvsPort, inst.ID, inst.Version, inst.UserID)
+	cmd, err := r.db.Exec(ctx, query, inst.Name, string(inst.Status), now, inst.ContainerID, inst.Ports, inst.VpcID, inst.SubnetID, inst.PrivateIP, inst.OvsPort, inst.ID, inst.Version, inst.UserID)
 	if err != nil {
 		return errors.Wrap(errors.Internal, "failed to update instance", err)
 	}
@@ -151,12 +156,14 @@ func (r *InstanceRepository) ListBySubnet(ctx context.Context, subnetID uuid.UUI
 	var instances []*domain.Instance
 	for rows.Next() {
 		var inst domain.Instance
+		var status string
 		err := rows.Scan(
-			&inst.ID, &inst.UserID, &inst.Name, &inst.Image, &inst.ContainerID, &inst.Status, &inst.Ports, &inst.VpcID, &inst.SubnetID, &inst.PrivateIP, &inst.OvsPort, &inst.Version, &inst.CreatedAt, &inst.UpdatedAt,
+			&inst.ID, &inst.UserID, &inst.Name, &inst.Image, &inst.ContainerID, &status, &inst.Ports, &inst.VpcID, &inst.SubnetID, &inst.PrivateIP, &inst.OvsPort, &inst.Version, &inst.CreatedAt, &inst.UpdatedAt,
 		)
 		if err != nil {
 			return nil, errors.Wrap(errors.Internal, "failed to scan instance", err)
 		}
+		inst.Status = domain.InstanceStatus(status)
 		instances = append(instances, &inst)
 	}
 	return instances, nil

@@ -1,114 +1,227 @@
-//go:build integration
-
 package postgres
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/pashagolub/pgxmock/v3"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	theclouderrors "github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-func TestStorageRepository_Integration(t *testing.T) {
-	db := setupDB(t)
-	defer db.Close()
-	repo := NewStorageRepository(db)
-	ctx := setupTestUser(t, db)
-	userID := appcontext.UserIDFromContext(ctx)
+func TestStorageRepository_SaveMeta(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		mock, err := pgxmock.NewPool()
+		assert.NoError(t, err)
+		defer mock.Close()
 
-	// Cleanup
-	_, _ = db.Exec(context.Background(), "DELETE FROM objects")
-
-	bucket := "test-bucket"
-	key := "test-file.txt"
-
-	t.Run("SaveMeta", func(t *testing.T) {
+		repo := NewStorageRepository(mock)
 		obj := &domain.Object{
 			ID:          uuid.New(),
-			UserID:      userID,
-			ARN:         "arn:cloud:s3:::test-bucket/test-file.txt",
-			Bucket:      bucket,
-			Key:         key,
+			UserID:      uuid.New(),
+			ARN:         "arn:aws:s3:::mybucket/mykey",
+			Bucket:      "mybucket",
+			Key:         "mykey",
 			SizeBytes:   1024,
 			ContentType: "text/plain",
 			CreatedAt:   time.Now(),
 		}
 
-		err := repo.SaveMeta(ctx, obj)
-		require.NoError(t, err)
+		mock.ExpectExec("INSERT INTO objects").
+			WithArgs(obj.ID, obj.UserID, obj.ARN, obj.Bucket, obj.Key, obj.SizeBytes, obj.ContentType, obj.CreatedAt).
+			WillReturnResult(pgxmock.NewResult("INSERT", 1))
+
+		err = repo.SaveMeta(context.Background(), obj)
+		assert.NoError(t, err)
 	})
 
-	t.Run("GetMeta", func(t *testing.T) {
-		obj, err := repo.GetMeta(ctx, bucket, key)
-		require.NoError(t, err)
-		assert.Equal(t, bucket, obj.Bucket)
-		assert.Equal(t, key, obj.Key)
-		assert.Equal(t, int64(1024), obj.SizeBytes)
-		assert.Equal(t, "text/plain", obj.ContentType)
-	})
+	t.Run("db error", func(t *testing.T) {
+		mock, err := pgxmock.NewPool()
+		assert.NoError(t, err)
+		defer mock.Close()
 
-	t.Run("List", func(t *testing.T) {
-		// Add another object
-		obj2 := &domain.Object{
-			ID:          uuid.New(),
-			UserID:      userID,
-			ARN:         "arn:cloud:s3:::test-bucket/test-file2.txt",
-			Bucket:      bucket,
-			Key:         "test-file2.txt",
-			SizeBytes:   2048,
-			ContentType: "text/plain",
-			CreatedAt:   time.Now(),
-		}
-		err := repo.SaveMeta(ctx, obj2)
-		require.NoError(t, err)
-
-		objects, err := repo.List(ctx, bucket)
-		require.NoError(t, err)
-		assert.GreaterOrEqual(t, len(objects), 2)
-	})
-
-	t.Run("SaveMeta_UpdateExisting", func(t *testing.T) {
-		// Update existing object
+		repo := NewStorageRepository(mock)
 		obj := &domain.Object{
-			ID:          uuid.New(),
-			UserID:      userID,
-			ARN:         "arn:cloud:s3:::test-bucket/test-file.txt",
-			Bucket:      bucket,
-			Key:         key,
-			SizeBytes:   2048, // Updated size
-			ContentType: "application/octet-stream",
-			CreatedAt:   time.Now(),
+			ID: uuid.New(),
 		}
 
-		err := repo.SaveMeta(ctx, obj)
-		require.NoError(t, err)
+		mock.ExpectExec("INSERT INTO objects").
+			WillReturnError(errors.New("db error"))
 
-		fetched, err := repo.GetMeta(ctx, bucket, key)
-		require.NoError(t, err)
-		assert.Equal(t, int64(2048), fetched.SizeBytes)
-	})
-
-	t.Run("SoftDelete", func(t *testing.T) {
-		err := repo.SoftDelete(ctx, bucket, key)
-		require.NoError(t, err)
-
-		// Should not be found after soft delete
-		_, err = repo.GetMeta(ctx, bucket, key)
+		err = repo.SaveMeta(context.Background(), obj)
 		assert.Error(t, err)
 	})
+}
 
-	t.Run("SoftDelete_NotFound", func(t *testing.T) {
-		err := repo.SoftDelete(ctx, bucket, "non-existent-key")
-		assert.Error(t, err)
+func TestStorageRepository_GetMeta(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		mock, err := pgxmock.NewPool()
+		assert.NoError(t, err)
+		defer mock.Close()
+
+		repo := NewStorageRepository(mock)
+		id := uuid.New()
+		userID := uuid.New()
+		ctx := appcontext.WithUserID(context.Background(), userID)
+		now := time.Now()
+
+		mock.ExpectQuery("SELECT id, user_id, arn, bucket, key, size_bytes, content_type, created_at FROM objects").
+			WithArgs("mybucket", "mykey", userID).
+			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "arn", "bucket", "key", "size_bytes", "content_type", "created_at"}).
+				AddRow(id, userID, "arn", "mybucket", "mykey", int64(1024), "text/plain", now))
+
+		obj, err := repo.GetMeta(ctx, "mybucket", "mykey")
+		assert.NoError(t, err)
+		assert.NotNil(t, obj)
+		assert.Equal(t, id, obj.ID)
 	})
 
-	t.Run("GetMeta_NotFound", func(t *testing.T) {
-		_, err := repo.GetMeta(ctx, "non-existent-bucket", "non-existent-key")
+	t.Run("not found", func(t *testing.T) {
+		mock, err := pgxmock.NewPool()
+		assert.NoError(t, err)
+		defer mock.Close()
+
+		repo := NewStorageRepository(mock)
+		userID := uuid.New()
+		ctx := appcontext.WithUserID(context.Background(), userID)
+
+		mock.ExpectQuery("SELECT id, user_id, arn, bucket, key, size_bytes, content_type, created_at FROM objects").
+			WithArgs("mybucket", "mykey", userID).
+			WillReturnError(pgx.ErrNoRows)
+
+		obj, err := repo.GetMeta(ctx, "mybucket", "mykey")
+		assert.Error(t, err)
+		assert.Nil(t, obj)
+		theCloudErr, ok := err.(*theclouderrors.Error)
+		if ok {
+			assert.Equal(t, theclouderrors.NotFound, theCloudErr.Type)
+		}
+	})
+
+	t.Run("db error", func(t *testing.T) {
+		mock, err := pgxmock.NewPool()
+		assert.NoError(t, err)
+		defer mock.Close()
+
+		repo := NewStorageRepository(mock)
+		userID := uuid.New()
+		ctx := appcontext.WithUserID(context.Background(), userID)
+
+		mock.ExpectQuery("SELECT id, user_id, arn, bucket, key, size_bytes, content_type, created_at FROM objects").
+			WithArgs("mybucket", "mykey", userID).
+			WillReturnError(errors.New("db error"))
+
+		obj, err := repo.GetMeta(ctx, "mybucket", "mykey")
+		assert.Error(t, err)
+		assert.Nil(t, obj)
+	})
+}
+
+func TestStorageRepository_List(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		mock, err := pgxmock.NewPool()
+		assert.NoError(t, err)
+		defer mock.Close()
+
+		repo := NewStorageRepository(mock)
+		userID := uuid.New()
+		ctx := appcontext.WithUserID(context.Background(), userID)
+		now := time.Now()
+
+		mock.ExpectQuery("SELECT id, user_id, arn, bucket, key, size_bytes, content_type, created_at FROM objects").
+			WithArgs("mybucket", userID).
+			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "arn", "bucket", "key", "size_bytes", "content_type", "created_at"}).
+				AddRow(uuid.New(), userID, "arn", "mybucket", "mykey", int64(1024), "text/plain", now))
+
+		objects, err := repo.List(ctx, "mybucket")
+		assert.NoError(t, err)
+		assert.Len(t, objects, 1)
+	})
+
+	t.Run("db error", func(t *testing.T) {
+		mock, err := pgxmock.NewPool()
+		assert.NoError(t, err)
+		defer mock.Close()
+
+		repo := NewStorageRepository(mock)
+		userID := uuid.New()
+		ctx := appcontext.WithUserID(context.Background(), userID)
+
+		mock.ExpectQuery("SELECT id, user_id, arn, bucket, key, size_bytes, content_type, created_at FROM objects").
+			WithArgs("mybucket", userID).
+			WillReturnError(errors.New("db error"))
+
+		objects, err := repo.List(ctx, "mybucket")
+		assert.Error(t, err)
+		assert.Nil(t, objects)
+	})
+}
+
+func TestStorageRepository_SoftDelete(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		mock, err := pgxmock.NewPool()
+		assert.NoError(t, err)
+		defer mock.Close()
+
+		repo := NewStorageRepository(mock)
+		userID := uuid.New()
+		ctx := appcontext.WithUserID(context.Background(), userID)
+		bucket := "mybucket"
+		key := "mykey"
+
+		mock.ExpectExec("UPDATE objects SET deleted_at = \\$1 WHERE bucket = \\$2 AND key = \\$3 AND deleted_at IS NULL AND user_id = \\$4").
+			WithArgs(pgxmock.AnyArg(), bucket, key, userID).
+			WillReturnResult(pgxmock.NewResult("UPDATE", 1))
+
+		err = repo.SoftDelete(ctx, bucket, key)
+		assert.NoError(t, err)
+	})
+
+	t.Run("not found", func(t *testing.T) {
+		mock, err := pgxmock.NewPool()
+		assert.NoError(t, err)
+		defer mock.Close()
+
+		repo := NewStorageRepository(mock)
+		userID := uuid.New()
+		ctx := appcontext.WithUserID(context.Background(), userID)
+		bucket := "mybucket"
+		key := "mykey"
+
+		mock.ExpectExec("UPDATE objects SET deleted_at = \\$1 WHERE bucket = \\$2 AND key = \\$3 AND deleted_at IS NULL AND user_id = \\$4").
+			WithArgs(pgxmock.AnyArg(), bucket, key, userID).
+			WillReturnResult(pgxmock.NewResult("UPDATE", 0))
+
+		err = repo.SoftDelete(ctx, bucket, key)
+		assert.Error(t, err)
+		theCloudErr, ok := err.(*theclouderrors.Error)
+		if ok {
+			assert.Equal(t, theclouderrors.NotFound, theCloudErr.Type)
+		}
+	})
+
+	t.Run("db error", func(t *testing.T) {
+		mock, err := pgxmock.NewPool()
+		assert.NoError(t, err)
+		defer mock.Close()
+
+		repo := NewStorageRepository(mock)
+		userID := uuid.New()
+		ctx := appcontext.WithUserID(context.Background(), userID)
+		bucket := "mybucket"
+		key := "mykey"
+
+		mock.ExpectExec("UPDATE objects SET deleted_at = \\$1 WHERE bucket = \\$2 AND key = \\$3 AND deleted_at IS NULL AND user_id = \\$4").
+			WithArgs(pgxmock.AnyArg(), bucket, key, userID).
+			WillReturnError(errors.New("db error"))
+
+		err = repo.SoftDelete(ctx, bucket, key)
 		assert.Error(t, err)
 	})
 }

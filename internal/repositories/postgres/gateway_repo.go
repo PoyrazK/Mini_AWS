@@ -4,16 +4,15 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
 
 type PostgresGatewayRepository struct {
-	db *pgxpool.Pool
+	db DB
 }
 
-func NewPostgresGatewayRepository(db *pgxpool.Pool) ports.GatewayRepository {
+func NewPostgresGatewayRepository(db DB) ports.GatewayRepository {
 	return &PostgresGatewayRepository{db: db}
 }
 

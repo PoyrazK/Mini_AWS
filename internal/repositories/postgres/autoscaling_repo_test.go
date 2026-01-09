@@ -1,159 +1,300 @@
-//go:build integration
-
 package postgres
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/pashagolub/pgxmock/v3"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	theclouderrors "github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-func TestAutoScalingRepo_Integration(t *testing.T) {
-	db := setupDB(t)
-	defer db.Close()
-	repo := NewAutoScalingRepo(db)
-	ctx := setupTestUser(t, db)
-	userID := appcontext.UserIDFromContext(ctx)
+func TestAutoScalingRepo_CreateGroup(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		mock, err := pgxmock.NewPool()
+		assert.NoError(t, err)
+		defer mock.Close()
 
-	cleanDB(t, db)
+		repo := NewAutoScalingRepo(mock)
+		group := &domain.ScalingGroup{
+			ID:             uuid.New(),
+			UserID:         uuid.New(),
+			IdempotencyKey: "key-1",
+			Name:           "asg-1",
+			VpcID:          uuid.New(),
+			Image:          "ubuntu",
+			Ports:          "80:80",
+			MinInstances:   1,
+			MaxInstances:   5,
+			DesiredCount:   2,
+			CurrentCount:   0,
+			Status:         domain.ScalingGroupStatusActive,
+			Version:        1,
+			CreatedAt:      time.Now(),
+			UpdatedAt:      time.Now(),
+		}
 
-	vpcID := uuid.New()
-	_, err := db.Exec(context.Background(), "INSERT INTO vpcs (id, user_id, name, network_id, created_at) VALUES ($1, $2, $3, $4, $5)",
-		vpcID, userID, "asg-vpc", "net-asg", time.Now())
-	require.NoError(t, err)
+		mock.ExpectExec("INSERT INTO scaling_groups").
+			WithArgs(group.ID, group.UserID, group.IdempotencyKey, group.Name, group.VpcID, group.LoadBalancerID,
+				group.Image, group.Ports, group.MinInstances, group.MaxInstances,
+				group.DesiredCount, group.CurrentCount, group.Status, group.Version,
+				group.CreatedAt, group.UpdatedAt).
+			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
-	groupID := uuid.New()
-	group := &domain.ScalingGroup{
-		ID:             groupID,
-		UserID:         userID,
-		Name:           "test-asg",
-		VpcID:          vpcID,
-		Image:          "nginx",
-		MinInstances:   1,
-		MaxInstances:   5,
-		DesiredCount:   2,
-		Status:         "ACTIVE",
-		IdempotencyKey: "asg-key-1",
-		CreatedAt:      time.Now(),
-		UpdatedAt:      time.Now(),
-	}
-
-	t.Run("Scaling Group CRUD", func(t *testing.T) {
-		err := repo.CreateGroup(ctx, group)
-		require.NoError(t, err)
-
-		fetched, err := repo.GetGroupByID(ctx, groupID)
-		require.NoError(t, err)
-		assert.Equal(t, group.Name, fetched.Name)
-
-		fetched2, err := repo.GetGroupByIdempotencyKey(ctx, "asg-key-1")
-		require.NoError(t, err)
-		assert.Equal(t, groupID, fetched2.ID)
-
-		group.DesiredCount = 3
-		err = repo.UpdateGroup(ctx, group)
-		require.NoError(t, err)
-
-		fetched3, err := repo.GetGroupByID(ctx, groupID)
-		require.NoError(t, err)
-		assert.Equal(t, 3, fetched3.DesiredCount)
-
-		count, err := repo.CountGroupsByVPC(ctx, vpcID)
-		require.NoError(t, err)
-		assert.Equal(t, 1, count)
-
-		list, err := repo.ListGroups(ctx)
-		require.NoError(t, err)
-		assert.NotEmpty(t, list)
+		err = repo.CreateGroup(context.Background(), group)
+		assert.NoError(t, err)
 	})
 
-	t.Run("Policy Management", func(t *testing.T) {
-		policyID := uuid.New()
+	t.Run("db error", func(t *testing.T) {
+		mock, err := pgxmock.NewPool()
+		assert.NoError(t, err)
+		defer mock.Close()
+
+		repo := NewAutoScalingRepo(mock)
+		group := &domain.ScalingGroup{ID: uuid.New()}
+
+		mock.ExpectExec("INSERT INTO scaling_groups").
+			WillReturnError(errors.New("db error"))
+
+		err = repo.CreateGroup(context.Background(), group)
+		assert.Error(t, err)
+	})
+}
+
+func TestAutoScalingRepo_GetGroupByID(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		mock, err := pgxmock.NewPool()
+		assert.NoError(t, err)
+		defer mock.Close()
+
+		repo := NewAutoScalingRepo(mock)
+		id := uuid.New()
+		userID := uuid.New()
+		ctx := appcontext.WithUserID(context.Background(), userID)
+		now := time.Now()
+
+		idk := sql.NullString{String: "key-1", Valid: true}
+		ports := sql.NullString{String: "80:80", Valid: true}
+		var lbID *uuid.UUID = nil
+
+		mock.ExpectQuery("SELECT id, user_id, idempotency_key, name, vpc_id, load_balancer_id, image, ports").
+			WithArgs(id, userID).
+			WillReturnRows(pgxmock.NewRows([]string{
+				"id", "user_id", "idempotency_key", "name", "vpc_id", "load_balancer_id", "image", "ports",
+				"min_instances", "max_instances", "desired_count", "current_count", "status", "version", "created_at", "updated_at",
+			}).
+				AddRow(id, userID, idk, "asg-1", uuid.New(), lbID, "ubuntu", ports,
+					1, 5, 2, 0, string(domain.ScalingGroupStatusActive), 1, now, now))
+
+		g, err := repo.GetGroupByID(ctx, id)
+		assert.NoError(t, err)
+		assert.NotNil(t, g)
+		assert.Equal(t, id, g.ID)
+	})
+
+	t.Run("not found", func(t *testing.T) {
+		mock, err := pgxmock.NewPool()
+		assert.NoError(t, err)
+		defer mock.Close()
+
+		repo := NewAutoScalingRepo(mock)
+		id := uuid.New()
+		userID := uuid.New()
+		ctx := appcontext.WithUserID(context.Background(), userID)
+
+		mock.ExpectQuery("SELECT id, user_id, idempotency_key, name, vpc_id, load_balancer_id, image, ports").
+			WithArgs(id, userID).
+			WillReturnError(pgx.ErrNoRows)
+
+		g, err := repo.GetGroupByID(ctx, id)
+		assert.Error(t, err)
+		assert.Nil(t, g)
+		theCloudErr, ok := err.(*theclouderrors.Error)
+		if ok {
+			assert.Equal(t, theclouderrors.NotFound, theCloudErr.Type)
+		}
+	})
+}
+
+func TestAutoScalingRepo_ListGroups(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		mock, err := pgxmock.NewPool()
+		assert.NoError(t, err)
+		defer mock.Close()
+
+		repo := NewAutoScalingRepo(mock)
+		userID := uuid.New()
+		ctx := appcontext.WithUserID(context.Background(), userID)
+		now := time.Now()
+
+		idk := sql.NullString{String: "key-1", Valid: true}
+		ports := sql.NullString{String: "80:80", Valid: true}
+		var lbID *uuid.UUID = nil
+
+		mock.ExpectQuery("SELECT id, user_id, idempotency_key, name, vpc_id, load_balancer_id, image, ports").
+			WithArgs(userID).
+			WillReturnRows(pgxmock.NewRows([]string{
+				"id", "user_id", "idempotency_key", "name", "vpc_id", "load_balancer_id", "image", "ports",
+				"min_instances", "max_instances", "desired_count", "current_count", "status", "version", "created_at", "updated_at",
+			}).
+				AddRow(uuid.New(), userID, idk, "asg-1", uuid.New(), lbID, "ubuntu", ports,
+					1, 5, 2, 0, string(domain.ScalingGroupStatusActive), 1, now, now))
+
+		groups, err := repo.ListGroups(ctx)
+		assert.NoError(t, err)
+		assert.Len(t, groups, 1)
+	})
+}
+
+func TestAutoScalingRepo_UpdateGroup(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		mock, err := pgxmock.NewPool()
+		assert.NoError(t, err)
+		defer mock.Close()
+
+		repo := NewAutoScalingRepo(mock)
+		group := &domain.ScalingGroup{
+			ID:           uuid.New(),
+			UserID:       uuid.New(),
+			Name:         "asg-updated",
+			MinInstances: 2,
+			MaxInstances: 10,
+			DesiredCount: 5,
+			CurrentCount: 0,
+			Status:       domain.ScalingGroupStatusActive,
+			Version:      1,
+			UpdatedAt:    time.Now(),
+		}
+
+		mock.ExpectExec("UPDATE scaling_groups").
+			WithArgs(group.Name, group.MinInstances, group.MaxInstances, group.DesiredCount, group.Status, group.UpdatedAt, group.ID, group.Version, group.UserID).
+			WillReturnResult(pgxmock.NewResult("UPDATE", 1))
+
+		err = repo.UpdateGroup(context.Background(), group)
+		assert.NoError(t, err)
+		assert.Equal(t, 2, group.Version)
+	})
+
+	t.Run("conflict", func(t *testing.T) {
+		mock, err := pgxmock.NewPool()
+		assert.NoError(t, err)
+		defer mock.Close()
+
+		repo := NewAutoScalingRepo(mock)
+		group := &domain.ScalingGroup{
+			ID:      uuid.New(),
+			UserID:  uuid.New(),
+			Version: 1,
+		}
+
+		mock.ExpectExec("UPDATE scaling_groups").
+			WithArgs(group.Name, group.MinInstances, group.MaxInstances, group.DesiredCount, group.Status, pgxmock.AnyArg(), group.ID, group.Version, group.UserID).
+			WillReturnResult(pgxmock.NewResult("UPDATE", 0))
+
+		err = repo.UpdateGroup(context.Background(), group)
+		assert.Error(t, err)
+		theCloudErr, ok := err.(*theclouderrors.Error)
+		if ok {
+			assert.Equal(t, theclouderrors.Conflict, theCloudErr.Type)
+		}
+	})
+}
+
+func TestAutoScalingRepo_DeleteGroup(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		mock, err := pgxmock.NewPool()
+		assert.NoError(t, err)
+		defer mock.Close()
+
+		repo := NewAutoScalingRepo(mock)
+		id := uuid.New()
+		userID := uuid.New()
+		ctx := appcontext.WithUserID(context.Background(), userID)
+
+		mock.ExpectExec("DELETE FROM scaling_groups").
+			WithArgs(id, userID).
+			WillReturnResult(pgxmock.NewResult("DELETE", 1))
+
+		err = repo.DeleteGroup(ctx, id)
+		assert.NoError(t, err)
+	})
+
+	t.Run("not found", func(t *testing.T) {
+		mock, err := pgxmock.NewPool()
+		assert.NoError(t, err)
+		defer mock.Close()
+
+		repo := NewAutoScalingRepo(mock)
+		id := uuid.New()
+		userID := uuid.New()
+		ctx := appcontext.WithUserID(context.Background(), userID)
+
+		mock.ExpectExec("DELETE FROM scaling_groups").
+			WithArgs(id, userID).
+			WillReturnResult(pgxmock.NewResult("DELETE", 0))
+
+		err = repo.DeleteGroup(ctx, id)
+		assert.Error(t, err)
+		theCloudErr, ok := err.(*theclouderrors.Error)
+		if ok {
+			assert.Equal(t, theclouderrors.NotFound, theCloudErr.Type)
+		}
+	})
+}
+
+func TestAutoScalingRepo_CreatePolicy(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		mock, err := pgxmock.NewPool()
+		assert.NoError(t, err)
+		defer mock.Close()
+
+		repo := NewAutoScalingRepo(mock)
+		now := time.Now()
 		policy := &domain.ScalingPolicy{
-			ID:             policyID,
-			ScalingGroupID: groupID,
-			Name:           "scale-out",
+			ID:             uuid.New(),
+			ScalingGroupID: uuid.New(),
+			Name:           "policy-1",
 			MetricType:     "cpu",
-			TargetValue:    70.0,
+			TargetValue:    50,
 			ScaleOutStep:   1,
 			ScaleInStep:    1,
 			CooldownSec:    300,
+			LastScaledAt:   &now,
 		}
 
-		err := repo.CreatePolicy(ctx, policy)
-		require.NoError(t, err)
+		mock.ExpectExec("INSERT INTO scaling_policies").
+			WithArgs(policy.ID, policy.ScalingGroupID, policy.Name, policy.MetricType, policy.TargetValue, policy.ScaleOutStep, policy.ScaleInStep, policy.CooldownSec, policy.LastScaledAt).
+			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
-		policies, err := repo.GetPoliciesForGroup(ctx, groupID)
-		require.NoError(t, err)
-		assert.Len(t, policies, 1)
-		assert.Equal(t, "scale-out", policies[0].Name)
+		err = repo.CreatePolicy(context.Background(), policy)
+		assert.NoError(t, err)
+	})
+}
 
+func TestAutoScalingRepo_GetPoliciesForGroup(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		mock, err := pgxmock.NewPool()
+		assert.NoError(t, err)
+		defer mock.Close()
+
+		repo := NewAutoScalingRepo(mock)
+		groupID := uuid.New()
 		now := time.Now()
-		err = repo.UpdatePolicyLastScaled(ctx, policyID, now)
-		require.NoError(t, err)
 
-		policyMap, err := repo.GetAllPolicies(ctx, []uuid.UUID{groupID})
-		require.NoError(t, err)
-		assert.NotNil(t, policyMap[groupID][0].LastScaledAt)
+		mock.ExpectQuery("SELECT id, scaling_group_id, name, metric_type, target_value, scale_out_step, scale_in_step, cooldown_sec, last_scaled_at FROM scaling_policies").
+			WithArgs(groupID).
+			WillReturnRows(pgxmock.NewRows([]string{"id", "scaling_group_id", "name", "metric_type", "target_value", "scale_out_step", "scale_in_step", "cooldown_sec", "last_scaled_at"}).
+				AddRow(uuid.New(), groupID, "policy-1", "cpu", 50.0, 1, 1, 300, now))
 
-		err = repo.DeletePolicy(ctx, policyID)
-		require.NoError(t, err)
-
-		policies, err = repo.GetPoliciesForGroup(ctx, groupID)
-		require.NoError(t, err)
-		assert.Empty(t, policies)
-	})
-
-	t.Run("Group Instance Management", func(t *testing.T) {
-		instID := uuid.New()
-		_, err := db.Exec(ctx, "INSERT INTO instances (id, name, image, status, version, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7)",
-			instID, "asg-inst", "nginx", "running", 1, time.Now(), time.Now())
-		require.NoError(t, err)
-
-		err = repo.AddInstanceToGroup(ctx, groupID, instID)
-		require.NoError(t, err)
-
-		ids, err := repo.GetInstancesInGroup(ctx, groupID)
-		require.NoError(t, err)
-		assert.Contains(t, ids, instID)
-
-		instMap, err := repo.GetAllScalingGroupInstances(ctx, []uuid.UUID{groupID})
-		require.NoError(t, err)
-		assert.Contains(t, instMap[groupID], instID)
-
-		err = repo.RemoveInstanceFromGroup(ctx, groupID, instID)
-		require.NoError(t, err)
-
-		ids, err = repo.GetInstancesInGroup(ctx, groupID)
-		require.NoError(t, err)
-		assert.Empty(t, ids)
-	})
-
-	t.Run("Metrics", func(t *testing.T) {
-		instID := uuid.New()
-		_, _ = db.Exec(ctx, "INSERT INTO instances (id, name, image, status, version, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7)",
-			instID, "metric-inst", "nginx", "running", 1, time.Now(), time.Now())
-
-		_, err := db.Exec(ctx, "INSERT INTO metrics_history (instance_id, cpu_percent, memory_bytes, recorded_at) VALUES ($1, $2, $3, $4)",
-			instID, 50.0, 1024*1024*100, time.Now().Add(-1*time.Minute))
-		require.NoError(t, err)
-
-		avg, err := repo.GetAverageCPU(ctx, []uuid.UUID{instID}, time.Now().Add(-5*time.Minute))
-		require.NoError(t, err)
-		assert.InDelta(t, 50.0, avg, 0.1)
-	})
-
-	t.Run("Delete Group", func(t *testing.T) {
-		err := repo.DeleteGroup(ctx, groupID)
-		require.NoError(t, err)
-
-		_, err = repo.GetGroupByID(ctx, groupID)
-		assert.Error(t, err)
+		policies, err := repo.GetPoliciesForGroup(context.Background(), groupID)
+		assert.NoError(t, err)
+		assert.Len(t, policies, 1)
 	})
 }

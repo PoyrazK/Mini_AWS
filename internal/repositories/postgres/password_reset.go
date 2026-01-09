@@ -6,16 +6,15 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
 
 type PasswordResetRepository struct {
-	db *pgxpool.Pool
+	db DB
 }
 
-func NewPasswordResetRepository(db *pgxpool.Pool) ports.PasswordResetRepository {
+func NewPasswordResetRepository(db DB) ports.PasswordResetRepository {
 	return &PasswordResetRepository{db: db}
 }
 

@@ -1,127 +1,335 @@
-//go:build integration
-
 package postgres
 
 import (
 	"context"
+	"errors" // Standard errors for mocking expectations
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/pashagolub/pgxmock/v3"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	theclouderrors "github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-func TestLBRepository_Integration(t *testing.T) {
-	db := setupDB(t)
-	defer db.Close()
-	repo := NewLBRepository(db)
-	ctx := setupTestUser(t, db)
-	userID := appcontext.UserIDFromContext(ctx)
+func TestLBRepository_Create(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		mock, err := pgxmock.NewPool()
+		assert.NoError(t, err)
+		defer mock.Close()
 
-	// Cleanup
-	_, err := db.Exec(context.Background(), "DELETE FROM lb_targets")
-	require.NoError(t, err)
-	_, err = db.Exec(context.Background(), "DELETE FROM load_balancers")
-	require.NoError(t, err)
-	_, err = db.Exec(context.Background(), "DELETE FROM vpcs")
-	require.NoError(t, err)
-	_, err = db.Exec(context.Background(), "DELETE FROM instances")
-	require.NoError(t, err)
-
-	vpcID := uuid.New()
-	// Create VPC
-	_, err = db.Exec(context.Background(), "INSERT INTO vpcs (id, user_id, name, network_id, created_at) VALUES ($1, $2, $3, $4, $5)",
-		vpcID, userID, "lb-vpc", "net-lb", time.Now())
-	require.NoError(t, err)
-
-	lbID := uuid.New()
-	lb := &domain.LoadBalancer{
-		ID:             lbID,
-		UserID:         userID,
-		Name:           "test-lb",
-		VpcID:          vpcID,
-		Port:           80,
-		Algorithm:      "round-robin",
-		Status:         domain.LBStatusCreating,
-		IdempotencyKey: "test-key-1",
-		Version:        1,
-		CreatedAt:      time.Now(),
-	}
-
-	t.Run("Create and Get", func(t *testing.T) {
-		err := repo.Create(ctx, lb)
-		require.NoError(t, err)
-
-		fetched, err := repo.GetByID(ctx, lbID)
-		require.NoError(t, err)
-		assert.Equal(t, lb.Name, fetched.Name)
-		assert.Equal(t, lb.IdempotencyKey, fetched.IdempotencyKey)
-	})
-
-	t.Run("GetByIdempotencyKey", func(t *testing.T) {
-		fetched, err := repo.GetByIdempotencyKey(ctx, "test-key-1")
-		require.NoError(t, err)
-		assert.Equal(t, lbID, fetched.ID)
-	})
-
-	t.Run("Update", func(t *testing.T) {
-		lb.Status = domain.LBStatusActive
-		err := repo.Update(ctx, lb)
-		require.NoError(t, err)
-		assert.Equal(t, 2, lb.Version)
-
-		fetched, err := repo.GetByID(ctx, lbID)
-		require.NoError(t, err)
-		assert.Equal(t, domain.LBStatusActive, fetched.Status)
-	})
-
-	t.Run("Target Management", func(t *testing.T) {
-		instID := uuid.New()
-		// Create instance first
-		_, err := db.Exec(ctx, "INSERT INTO instances (id, name, image, status, version, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7)",
-			instID, "lb-target-inst", "nginx", "running", 1, time.Now(), time.Now())
-		require.NoError(t, err)
-
-		target := &domain.LBTarget{
-			ID:         uuid.New(),
-			LBID:       lbID,
-			InstanceID: instID,
-			Port:       80,
-			Weight:     1,
-			Health:     "HEALTHY",
+		repo := NewLBRepository(mock)
+		lb := &domain.LoadBalancer{
+			ID:             uuid.New(),
+			UserID:         uuid.New(),
+			IdempotencyKey: "key-1",
+			Name:           "lb-1",
+			VpcID:          uuid.New(),
+			Port:           80,
+			Algorithm:      "round_robin",
+			Status:         domain.LBStatusActive,
+			Version:        1,
+			CreatedAt:      time.Now(),
 		}
 
-		err = repo.AddTarget(ctx, target)
-		require.NoError(t, err)
+		mock.ExpectExec("INSERT INTO load_balancers").
+			WithArgs(lb.ID, lb.UserID, lb.IdempotencyKey, lb.Name, lb.VpcID, lb.Port, lb.Algorithm, lb.Status, lb.Version, lb.CreatedAt).
+			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
-		targets, err := repo.ListTargets(ctx, lbID)
-		require.NoError(t, err)
-		assert.Len(t, targets, 1)
-		assert.Equal(t, instID, targets[0].InstanceID)
-
-		err = repo.UpdateTargetHealth(ctx, lbID, instID, "UNHEALTHY")
-		require.NoError(t, err)
-
-		targets, err = repo.GetTargetsForInstance(ctx, instID)
-		require.NoError(t, err)
-		assert.Equal(t, "UNHEALTHY", targets[0].Health)
-
-		err = repo.RemoveTarget(ctx, lbID, instID)
-		require.NoError(t, err)
-
-		targets, err = repo.ListTargets(ctx, lbID)
-		require.NoError(t, err)
-		assert.Empty(t, targets)
+		err = repo.Create(context.Background(), lb)
+		assert.NoError(t, err)
 	})
 
-	t.Run("Delete", func(t *testing.T) {
-		err := repo.Delete(ctx, lbID)
-		require.NoError(t, err)
+	t.Run("db error", func(t *testing.T) {
+		mock, err := pgxmock.NewPool()
+		assert.NoError(t, err)
+		defer mock.Close()
 
-		_, err = repo.GetByID(ctx, lbID)
+		repo := NewLBRepository(mock)
+		lb := &domain.LoadBalancer{ID: uuid.New()}
+
+		mock.ExpectExec("INSERT INTO load_balancers").
+			WillReturnError(errors.New("db error"))
+
+		err = repo.Create(context.Background(), lb)
 		assert.Error(t, err)
+	})
+}
+
+func TestLBRepository_GetByID(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		mock, err := pgxmock.NewPool()
+		assert.NoError(t, err)
+		defer mock.Close()
+
+		repo := NewLBRepository(mock)
+		id := uuid.New()
+		userID := uuid.New()
+		ctx := appcontext.WithUserID(context.Background(), userID)
+		now := time.Now()
+
+		mock.ExpectQuery("SELECT id, user_id, COALESCE.+idempotency_key.+name, vpc_id, port, algorithm, status, version, created_at FROM load_balancers").
+			WithArgs(id, userID).
+			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "idempotency_key", "name", "vpc_id", "port", "algorithm", "status", "version", "created_at"}).
+				AddRow(id, userID, "key-1", "lb-1", uuid.New(), 80, "round_robin", string(domain.LBStatusActive), 1, now))
+
+		lb, err := repo.GetByID(ctx, id)
+		assert.NoError(t, err)
+		assert.NotNil(t, lb)
+		assert.Equal(t, id, lb.ID)
+	})
+
+	t.Run("not found", func(t *testing.T) {
+		mock, err := pgxmock.NewPool()
+		assert.NoError(t, err)
+		defer mock.Close()
+
+		repo := NewLBRepository(mock)
+		id := uuid.New()
+		userID := uuid.New()
+		ctx := appcontext.WithUserID(context.Background(), userID)
+
+		mock.ExpectQuery("SELECT id, user_id, COALESCE.+idempotency_key.+name, vpc_id, port, algorithm, status, version, created_at FROM load_balancers").
+			WithArgs(id, userID).
+			WillReturnError(pgx.ErrNoRows)
+
+		lb, err := repo.GetByID(ctx, id)
+		assert.Error(t, err)
+		assert.Nil(t, lb)
+		assert.Equal(t, theclouderrors.ErrLBNotFound, err)
+	})
+}
+
+func TestLBRepository_List(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		mock, err := pgxmock.NewPool()
+		assert.NoError(t, err)
+		defer mock.Close()
+
+		repo := NewLBRepository(mock)
+		userID := uuid.New()
+		ctx := appcontext.WithUserID(context.Background(), userID)
+		now := time.Now()
+
+		mock.ExpectQuery("SELECT id, user_id, COALESCE.+idempotency_key.+name, vpc_id, port, algorithm, status, version, created_at FROM load_balancers").
+			WithArgs(userID).
+			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "idempotency_key", "name", "vpc_id", "port", "algorithm", "status", "version", "created_at"}).
+				AddRow(uuid.New(), userID, "key-1", "lb-1", uuid.New(), 80, "round_robin", string(domain.LBStatusActive), 1, now))
+
+		lbs, err := repo.List(ctx)
+		assert.NoError(t, err)
+		assert.Len(t, lbs, 1)
+	})
+
+	t.Run("db error", func(t *testing.T) {
+		mock, err := pgxmock.NewPool()
+		assert.NoError(t, err)
+		defer mock.Close()
+
+		repo := NewLBRepository(mock)
+		userID := uuid.New()
+		ctx := appcontext.WithUserID(context.Background(), userID)
+
+		mock.ExpectQuery("SELECT id, user_id, COALESCE.+idempotency_key.+name, vpc_id, port, algorithm, status, version, created_at FROM load_balancers").
+			WithArgs(userID).
+			WillReturnError(errors.New("db error"))
+
+		list, err := repo.List(ctx)
+		assert.Error(t, err)
+		assert.Nil(t, list)
+	})
+}
+
+func TestLBRepository_Update(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		mock, err := pgxmock.NewPool()
+		assert.NoError(t, err)
+		defer mock.Close()
+
+		repo := NewLBRepository(mock)
+		lb := &domain.LoadBalancer{
+			ID:        uuid.New(),
+			UserID:    uuid.New(),
+			Name:      "lb-updated",
+			Port:      8080,
+			Algorithm: "least_conn",
+			Status:    domain.LBStatusActive,
+			Version:   1,
+		}
+
+		mock.ExpectExec("UPDATE load_balancers").
+			WithArgs(lb.Name, lb.Port, lb.Algorithm, lb.Status, lb.ID, lb.Version, lb.UserID).
+			WillReturnResult(pgxmock.NewResult("UPDATE", 1))
+
+		err = repo.Update(context.Background(), lb)
+		assert.NoError(t, err)
+		assert.Equal(t, 2, lb.Version)
+	})
+
+	t.Run("conflict", func(t *testing.T) {
+		mock, err := pgxmock.NewPool()
+		assert.NoError(t, err)
+		defer mock.Close()
+
+		repo := NewLBRepository(mock)
+		lb := &domain.LoadBalancer{
+			ID:      uuid.New(),
+			UserID:  uuid.New(),
+			Version: 1,
+		}
+
+		mock.ExpectExec("UPDATE load_balancers").
+			WithArgs(lb.Name, lb.Port, lb.Algorithm, lb.Status, lb.ID, lb.Version, lb.UserID).
+			WillReturnResult(pgxmock.NewResult("UPDATE", 0))
+
+		err = repo.Update(context.Background(), lb)
+		assert.Error(t, err)
+		theCloudErr, ok := err.(*theclouderrors.Error)
+		if ok {
+			assert.Equal(t, theclouderrors.Conflict, theCloudErr.Type)
+		}
+	})
+}
+
+func TestLBRepository_Delete(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		mock, err := pgxmock.NewPool()
+		assert.NoError(t, err)
+		defer mock.Close()
+
+		repo := NewLBRepository(mock)
+		id := uuid.New()
+		userID := uuid.New()
+		ctx := appcontext.WithUserID(context.Background(), userID)
+
+		mock.ExpectExec("DELETE FROM load_balancers").
+			WithArgs(id, userID).
+			WillReturnResult(pgxmock.NewResult("DELETE", 1))
+
+		err = repo.Delete(ctx, id)
+		assert.NoError(t, err)
+	})
+
+	t.Run("not found", func(t *testing.T) {
+		mock, err := pgxmock.NewPool()
+		assert.NoError(t, err)
+		defer mock.Close()
+
+		repo := NewLBRepository(mock)
+		id := uuid.New()
+		userID := uuid.New()
+		ctx := appcontext.WithUserID(context.Background(), userID)
+
+		mock.ExpectExec("DELETE FROM load_balancers").
+			WithArgs(id, userID).
+			WillReturnResult(pgxmock.NewResult("DELETE", 0))
+
+		err = repo.Delete(ctx, id)
+		assert.Error(t, err)
+		assert.Equal(t, theclouderrors.ErrLBNotFound, err)
+	})
+}
+
+func TestLBRepository_AddTarget(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		mock, err := pgxmock.NewPool()
+		assert.NoError(t, err)
+		defer mock.Close()
+
+		repo := NewLBRepository(mock)
+		target := &domain.LBTarget{
+			ID:         uuid.New(),
+			LBID:       uuid.New(),
+			InstanceID: uuid.New(),
+			Port:       80,
+			Weight:     1,
+			Health:     "healthy",
+		}
+
+		mock.ExpectExec("INSERT INTO lb_targets").
+			WithArgs(target.ID, target.LBID, target.InstanceID, target.Port, target.Weight, target.Health).
+			WillReturnResult(pgxmock.NewResult("INSERT", 1))
+
+		err = repo.AddTarget(context.Background(), target)
+		assert.NoError(t, err)
+	})
+}
+
+func TestLBRepository_RemoveTarget(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		mock, err := pgxmock.NewPool()
+		assert.NoError(t, err)
+		defer mock.Close()
+
+		repo := NewLBRepository(mock)
+		lbID := uuid.New()
+		instanceID := uuid.New()
+
+		mock.ExpectExec("DELETE FROM lb_targets").
+			WithArgs(lbID, instanceID).
+			WillReturnResult(pgxmock.NewResult("DELETE", 1))
+
+		err = repo.RemoveTarget(context.Background(), lbID, instanceID)
+		assert.NoError(t, err)
+	})
+
+	t.Run("not found", func(t *testing.T) {
+		mock, err := pgxmock.NewPool()
+		assert.NoError(t, err)
+		defer mock.Close()
+
+		repo := NewLBRepository(mock)
+		lbID := uuid.New()
+		instanceID := uuid.New()
+
+		mock.ExpectExec("DELETE FROM lb_targets").
+			WithArgs(lbID, instanceID).
+			WillReturnResult(pgxmock.NewResult("DELETE", 0))
+
+		err = repo.RemoveTarget(context.Background(), lbID, instanceID)
+		assert.Error(t, err)
+	})
+}
+
+func TestLBRepository_ListTargets(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		mock, err := pgxmock.NewPool()
+		assert.NoError(t, err)
+		defer mock.Close()
+
+		repo := NewLBRepository(mock)
+		lbID := uuid.New()
+
+		mock.ExpectQuery("SELECT id, lb_id, instance_id, port, weight, health FROM lb_targets").
+			WithArgs(lbID).
+			WillReturnRows(pgxmock.NewRows([]string{"id", "lb_id", "instance_id", "port", "weight", "health"}).
+				AddRow(uuid.New(), lbID, uuid.New(), 80, 1, "healthy"))
+
+		targets, err := repo.ListTargets(context.Background(), lbID)
+		assert.NoError(t, err)
+		assert.Len(t, targets, 1)
+	})
+}
+
+func TestLBRepository_UpdateTargetHealth(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		mock, err := pgxmock.NewPool()
+		assert.NoError(t, err)
+		defer mock.Close()
+
+		repo := NewLBRepository(mock)
+		lbID := uuid.New()
+		instanceID := uuid.New()
+		health := "unhealthy"
+
+		mock.ExpectExec("UPDATE lb_targets").
+			WithArgs(health, lbID, instanceID).
+			WillReturnResult(pgxmock.NewResult("UPDATE", 1))
+
+		err = repo.UpdateTargetHealth(context.Background(), lbID, instanceID, health)
+		assert.NoError(t, err)
 	})
 }

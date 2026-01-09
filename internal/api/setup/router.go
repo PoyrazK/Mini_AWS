@@ -173,8 +173,8 @@ func SetupRouter(cfg *platform.Config, logger *slog.Logger, handlers *Handlers, 
 		vpcGroup.DELETE("/:id", httputil.Permission(services.RBAC, domain.PermissionVpcDelete), handlers.Vpc.Delete)
 
 		// Subnet routes nested under VPC
-		vpcGroup.POST("/:vpc_id/subnets", httputil.Permission(services.RBAC, domain.PermissionVpcUpdate), handlers.Subnet.Create)
-		vpcGroup.GET("/:vpc_id/subnets", httputil.Permission(services.RBAC, domain.PermissionVpcRead), handlers.Subnet.List)
+		vpcGroup.POST("/:id/subnets", httputil.Permission(services.RBAC, domain.PermissionVpcUpdate), handlers.Subnet.Create)
+		vpcGroup.GET("/:id/subnets", httputil.Permission(services.RBAC, domain.PermissionVpcRead), handlers.Subnet.List)
 	}
 
 	// standalone Subnet routes

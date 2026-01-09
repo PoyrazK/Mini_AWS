@@ -72,3 +72,139 @@ func TestIdentityService_ValidateAPIKey_NotFound(t *testing.T) {
 	assert.Error(t, err)
 	assert.Nil(t, result)
 }
+
+func TestIdentityService_ListKeys(t *testing.T) {
+	repo, _, svc := setupIdentityServiceTest(t)
+	defer repo.AssertExpectations(t)
+
+	ctx := context.Background()
+	userID := uuid.New()
+	keys := []*domain.APIKey{{ID: uuid.New(), UserID: userID}}
+
+	repo.On("ListAPIKeysByUserID", ctx, userID).Return(keys, nil)
+
+	result, err := svc.ListKeys(ctx, userID)
+
+	assert.NoError(t, err)
+	assert.Equal(t, keys, result)
+}
+
+func TestIdentityService_RevokeKey(t *testing.T) {
+	ctx := context.Background()
+	userID := uuid.New()
+	keyID := uuid.New()
+
+	t.Run("Success", func(t *testing.T) {
+		repo, audit, svc := setupIdentityServiceTest(t)
+		apiKey := &domain.APIKey{ID: keyID, UserID: userID, Name: "Test"}
+
+		repo.On("GetAPIKeyByID", ctx, keyID).Return(apiKey, nil)
+		repo.On("DeleteAPIKey", ctx, keyID).Return(nil)
+		audit.On("Log", ctx, userID, "api_key.revoke", "api_key", keyID.String(), mock.Anything).Return(nil)
+
+		err := svc.RevokeKey(ctx, userID, keyID)
+		assert.NoError(t, err)
+	})
+
+	t.Run("WrongUser", func(t *testing.T) {
+		repo, _, svc := setupIdentityServiceTest(t)
+		apiKey := &domain.APIKey{ID: keyID, UserID: uuid.New(), Name: "Test"}
+
+		repo.On("GetAPIKeyByID", ctx, keyID).Return(apiKey, nil)
+
+		err := svc.RevokeKey(ctx, userID, keyID)
+		assert.Error(t, err)
+	})
+}
+
+func TestIdentityService_RotateKey(t *testing.T) {
+	ctx := context.Background()
+	userID := uuid.New()
+	keyID := uuid.New()
+
+	t.Run("Success", func(t *testing.T) {
+		repo, audit, svc := setupIdentityServiceTest(t)
+		apiKey := &domain.APIKey{ID: keyID, UserID: userID, Name: "Test"}
+
+		repo.On("GetAPIKeyByID", ctx, keyID).Return(apiKey, nil)
+		repo.On("CreateAPIKey", ctx, mock.Anything).Return(nil)
+		repo.On("DeleteAPIKey", ctx, keyID).Return(nil)
+		audit.On("Log", ctx, userID, "api_key.create", "api_key", mock.Anything, mock.Anything).Return(nil)
+		audit.On("Log", ctx, userID, "api_key.rotate", "api_key", keyID.String(), mock.Anything).Return(nil)
+
+		newKey, err := svc.RotateKey(ctx, userID, keyID)
+		assert.NoError(t, err)
+		assert.NotNil(t, newKey)
+	})
+}
+
+func TestIdentityService_ErrorPaths(t *testing.T) {
+	ctx := context.Background()
+	userID := uuid.New()
+	keyID := uuid.New()
+
+	t.Run("CreateKey_RepoError", func(t *testing.T) {
+		repo, _, svc := setupIdentityServiceTest(t)
+		repo.On("CreateAPIKey", ctx, mock.Anything).Return(assert.AnError)
+		_, err := svc.CreateKey(ctx, userID, "Test")
+		assert.Error(t, err)
+	})
+
+	t.Run("RevokeKey_GetError", func(t *testing.T) {
+		repo, _, svc := setupIdentityServiceTest(t)
+		repo.On("GetAPIKeyByID", ctx, keyID).Return(nil, assert.AnError)
+		err := svc.RevokeKey(ctx, userID, keyID)
+		assert.Error(t, err)
+	})
+
+	t.Run("RevokeKey_DeleteError", func(t *testing.T) {
+		repo, _, svc := setupIdentityServiceTest(t)
+		apiKey := &domain.APIKey{ID: keyID, UserID: userID}
+		repo.On("GetAPIKeyByID", ctx, keyID).Return(apiKey, nil)
+		repo.On("DeleteAPIKey", ctx, keyID).Return(assert.AnError)
+		err := svc.RevokeKey(ctx, userID, keyID)
+		assert.Error(t, err)
+	})
+
+	t.Run("RotateKey_GetError", func(t *testing.T) {
+		repo, _, svc := setupIdentityServiceTest(t)
+		repo.On("GetAPIKeyByID", ctx, keyID).Return(nil, assert.AnError)
+		_, err := svc.RotateKey(ctx, userID, keyID)
+		assert.Error(t, err)
+	})
+
+	t.Run("RotateKey_WrongUser", func(t *testing.T) {
+		repo, _, svc := setupIdentityServiceTest(t)
+		apiKey := &domain.APIKey{ID: keyID, UserID: uuid.New()}
+		repo.On("GetAPIKeyByID", ctx, keyID).Return(apiKey, nil)
+		_, err := svc.RotateKey(ctx, userID, keyID)
+		assert.Error(t, err)
+	})
+
+	t.Run("RotateKey_DeleteOldError", func(t *testing.T) {
+		repo, audit, svc := setupIdentityServiceTest(t)
+		apiKey := &domain.APIKey{ID: keyID, UserID: userID}
+		repo.On("GetAPIKeyByID", ctx, keyID).Return(apiKey, nil)
+		repo.On("CreateAPIKey", ctx, mock.Anything).Return(nil)
+		repo.On("DeleteAPIKey", ctx, keyID).Return(assert.AnError)
+		audit.On("Log", ctx, userID, "api_key.create", "api_key", mock.Anything, mock.Anything).Return(nil)
+
+		newKey, err := svc.RotateKey(ctx, userID, keyID)
+		assert.NoError(t, err) // Should succeed anyway
+		assert.NotNil(t, newKey)
+	})
+}
+
+func TestIdentityService_RotateKey_CreateError(t *testing.T) {
+	repo, _, svc := setupIdentityServiceTest(t)
+	ctx := context.Background()
+	userID := uuid.New()
+	keyID := uuid.New()
+	apiKey := &domain.APIKey{ID: keyID, UserID: userID}
+
+	repo.On("GetAPIKeyByID", ctx, keyID).Return(apiKey, nil)
+	repo.On("CreateAPIKey", ctx, mock.Anything).Return(assert.AnError)
+
+	_, err := svc.RotateKey(ctx, userID, keyID)
+	assert.Error(t, err)
+}

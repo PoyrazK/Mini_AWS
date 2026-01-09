@@ -106,7 +106,7 @@ func (h *StackHandler) Delete(c *gin.Context) {
 		return
 	}
 
-	c.Status(http.StatusNoContent)
+	httputil.Success(c, http.StatusOK, gin.H{"message": "stack deleted"})
 }
 
 // Validate godoc

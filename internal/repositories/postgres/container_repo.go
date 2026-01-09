@@ -4,16 +4,15 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
 
 type PostgresContainerRepository struct {
-	db *pgxpool.Pool
+	db DB
 }
 
-func NewPostgresContainerRepository(db *pgxpool.Pool) ports.ContainerRepository {
+func NewPostgresContainerRepository(db DB) ports.ContainerRepository {
 	return &PostgresContainerRepository{db: db}
 }
 
@@ -40,6 +39,7 @@ func (r *PostgresContainerRepository) CreateDeployment(ctx context.Context, d *d
 func (r *PostgresContainerRepository) GetDeploymentByID(ctx context.Context, id, userID uuid.UUID) (*domain.Deployment, error) {
 	query := `SELECT id, user_id, name, image, replicas, current_count, ports, status, created_at, updated_at FROM deployments WHERE id = $1 AND user_id = $2`
 	var d domain.Deployment
+	var status string
 	err := r.db.QueryRow(ctx, query, id, userID).Scan(
 		&d.ID,
 		&d.UserID,
@@ -48,13 +48,14 @@ func (r *PostgresContainerRepository) GetDeploymentByID(ctx context.Context, id,
 		&d.Replicas,
 		&d.CurrentCount,
 		&d.Ports,
-		&d.Status,
+		&status,
 		&d.CreatedAt,
 		&d.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
 	}
+	d.Status = domain.DeploymentStatus(status)
 	return &d, nil
 }
 
@@ -69,6 +70,7 @@ func (r *PostgresContainerRepository) ListDeployments(ctx context.Context, userI
 	var deps []*domain.Deployment
 	for rows.Next() {
 		var d domain.Deployment
+		var status string
 		if err := rows.Scan(
 			&d.ID,
 			&d.UserID,
@@ -77,12 +79,13 @@ func (r *PostgresContainerRepository) ListDeployments(ctx context.Context, userI
 			&d.Replicas,
 			&d.CurrentCount,
 			&d.Ports,
-			&d.Status,
+			&status,
 			&d.CreatedAt,
 			&d.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
+		d.Status = domain.DeploymentStatus(status)
 		deps = append(deps, &d)
 	}
 	return deps, nil
@@ -146,6 +149,7 @@ func (r *PostgresContainerRepository) ListAllDeployments(ctx context.Context) ([
 	var deps []*domain.Deployment
 	for rows.Next() {
 		var d domain.Deployment
+		var status string
 		if err := rows.Scan(
 			&d.ID,
 			&d.UserID,
@@ -154,12 +158,13 @@ func (r *PostgresContainerRepository) ListAllDeployments(ctx context.Context) ([
 			&d.Replicas,
 			&d.CurrentCount,
 			&d.Ports,
-			&d.Status,
+			&status,
 			&d.CreatedAt,
 			&d.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
+		d.Status = domain.DeploymentStatus(status)
 		deps = append(deps, &d)
 	}
 	return deps, nil

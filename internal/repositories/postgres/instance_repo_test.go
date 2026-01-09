@@ -1,110 +1,314 @@
-//go:build integration
-
 package postgres
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/pashagolub/pgxmock/v3"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	theclouderrors "github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-func TestInstanceRepository_Integration(t *testing.T) {
-	db := setupDB(t)
-	defer db.Close()
-	repo := NewInstanceRepository(db)
-	ctx := setupTestUser(t, db)
-	userID := appcontext.UserIDFromContext(ctx)
+func TestInstanceRepository_Create(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		mock, err := pgxmock.NewPool()
+		assert.NoError(t, err)
+		defer mock.Close()
 
-	// Cleanup
-	// We need to clean up strictly for this user or all?
-	// Easier to just not fail on cleanup or do it carefully.
-	// "DELETE FROM instances" deletes everything. That might collide with other tests running in parallel
-	// but here we are running sequentially usually.
-	_, err := db.Exec(context.Background(), "DELETE FROM instances")
-	require.NoError(t, err)
-
-	t.Run("Create and Get", func(t *testing.T) {
-		id := uuid.New()
+		repo := NewInstanceRepository(mock)
 		inst := &domain.Instance{
-			ID:        id,
-			UserID:    userID,
-			Name:      "integration-test-inst",
-			Image:     "alpine",
-			Status:    domain.StatusStarting,
-			CreatedAt: time.Now(),
-			UpdatedAt: time.Now(),
-			Version:   1,
+			ID:          uuid.New(),
+			UserID:      uuid.New(),
+			Name:        "inst-1",
+			Image:       "ubuntu:latest",
+			ContainerID: "cid-1",
+			Status:      domain.StatusRunning,
+			Ports:       "80:80",
+			VpcID:       nil,
+			SubnetID:    nil,
+			PrivateIP:   "10.0.0.1",
+			OvsPort:     "ovs-1",
+			Version:     1,
+			CreatedAt:   time.Now(),
+			UpdatedAt:   time.Now(),
 		}
 
-		err := repo.Create(ctx, inst)
-		require.NoError(t, err)
+		mock.ExpectExec("(?s)INSERT INTO instances.*").
+			WithArgs(inst.ID, inst.UserID, inst.Name, inst.Image, inst.ContainerID, string(inst.Status), inst.Ports, inst.VpcID, inst.SubnetID, inst.PrivateIP, inst.OvsPort, inst.Version, inst.CreatedAt, inst.UpdatedAt).
+			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
-		fetched, err := repo.GetByID(ctx, id)
-		require.NoError(t, err)
-		assert.Equal(t, inst.Name, fetched.Name)
-		assert.Equal(t, inst.Status, fetched.Status)
+		err = repo.Create(context.Background(), inst)
+		assert.NoError(t, err)
 	})
 
-	t.Run("List", func(t *testing.T) {
+	t.Run("db error", func(t *testing.T) {
+		mock, err := pgxmock.NewPool()
+		assert.NoError(t, err)
+		defer mock.Close()
+
+		repo := NewInstanceRepository(mock)
+		inst := &domain.Instance{ID: uuid.New()}
+
+		mock.ExpectExec("(?s)INSERT INTO instances.*").
+			WillReturnError(errors.New("db error"))
+
+		err = repo.Create(context.Background(), inst)
+		assert.Error(t, err)
+	})
+}
+
+func TestInstanceRepository_GetByID(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		mock, err := pgxmock.NewPool()
+		assert.NoError(t, err)
+		defer mock.Close()
+
+		repo := NewInstanceRepository(mock)
+		id := uuid.New()
+		userID := uuid.New()
+		ctx := appcontext.WithUserID(context.Background(), userID)
+		now := time.Now()
+
+		mock.ExpectQuery("(?s)SELECT.+FROM instances.*").
+			WithArgs(id, userID).
+			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "name", "image", "container_id", "status", "ports", "vpc_id", "subnet_id", "private_ip", "ovs_port", "version", "created_at", "updated_at"}).
+				AddRow(id, userID, "inst-1", "ubuntu:latest", "cid-1", string(domain.StatusRunning), "80:80", nil, nil, "10.0.0.1", "ovs-1", 1, now, now))
+
+		inst, err := repo.GetByID(ctx, id)
+		assert.NoError(t, err)
+		assert.NotNil(t, inst)
+		assert.Equal(t, id, inst.ID)
+	})
+
+	t.Run("not found", func(t *testing.T) {
+		mock, err := pgxmock.NewPool()
+		assert.NoError(t, err)
+		defer mock.Close()
+
+		repo := NewInstanceRepository(mock)
+		id := uuid.New()
+		userID := uuid.New()
+		ctx := appcontext.WithUserID(context.Background(), userID)
+
+		mock.ExpectQuery("(?s)SELECT.+FROM instances.*").
+			WithArgs(id, userID).
+			WillReturnError(pgx.ErrNoRows)
+
+		inst, err := repo.GetByID(ctx, id)
+		assert.Error(t, err)
+		assert.Nil(t, inst)
+		theCloudErr, ok := err.(*theclouderrors.Error)
+		if ok {
+			assert.Equal(t, theclouderrors.NotFound, theCloudErr.Type)
+		}
+	})
+}
+
+func TestInstanceRepository_GetByName(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		mock, err := pgxmock.NewPool()
+		assert.NoError(t, err)
+		defer mock.Close()
+
+		repo := NewInstanceRepository(mock)
+		id := uuid.New()
+		userID := uuid.New()
+		ctx := appcontext.WithUserID(context.Background(), userID)
+		name := "inst-1"
+		now := time.Now()
+
+		mock.ExpectQuery("(?s)SELECT.+FROM instances.*").
+			WithArgs(name, userID).
+			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "name", "image", "container_id", "status", "ports", "vpc_id", "subnet_id", "private_ip", "ovs_port", "version", "created_at", "updated_at"}).
+				AddRow(id, userID, name, "ubuntu:latest", "cid-1", string(domain.StatusRunning), "80:80", nil, nil, "10.0.0.1", "ovs-1", 1, now, now))
+
+		inst, err := repo.GetByName(ctx, name)
+		assert.NoError(t, err)
+		assert.NotNil(t, inst)
+		assert.Equal(t, id, inst.ID)
+	})
+
+	t.Run("not found", func(t *testing.T) {
+		mock, err := pgxmock.NewPool()
+		assert.NoError(t, err)
+		defer mock.Close()
+
+		repo := NewInstanceRepository(mock)
+		userID := uuid.New()
+		ctx := appcontext.WithUserID(context.Background(), userID)
+		name := "inst-1"
+
+		mock.ExpectQuery("(?s)SELECT.+FROM instances.*").
+			WithArgs(name, userID).
+			WillReturnError(pgx.ErrNoRows)
+
+		inst, err := repo.GetByName(ctx, name)
+		assert.Error(t, err)
+		assert.Nil(t, inst)
+		theCloudErr, ok := err.(*theclouderrors.Error)
+		if ok {
+			assert.Equal(t, theclouderrors.NotFound, theCloudErr.Type)
+		}
+	})
+}
+
+func TestInstanceRepository_List(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		mock, err := pgxmock.NewPool()
+		assert.NoError(t, err)
+		defer mock.Close()
+
+		repo := NewInstanceRepository(mock)
+		userID := uuid.New()
+		ctx := appcontext.WithUserID(context.Background(), userID)
+		now := time.Now()
+
+		mock.ExpectQuery("(?s)SELECT.+FROM instances.*").
+			WithArgs(userID).
+			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "name", "image", "container_id", "status", "ports", "vpc_id", "subnet_id", "private_ip", "ovs_port", "version", "created_at", "updated_at"}).
+				AddRow(uuid.New(), userID, "inst-1", "ubuntu:latest", "cid-1", string(domain.StatusRunning), "80:80", nil, nil, "10.0.0.1", "ovs-1", 1, now, now))
+
 		list, err := repo.List(ctx)
-		require.NoError(t, err)
-		assert.NotEmpty(t, list)
+		assert.NoError(t, err)
+		assert.Len(t, list, 1)
 	})
 
-	t.Run("GetByName", func(t *testing.T) {
-		fetched, err := repo.GetByName(ctx, "integration-test-inst")
-		require.NoError(t, err)
-		assert.Equal(t, "integration-test-inst", fetched.Name)
+	t.Run("db error", func(t *testing.T) {
+		mock, err := pgxmock.NewPool()
+		assert.NoError(t, err)
+		defer mock.Close()
+
+		repo := NewInstanceRepository(mock)
+		userID := uuid.New()
+		ctx := appcontext.WithUserID(context.Background(), userID)
+
+		mock.ExpectQuery("(?s)SELECT.+FROM instances.*").
+			WithArgs(userID).
+			WillReturnError(errors.New("db error"))
+
+		list, err := repo.List(ctx)
+		assert.Error(t, err)
+		assert.Nil(t, list)
+	})
+}
+
+func TestInstanceRepository_ListBySubnet(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		mock, err := pgxmock.NewPool()
+		assert.NoError(t, err)
+		defer mock.Close()
+
+		repo := NewInstanceRepository(mock)
+		userID := uuid.New()
+		subnetID := uuid.New()
+		ctx := appcontext.WithUserID(context.Background(), userID)
+		now := time.Now()
+
+		mock.ExpectQuery("(?s)SELECT.+FROM instances.*").
+			WithArgs(subnetID, userID).
+			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "name", "image", "container_id", "status", "ports", "vpc_id", "subnet_id", "private_ip", "ovs_port", "version", "created_at", "updated_at"}).
+				AddRow(uuid.New(), userID, "inst-1", "ubuntu:latest", "cid-1", string(domain.StatusRunning), "80:80", nil, nil, "10.0.0.1", "ovs-1", 1, now, now))
+
+		list, err := repo.ListBySubnet(ctx, subnetID)
+		assert.NoError(t, err)
+		assert.Len(t, list, 1)
+	})
+}
+
+func TestInstanceRepository_Update(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		mock, err := pgxmock.NewPool()
+		assert.NoError(t, err)
+		defer mock.Close()
+
+		repo := NewInstanceRepository(mock)
+		inst := &domain.Instance{
+			ID:          uuid.New(),
+			UserID:      uuid.New(),
+			Name:        "inst-1-updated",
+			Status:      domain.StatusStopped,
+			ContainerID: "cid-1",
+			Ports:       "80:80",
+			Version:     1,
+			UpdatedAt:   time.Now(),
+		}
+
+		mock.ExpectExec("(?s)UPDATE instances.*").
+			WithArgs(inst.Name, string(inst.Status), pgxmock.AnyArg(), inst.ContainerID, inst.Ports, inst.VpcID, inst.SubnetID, inst.PrivateIP, inst.OvsPort, inst.ID, inst.Version, inst.UserID).
+			WillReturnResult(pgxmock.NewResult("UPDATE", 1))
+
+		err = repo.Update(context.Background(), inst)
+		assert.NoError(t, err)
+		assert.Equal(t, 2, inst.Version)
 	})
 
-	t.Run("Update", func(t *testing.T) {
-		inst, err := repo.GetByName(ctx, "integration-test-inst")
-		require.NoError(t, err)
+	t.Run("concurrency conflict", func(t *testing.T) {
+		mock, err := pgxmock.NewPool()
+		assert.NoError(t, err)
+		defer mock.Close()
 
-		inst.Status = domain.StatusRunning
-		err = repo.Update(ctx, inst)
-		require.NoError(t, err)
+		repo := NewInstanceRepository(mock)
+		inst := &domain.Instance{
+			ID:      uuid.New(),
+			UserID:  uuid.New(),
+			Status:  domain.StatusStopped,
+			Version: 1,
+		}
 
-		fetched, err := repo.GetByID(ctx, inst.ID)
-		require.NoError(t, err)
-		assert.Equal(t, domain.StatusRunning, fetched.Status)
-		assert.Equal(t, 2, fetched.Version)
-	})
+		mock.ExpectExec("(?s)UPDATE instances.*").
+			WithArgs(inst.Name, string(inst.Status), pgxmock.AnyArg(), inst.ContainerID, inst.Ports, inst.VpcID, inst.SubnetID, inst.PrivateIP, inst.OvsPort, inst.ID, inst.Version, inst.UserID).
+			WillReturnResult(pgxmock.NewResult("UPDATE", 0))
 
-	t.Run("Update Conflict", func(t *testing.T) {
-		inst, err := repo.GetByName(ctx, "integration-test-inst")
-		require.NoError(t, err)
-
-		// Create a stale copy
-		staleInst := *inst
-
-		// Update original
-		inst.Status = domain.StatusStopped
-		err = repo.Update(ctx, inst)
-		require.NoError(t, err)
-
-		// Try to update with stale copy
-		staleInst.Status = domain.StatusStarting
-		err = repo.Update(ctx, &staleInst)
+		err = repo.Update(context.Background(), inst)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "conflict")
 	})
+}
 
-	t.Run("Delete", func(t *testing.T) {
-		inst, err := repo.GetByName(ctx, "integration-test-inst")
-		require.NoError(t, err)
+func TestInstanceRepository_Delete(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		mock, err := pgxmock.NewPool()
+		assert.NoError(t, err)
+		defer mock.Close()
 
-		err = repo.Delete(ctx, inst.ID)
-		require.NoError(t, err)
+		repo := NewInstanceRepository(mock)
+		id := uuid.New()
+		userID := uuid.New()
+		ctx := appcontext.WithUserID(context.Background(), userID)
 
-		_, err = repo.GetByID(ctx, inst.ID)
+		mock.ExpectExec("DELETE FROM instances").
+			WithArgs(id, userID).
+			WillReturnResult(pgxmock.NewResult("DELETE", 1))
+
+		err = repo.Delete(ctx, id)
+		assert.NoError(t, err)
+	})
+
+	t.Run("not found", func(t *testing.T) {
+		mock, err := pgxmock.NewPool()
+		assert.NoError(t, err)
+		defer mock.Close()
+
+		repo := NewInstanceRepository(mock)
+		id := uuid.New()
+		userID := uuid.New()
+		ctx := appcontext.WithUserID(context.Background(), userID)
+
+		mock.ExpectExec("DELETE FROM instances").
+			WithArgs(id, userID).
+			WillReturnResult(pgxmock.NewResult("DELETE", 0))
+
+		err = repo.Delete(ctx, id)
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "not found")
+		theCloudErr, ok := err.(*theclouderrors.Error)
+		if ok {
+			assert.Equal(t, theclouderrors.NotFound, theCloudErr.Type)
+		}
 	})
 }

@@ -6,16 +6,15 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/errors"
 )
 
 type IdentityRepository struct {
-	db *pgxpool.Pool
+	db DB
 }
 
-func NewIdentityRepository(db *pgxpool.Pool) *IdentityRepository {
+func NewIdentityRepository(db DB) *IdentityRepository {
 	return &IdentityRepository{db: db}
 }
 

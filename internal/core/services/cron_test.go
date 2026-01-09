@@ -125,3 +125,113 @@ func TestCronWorker_DeleteJob(t *testing.T) {
 
 	assert.NoError(t, err)
 }
+
+func TestCronService_ListJobs(t *testing.T) {
+	repo, _, _, svc := setupCronServiceTest(t)
+	defer repo.AssertExpectations(t)
+
+	userID := uuid.New()
+	ctx := appcontext.WithUserID(context.Background(), userID)
+	jobs := []*domain.CronJob{{ID: uuid.New(), UserID: userID}}
+
+	repo.On("ListJobs", ctx, userID).Return(jobs, nil)
+
+	res, err := svc.ListJobs(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, jobs, res)
+}
+
+func TestCronService_GetJob(t *testing.T) {
+	repo, _, _, svc := setupCronServiceTest(t)
+	defer repo.AssertExpectations(t)
+
+	userID := uuid.New()
+	ctx := appcontext.WithUserID(context.Background(), userID)
+	jobID := uuid.New()
+	job := &domain.CronJob{ID: jobID, UserID: userID}
+
+	repo.On("GetJobByID", ctx, jobID, userID).Return(job, nil)
+
+	res, err := svc.GetJob(ctx, jobID)
+	assert.NoError(t, err)
+	assert.Equal(t, job, res)
+}
+
+func TestCronService_Errors(t *testing.T) {
+	userID := uuid.New()
+	ctx := appcontext.WithUserID(context.Background(), userID)
+	jobID := uuid.New()
+
+	t.Run("Create_Unauthorized", func(t *testing.T) {
+		_, _, _, svc := setupCronServiceTest(t)
+		_, err := svc.CreateJob(context.Background(), "n", "* * * * *", "u", "m", "p")
+		assert.Error(t, err)
+	})
+
+	t.Run("Create_InvalidSchedule", func(t *testing.T) {
+		_, _, _, svc := setupCronServiceTest(t)
+		_, err := svc.CreateJob(ctx, "n", "invalid", "u", "m", "p")
+		assert.Error(t, err)
+	})
+
+	t.Run("List_Unauthorized", func(t *testing.T) {
+		_, _, _, svc := setupCronServiceTest(t)
+		_, err := svc.ListJobs(context.Background())
+		assert.Error(t, err)
+	})
+
+	t.Run("Get_Unauthorized", func(t *testing.T) {
+		_, _, _, svc := setupCronServiceTest(t)
+		_, err := svc.GetJob(context.Background(), jobID)
+		assert.Error(t, err)
+	})
+
+	t.Run("Resume_InvalidSchedule", func(t *testing.T) {
+		repo, _, _, svc := setupCronServiceTest(t)
+		repo.On("GetJobByID", ctx, jobID, userID).Return(&domain.CronJob{Schedule: "invalid"}, nil)
+		err := svc.ResumeJob(ctx, jobID)
+		assert.Error(t, err)
+	})
+}
+
+func TestCronService_RepoErrors(t *testing.T) {
+	ctx := appcontext.WithUserID(context.Background(), uuid.New())
+	userID := appcontext.UserIDFromContext(ctx)
+	jobID := uuid.New()
+
+	t.Run("CreateJob", func(t *testing.T) {
+		repo, _, _, svc := setupCronServiceTest(t)
+		repo.On("CreateJob", ctx, mock.Anything).Return(assert.AnError)
+		_, err := svc.CreateJob(ctx, "n", "* * * * *", "u", "m", "p")
+		assert.Error(t, err)
+	})
+
+	t.Run("PauseJob_GetError", func(t *testing.T) {
+		repo, _, _, svc := setupCronServiceTest(t)
+		repo.On("GetJobByID", ctx, jobID, userID).Return(nil, assert.AnError)
+		err := svc.PauseJob(ctx, jobID)
+		assert.Error(t, err)
+	})
+
+	t.Run("ResumeJob_GetError", func(t *testing.T) {
+		repo, _, _, svc := setupCronServiceTest(t)
+		repo.On("GetJobByID", ctx, jobID, userID).Return(nil, assert.AnError)
+		err := svc.ResumeJob(ctx, jobID)
+		assert.Error(t, err)
+	})
+
+	t.Run("DeleteJob_GetError", func(t *testing.T) {
+		repo, _, _, svc := setupCronServiceTest(t)
+		repo.On("GetJobByID", ctx, jobID, userID).Return(nil, assert.AnError)
+		err := svc.DeleteJob(ctx, jobID)
+		assert.Error(t, err)
+	})
+
+	t.Run("DeleteJob_DeleteError", func(t *testing.T) {
+		repo, _, _, svc := setupCronServiceTest(t)
+		repo.On("GetJobByID", ctx, jobID, userID).Return(&domain.CronJob{ID: jobID}, nil)
+		repo.On("DeleteJob", ctx, jobID).Return(assert.AnError)
+		err := svc.DeleteJob(ctx, jobID)
+		assert.Error(t, err)
+	})
+}

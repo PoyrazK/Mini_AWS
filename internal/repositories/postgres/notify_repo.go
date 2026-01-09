@@ -4,16 +4,15 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
 
 type PostgresNotifyRepository struct {
-	db *pgxpool.Pool
+	db DB
 }
 
-func NewPostgresNotifyRepository(db *pgxpool.Pool) ports.NotifyRepository {
+func NewPostgresNotifyRepository(db DB) ports.NotifyRepository {
 	return &PostgresNotifyRepository{db: db}
 }
 
@@ -112,11 +111,12 @@ func (r *PostgresNotifyRepository) CreateSubscription(ctx context.Context, sub *
 func (r *PostgresNotifyRepository) GetSubscriptionByID(ctx context.Context, id, userID uuid.UUID) (*domain.Subscription, error) {
 	query := `SELECT id, user_id, topic_id, protocol, endpoint, created_at, updated_at FROM subscriptions WHERE id = $1 AND user_id = $2`
 	var sub domain.Subscription
+	var protocol string
 	err := r.db.QueryRow(ctx, query, id, userID).Scan(
 		&sub.ID,
 		&sub.UserID,
 		&sub.TopicID,
-		&sub.Protocol,
+		&protocol,
 		&sub.Endpoint,
 		&sub.CreatedAt,
 		&sub.UpdatedAt,
@@ -124,6 +124,7 @@ func (r *PostgresNotifyRepository) GetSubscriptionByID(ctx context.Context, id, 
 	if err != nil {
 		return nil, err
 	}
+	sub.Protocol = domain.SubscriptionProtocol(protocol)
 	return &sub, nil
 }
 
@@ -138,9 +139,11 @@ func (r *PostgresNotifyRepository) ListSubscriptions(ctx context.Context, topicI
 	var subs []*domain.Subscription
 	for rows.Next() {
 		var sub domain.Subscription
-		if err := rows.Scan(&sub.ID, &sub.UserID, &sub.TopicID, &sub.Protocol, &sub.Endpoint, &sub.CreatedAt, &sub.UpdatedAt); err != nil {
+		var protocol string
+		if err := rows.Scan(&sub.ID, &sub.UserID, &sub.TopicID, &protocol, &sub.Endpoint, &sub.CreatedAt, &sub.UpdatedAt); err != nil {
 			return nil, err
 		}
+		sub.Protocol = domain.SubscriptionProtocol(protocol)
 		subs = append(subs, &sub)
 	}
 	return subs, nil
