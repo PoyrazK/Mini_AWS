@@ -790,9 +790,11 @@ func (a *LibvirtAdapter) parseAndValidatePort(p string) (int, int, error) {
 	if len(parts) == 2 {
 		hostPort = parts[0]
 		containerPort = parts[1]
-	} else {
+	} else if len(parts) == 1 {
 		hostPort = "0"
 		containerPort = parts[0]
+	} else {
+		return 0, 0, fmt.Errorf("invalid port format: too many colons")
 	}
 
 	// Security: Validate ports are numeric
