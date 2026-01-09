@@ -283,3 +283,68 @@ func TestListGroups(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, result, 2)
 }
+
+func TestGetGroup_Success(t *testing.T) {
+	mockRepo, _, _, svc := setupAutoScalingServiceTest(t)
+	defer mockRepo.AssertExpectations(t)
+
+	ctx := context.Background()
+	groupID := uuid.New()
+	expectedGroup := &domain.ScalingGroup{
+		ID:   groupID,
+		Name: "test-group",
+	}
+
+	mockRepo.On("GetGroupByID", ctx, groupID).Return(expectedGroup, nil)
+
+	result, err := svc.GetGroup(ctx, groupID)
+
+	assert.NoError(t, err)
+	assert.Equal(t, expectedGroup, result)
+	assert.Equal(t, groupID, result.ID)
+}
+
+func TestGetGroup_NotFound(t *testing.T) {
+	mockRepo, _, _, svc := setupAutoScalingServiceTest(t)
+	defer mockRepo.AssertExpectations(t)
+
+	ctx := context.Background()
+	groupID := uuid.New()
+
+	mockRepo.On("GetGroupByID", ctx, groupID).Return(nil, assert.AnError)
+
+	result, err := svc.GetGroup(ctx, groupID)
+
+	assert.Error(t, err)
+	assert.Nil(t, result)
+}
+
+func TestDeletePolicy_Success(t *testing.T) {
+	mockRepo, _, _, svc := setupAutoScalingServiceTest(t)
+	defer mockRepo.AssertExpectations(t)
+
+	ctx := context.Background()
+	policyID := uuid.New()
+
+	mockRepo.On("DeletePolicy", ctx, policyID).Return(nil)
+
+	err := svc.DeletePolicy(ctx, policyID)
+
+	assert.NoError(t, err)
+	mockRepo.AssertCalled(t, "DeletePolicy", ctx, policyID)
+}
+
+func TestDeletePolicy_NotFound(t *testing.T) {
+	mockRepo, _, _, svc := setupAutoScalingServiceTest(t)
+	defer mockRepo.AssertExpectations(t)
+
+	ctx := context.Background()
+	policyID := uuid.New()
+
+	mockRepo.On("DeletePolicy", ctx, policyID).Return(assert.AnError)
+
+	err := svc.DeletePolicy(ctx, policyID)
+
+	assert.Error(t, err)
+	assert.Equal(t, assert.AnError, err)
+}
