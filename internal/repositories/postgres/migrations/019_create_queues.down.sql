@@ -1,2 +1,0 @@
-DROP TABLE IF EXISTS queue_messages;
-DROP TABLE IF EXISTS queues;

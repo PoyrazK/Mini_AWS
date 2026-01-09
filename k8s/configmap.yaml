@@ -1,9 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: api-config
-  namespace: thecloud
-data:
-  APP_ENV: "production"
-  PORT: "8080"
-  DB_URL: "postgres://cloud:cloud@db-service:5432/thecloud?sslmode=disable"

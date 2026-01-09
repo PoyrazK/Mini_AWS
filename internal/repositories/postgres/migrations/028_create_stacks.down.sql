@@ -1,2 +1,0 @@
-DROP TABLE IF EXISTS stack_resources;
-DROP TABLE IF EXISTS stacks;

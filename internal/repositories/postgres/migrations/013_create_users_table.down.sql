@@ -1,3 +1,0 @@
-ALTER TABLE api_keys DROP CONSTRAINT IF EXISTS fk_api_keys_user;
-DROP INDEX IF EXISTS idx_users_email;
-DROP TABLE IF EXISTS users;
