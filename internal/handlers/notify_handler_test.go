@@ -16,9 +16,10 @@ import (
 )
 
 const (
-	topicsPath    = "/notify/topics"
-	subsPath      = "/notify/subscriptions"
-	testTopicName = "topic-1"
+	topicsPath      = "/notify/topics"
+	subsPath        = "/notify/subscriptions"
+	testTopicName   = "topic-1"
+	testExampleURL2 = "http://example.com"
 )
 
 type mockNotifyService struct {
@@ -133,12 +134,12 @@ func TestNotifyHandlerSubscribe(t *testing.T) {
 	r.POST(topicsPath+"/:id/subscriptions", handler.Subscribe)
 
 	id := uuid.New()
-	sub := &domain.Subscription{ID: uuid.New(), TopicID: id, Endpoint: "http://example.com"}
-	svc.On("Subscribe", mock.Anything, id, domain.SubscriptionProtocol("http"), "http://example.com").Return(sub, nil)
+	sub := &domain.Subscription{ID: uuid.New(), TopicID: id, Endpoint: testExampleURL2}
+	svc.On("Subscribe", mock.Anything, id, domain.SubscriptionProtocol("http"), testExampleURL2).Return(sub, nil)
 
 	body, err := json.Marshal(map[string]interface{}{
 		"protocol": "http",
-		"endpoint": "http://example.com",
+		"endpoint": testExampleURL2,
 	})
 	assert.NoError(t, err)
 	w := httptest.NewRecorder()

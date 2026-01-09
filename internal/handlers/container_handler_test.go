@@ -16,8 +16,10 @@ import (
 )
 
 const (
-	deploymentsPath = "/containers/deployments"
-	testDepName     = "dep-1"
+	deploymentsPath   = "/containers/deployments"
+	testDepName       = "dep-1"
+	imageNginx        = "nginx"
+	containerPort8080 = "80:80"
 )
 
 type mockContainerService struct {
@@ -73,13 +75,13 @@ func TestContainerHandlerCreateDeployment(t *testing.T) {
 	r.POST(deploymentsPath, handler.CreateDeployment)
 
 	dep := &domain.Deployment{ID: uuid.New(), Name: testDepName}
-	svc.On("CreateDeployment", mock.Anything, testDepName, "nginx", 3, "80:80").Return(dep, nil)
+	svc.On("CreateDeployment", mock.Anything, testDepName, imageNginx, 3, containerPort8080).Return(dep, nil)
 
 	body, err := json.Marshal(map[string]interface{}{
 		"name":     testDepName,
-		"image":    "nginx",
+		"image":    imageNginx,
 		"replicas": 3,
-		"ports":    "80:80",
+		"ports":    containerPort8080,
 	})
 	assert.NoError(t, err)
 	w := httptest.NewRecorder()
