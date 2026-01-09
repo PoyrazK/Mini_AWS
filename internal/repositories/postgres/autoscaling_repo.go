@@ -205,25 +205,36 @@ func (r *AutoScalingRepo) CountGroupsByVPC(ctx context.Context, vpcID uuid.UUID)
 func (r *AutoScalingRepo) UpdateGroup(ctx context.Context, group *domain.ScalingGroup) error {
 	query := `
 		UPDATE scaling_groups
-		SET desired_count = $1, current_count = $2, status = $3, 
-			min_instances = $4, max_instances = $5,
-			failure_count = $6, last_failure_at = $7,
-			version = version + 1, updated_at = NOW()
-		WHERE id = $8 AND user_id = $9
+		SET name = $1, min_instances = $2, max_instances = $3, 
+			desired_count = $4, status = $5, updated_at = $6,
+			version = version + 1
+		WHERE id = $7 AND version = $8 AND user_id = $9
 	`
-	_, err := r.db.Exec(ctx, query,
-		group.DesiredCount, group.CurrentCount, group.Status,
-		group.MinInstances, group.MaxInstances,
-		group.FailureCount, group.LastFailureAt,
-		group.ID, group.UserID,
+	cmd, err := r.db.Exec(ctx, query,
+		group.Name, group.MinInstances, group.MaxInstances,
+		group.DesiredCount, group.Status, group.UpdatedAt,
+		group.ID, group.Version, group.UserID,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if cmd.RowsAffected() == 0 {
+		return errs.New(errs.Conflict, "scaling group update conflict or not found")
+	}
+	group.Version++
+	return nil
 }
 
 func (r *AutoScalingRepo) DeleteGroup(ctx context.Context, id uuid.UUID) error {
 	userID := appcontext.UserIDFromContext(ctx)
-	_, err := r.db.Exec(ctx, "DELETE FROM scaling_groups WHERE id = $1 AND user_id = $2", id, userID)
-	return err
+	cmd, err := r.db.Exec(ctx, "DELETE FROM scaling_groups WHERE id = $1 AND user_id = $2", id, userID)
+	if err != nil {
+		return err
+	}
+	if cmd.RowsAffected() == 0 {
+		return errs.New(errs.NotFound, "scaling group not found")
+	}
+	return nil
 }
 
 // Policies

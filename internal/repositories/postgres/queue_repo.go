@@ -2,13 +2,13 @@ package postgres
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
+	"github.com/poyrazk/thecloud/internal/errors"
 )
 
 // PostgresQueueRepository implements a message queue system using PostgreSQL as the backend.
@@ -84,9 +84,16 @@ func (r *PostgresQueueRepository) List(ctx context.Context, userID uuid.UUID) ([
 }
 
 // Delete removes a queue definition; note that dependent messages should be handled by DB constraints.
+// Delete removes a queue definition; note that dependent messages should be handled by DB constraints.
 func (r *PostgresQueueRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	_, err := r.db.Exec(ctx, "DELETE FROM queues WHERE id = $1", id)
-	return err
+	cmd, err := r.db.Exec(ctx, "DELETE FROM queues WHERE id = $1", id)
+	if err != nil {
+		return err
+	}
+	if cmd.RowsAffected() == 0 {
+		return errors.New(errors.NotFound, "queue not found")
+	}
+	return nil
 }
 
 // SendMessage appends a new message to the queue.
@@ -173,7 +180,7 @@ func (r *PostgresQueueRepository) DeleteMessage(ctx context.Context, queueID uui
 		return err
 	}
 	if result.RowsAffected() == 0 {
-		return fmt.Errorf("message not found or receipt handle expired")
+		return errors.New(errors.NotFound, "message not found or receipt handle expired")
 	}
 	return nil
 }
