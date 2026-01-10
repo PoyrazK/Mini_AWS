@@ -9,6 +9,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/platform"
 	"github.com/poyrazk/thecloud/internal/repositories/filesystem"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
+	"github.com/redis/go-redis/v9"
 )
 
 type Repositories struct {
@@ -114,13 +115,15 @@ func InitServices(
 	network ports.NetworkBackend,
 	lbProxy ports.LBProxyAdapter,
 	db *pgxpool.Pool, // needed for HealthService
+	rdb *redis.Client,
 	logger *slog.Logger,
 ) (*Services, *Workers, error) {
 	// Audit Service
 	auditSvc := services.NewAuditService(repos.Audit)
 
 	// Identity & Auth
-	identitySvc := services.NewIdentityService(repos.Identity, auditSvc)
+	baseIdentitySvc := services.NewIdentityService(repos.Identity, auditSvc)
+	identitySvc := services.NewCachedIdentityService(baseIdentitySvc, rdb, logger)
 	authSvc := services.NewAuthService(repos.User, identitySvc, auditSvc)
 	pwdResetSvc := services.NewPasswordResetService(repos.PasswordReset, repos.User, logger)
 	rbacSvc := services.NewRBACService(repos.User, repos.RBAC, logger)

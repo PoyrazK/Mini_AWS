@@ -18,6 +18,19 @@ services:
     networks:
       - cloud-network
 
+  redis:
+    image: redis:7-alpine
+    container_name: cloud-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - cloud-network
+
   api:
     build:
       context: .
@@ -25,6 +38,8 @@ services:
     container_name: cloud-api
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     ports:
       - "${PORT:-8080}:${PORT:-8080}"
@@ -34,6 +49,7 @@ services:
     environment:
       - PORT=${PORT:-8080}
       - DATABASE_URL=postgres://${DB_USER:-cloud}:${DB_PASSWORD:-cloud}@postgres:5432/${DB_NAME:-thecloud}?sslmode=disable
+      - REDIS_URL=${REDIS_URL:-redis:6379}
       - APP_ENV=${APP_ENV:-development}
       - SECRETS_ENCRYPTION_KEY=${SECRETS_ENCRYPTION_KEY}
     volumes:

@@ -56,6 +56,13 @@ func main() {
 	}
 	defer db.Close()
 
+	rdb, err := setup.InitRedis(ctx, cfg, logger)
+	if err != nil {
+		logger.Error("failed to connect to redis", "error", err)
+		os.Exit(1)
+	}
+	defer rdb.Close()
+
 	// 3.1 Run Migrations
 	if err := setup.RunMigrations(ctx, db, logger); err != nil {
 		logger.Warn("failed to run migrations", "error", err)
@@ -88,7 +95,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	svcs, workers, err := setup.InitServices(cfg, repos, computeBackend, networkBackend, lbProxy, db, logger)
+	svcs, workers, err := setup.InitServices(cfg, repos, computeBackend, networkBackend, lbProxy, db, rdb, logger)
 	if err != nil {
 		logger.Error("failed to initialize services", "error", err)
 		os.Exit(1)

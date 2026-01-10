@@ -98,7 +98,7 @@ func SetupRouter(cfg *platform.Config, logger *slog.Logger, handlers *Handlers, 
 	// Security Middleware
 	r.Use(httputil.SecurityHeadersMiddleware())
 
-	// Rate Limiter (5 req/sec, burst 10)
+	// Rate Limiter (Restored to production values)
 	limiter := ratelimit.NewIPRateLimiter(rate.Limit(5), 10, logger)
 	r.Use(ratelimit.Middleware(limiter))
 	r.Use(httputil.Metrics())
@@ -136,7 +136,7 @@ func SetupRouter(cfg *platform.Config, logger *slog.Logger, handlers *Handlers, 
 		pprof.Register(r)
 	}
 
-	// Auth Rate Limiter (5 req/min, burst 5)
+	// Auth Rate Limiter (Restored to production values)
 	authLimiter := ratelimit.NewIPRateLimiter(rate.Limit(5.0/60.0), 5, logger)
 	authMiddleware := ratelimit.Middleware(authLimiter)
 

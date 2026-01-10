@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"context"
+	"sync"
 	"testing"
 
 	"log/slog"
@@ -115,6 +116,58 @@ func BenchmarkFunctionServiceInvoke(b *testing.B) {
 	}
 }
 
+func BenchmarkInstanceServiceCreateParallel(b *testing.B) {
+	logger := slog.Default()
+	repo := &noop.NoopInstanceRepository{}
+	vpcRepo := &noop.NoopVpcRepository{}
+	subnetRepo := &noop.NoopSubnetRepository{}
+	volumeRepo := &noop.NoopVolumeRepository{}
+	compute := &noop.NoopComputeBackend{}
+	network := noop.NewNoopNetworkAdapter(logger)
+	eventSvc := &noop.NoopEventService{}
+	auditSvc := &noop.NoopAuditService{}
+
+	svc := services.NewInstanceService(services.InstanceServiceParams{
+		Repo:       repo,
+		VpcRepo:    vpcRepo,
+		SubnetRepo: subnetRepo,
+		VolumeRepo: volumeRepo,
+		Compute:    compute,
+		Network:    network,
+		EventSvc:   eventSvc,
+		AuditSvc:   auditSvc,
+		Logger:     logger,
+	})
+
+	ctx := appcontext.WithUserID(context.Background(), uuid.New())
+
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			_, _ = svc.LaunchInstance(ctx, "test-inst", "alpine", "80:80", nil, nil, nil)
+		}
+	})
+}
+
+func BenchmarkAuthServiceLoginParallel(b *testing.B) {
+	userRepo := &BenchUserRepository{}
+	idSvc := &noop.NoopIdentityService{}
+	auditSvc := &noop.NoopAuditService{}
+
+	svc := services.NewAuthService(userRepo, idSvc, auditSvc)
+
+	ctx := context.Background()
+	email := "admin@thecloud.local"
+	password := "password"
+
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			_, _, _ = svc.Login(ctx, email, password)
+		}
+	})
+}
+
 func BenchmarkDatabaseServiceList(b *testing.B) {
 	repo := &noop.NoopDatabaseRepository{}
 	compute := &noop.NoopComputeBackend{}
@@ -131,6 +184,37 @@ func BenchmarkDatabaseServiceList(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_, _ = svc.ListDatabases(ctx)
 	}
+}
+
+type ContentionRepo struct {
+	noop.NoopDatabaseRepository
+	mu sync.Mutex
+}
+
+func (r *ContentionRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.Database, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return &domain.Database{ID: id}, nil
+}
+
+func BenchmarkDatabaseContentionParallel(b *testing.B) {
+	repo := &ContentionRepo{}
+	compute := &noop.NoopComputeBackend{}
+	vpcRepo := &noop.NoopVpcRepository{}
+	eventSvc := &noop.NoopEventService{}
+	auditSvc := &noop.NoopAuditService{}
+	logger := slog.Default()
+
+	svc := services.NewDatabaseService(repo, compute, vpcRepo, eventSvc, auditSvc, logger)
+	ctx := context.Background()
+	id := uuid.New()
+
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			_, _ = svc.GetDatabase(ctx, id)
+		}
+	})
 }
 
 func BenchmarkCacheServiceList(b *testing.B) {

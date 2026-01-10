@@ -13,6 +13,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/repositories/noop"
 	"github.com/poyrazk/thecloud/internal/repositories/ovs"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
+	"github.com/redis/go-redis/v9"
 )
 
 // InitDatabase initializes the database connection
@@ -22,6 +23,11 @@ func InitDatabase(ctx context.Context, cfg *platform.Config, logger *slog.Logger
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
 	return db, nil
+}
+
+// InitRedis initializes the redis connection
+func InitRedis(ctx context.Context, cfg *platform.Config, logger *slog.Logger) (*redis.Client, error) {
+	return platform.InitRedis(ctx, cfg, logger)
 }
 
 // RunMigrations runs database migrations
@@ -39,7 +45,6 @@ func InitComputeBackend(cfg *platform.Config, logger *slog.Logger) (ports.Comput
 	return docker.NewDockerAdapter()
 }
 
-// InitNetworkBackend initializes the network backend (OVS or No-op)
 func InitNetworkBackend(logger *slog.Logger) ports.NetworkBackend {
 	ovsAdapter, err := ovs.NewOvsAdapter(logger)
 	if err != nil {

@@ -91,6 +91,10 @@ func (r *NoopVolumeRepository) ListByInstanceID(ctx context.Context, instanceID 
 func (r *NoopVolumeRepository) Update(ctx context.Context, v *domain.Volume) error { return nil }
 func (r *NoopVolumeRepository) Delete(ctx context.Context, id uuid.UUID) error     { return nil }
 
+func NewNoopComputeBackend() ports.ComputeBackend {
+	return &NoopComputeBackend{}
+}
+
 type NoopComputeBackend struct{}
 
 func (c *NoopComputeBackend) CreateInstance(ctx context.Context, name, image string, ports []string, networkID string, volumeBinds []string, env []string, cmd []string) (string, error) {

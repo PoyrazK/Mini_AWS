@@ -18,6 +18,7 @@ type Config struct {
 	NetworkPoolEnd       string
 	DBMaxConns           string
 	DBMinConns           string
+	RedisURL             string
 }
 
 func NewConfig() (*Config, error) {
@@ -34,6 +35,7 @@ func NewConfig() (*Config, error) {
 		NetworkPoolEnd:       getEnv("NETWORK_POOL_END", "192.168.200.255"),
 		DBMaxConns:           getEnv("DB_MAX_CONNS", "20"),
 		DBMinConns:           getEnv("DB_MIN_CONNS", "2"),
+		RedisURL:             getEnv("REDIS_URL", "localhost:6379"),
 	}, nil
 }
 

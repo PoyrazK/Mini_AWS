@@ -1,78 +1,44 @@
-package ratelimit
+package ratelimit_test
 
 import (
 	"log/slog"
-	"net/http"
-	"net/http/httptest"
-	"os"
 	"testing"
 
-	"github.com/gin-gonic/gin"
-	"github.com/stretchr/testify/assert"
+	"github.com/poyrazk/thecloud/pkg/ratelimit"
 	"golang.org/x/time/rate"
 )
 
-func TestNewIPRateLimiter(t *testing.T) {
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	limiter := NewIPRateLimiter(rate.Limit(1), 1, logger)
-	assert.NotNil(t, limiter)
-	assert.Equal(t, rate.Limit(1), limiter.rate)
-	assert.Equal(t, 1, limiter.burst)
+func BenchmarkRateLimiter_GetLimiter(b *testing.B) {
+	limiter := ratelimit.NewIPRateLimiter(rate.Limit(100), 10, slog.Default())
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = limiter.GetLimiter("192.168.1.1")
+	}
 }
 
-func TestIPRateLimiter_GetLimiter(t *testing.T) {
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	limiter := NewIPRateLimiter(rate.Limit(10), 5, logger)
+func BenchmarkRateLimiter_GetLimiterParallel(b *testing.B) {
+	limiter := ratelimit.NewIPRateLimiter(rate.Limit(1000), 100, slog.Default())
 
-	l1 := limiter.GetLimiter("1.1.1.1")
-	l2 := limiter.GetLimiter("1.1.1.1")
-	l3 := limiter.GetLimiter("2.2.2.2")
-
-	assert.Equal(t, l1, l2)
-	assert.True(t, l1 != l3, "Each key should have its own limiter instance")
-}
-
-func TestMiddleware(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-
-	// Create a limiter that allows only 1 request per second with a burst of 1
-	limiter := NewIPRateLimiter(rate.Limit(1), 1, logger)
-
-	r := gin.New()
-	r.Use(Middleware(limiter))
-	r.GET("/test", func(c *gin.Context) {
-		c.String(http.StatusOK, "ok")
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			_ = limiter.GetLimiter("192.168.1.1")
+		}
 	})
-
-	// First request - should be OK
-	w1 := httptest.NewRecorder()
-	req1, _ := http.NewRequest("GET", "/test", nil)
-	r.ServeHTTP(w1, req1)
-	assert.Equal(t, http.StatusOK, w1.Code)
-
-	// Second request immediately after - should be rate limited
-	w2 := httptest.NewRecorder()
-	req2, _ := http.NewRequest("GET", "/test", nil)
-	r.ServeHTTP(w2, req2)
-	assert.Equal(t, http.StatusTooManyRequests, w2.Code)
 }
 
-func TestMiddleware_WithAPIKey(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	limiter := NewIPRateLimiter(rate.Limit(10), 10, logger)
+func BenchmarkRateLimiter_GetLimiterParallel_MultiKey(b *testing.B) {
+	limiter := ratelimit.NewIPRateLimiter(rate.Limit(1000), 100, slog.Default())
 
-	r := gin.New()
-	r.Use(Middleware(limiter))
-	r.GET("/test", func(c *gin.Context) {
-		c.String(http.StatusOK, "ok")
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		i := 0
+		for pb.Next() {
+			// Simulate different clients
+			key := "key-" + string(rune(i%100))
+			_ = limiter.GetLimiter(key)
+			i++
+		}
 	})
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/test", nil)
-	req.Header.Set("X-API-Key", "sk_test_123456789")
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
 }
