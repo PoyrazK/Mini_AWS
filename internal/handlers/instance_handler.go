@@ -97,7 +97,7 @@ func isValidResourceName(name string) bool {
 // @Produce json
 // @Security APIKeyAuth
 // @Param request body LaunchRequest true "Launch request"
-// @Success 201 {object} domain.Instance
+// @Success 202 {object} domain.Instance
 // @Failure 400 {object} httputil.Response
 // @Failure 500 {object} httputil.Response
 // @Router /instances [post]
@@ -147,7 +147,7 @@ func (h *InstanceHandler) Launch(c *gin.Context) {
 		return
 	}
 
-	httputil.Success(c, http.StatusCreated, inst)
+	httputil.Success(c, http.StatusAccepted, inst)
 }
 
 // List returns all instances

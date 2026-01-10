@@ -72,14 +72,27 @@ export default function () {
         ports: '80:80'
     });
     const instRes = http.post(`${BASE_URL}/instances`, instPayload, { headers: authHeaders });
-    check(instRes, { 'instance launched': (r) => r.status === 201 });
-    if (instRes.status !== 201) return;
+    check(instRes, { 'instance launch accepted': (r) => r.status === 202 });
+    if (instRes.status !== 202) return;
     const instId = instRes.json('data.id');
 
-    // 6. GET STATS (Simulate monitoring)
-    sleep(1);
-    const statsRes = http.get(`${BASE_URL}/instances/${instId}/stats`, { headers: authHeaders });
-    check(statsRes, { 'stats retrieved': (r) => r.status === 200 });
+    // 6. WAIT FOR RUNNING (Async Provisioning)
+    let isRunning = false;
+    for (let i = 0; i < 10; i++) {
+        const getRes = http.get(`${BASE_URL}/instances/${instId}`, { headers: authHeaders });
+        if (getRes.status === 200 && getRes.json('data.status') === 'running') {
+            isRunning = true;
+            break;
+        }
+        sleep(1);
+    }
+    check(isRunning, { 'instance is running': (val) => val === true });
+
+    // 7. GET STATS (Simulate monitoring)
+    if (isRunning) {
+        const statsRes = http.get(`${BASE_URL}/instances/${instId}/stats`, { headers: authHeaders });
+        check(statsRes, { 'stats retrieved': (r) => r.status === 200 });
+    }
 
     // 7. CLEANUP (Delete in reverse)
     const delInstRes = http.del(`${BASE_URL}/instances/${instId}`, null, { headers: authHeaders });
