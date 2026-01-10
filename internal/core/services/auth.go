@@ -63,7 +63,7 @@ func (s *AuthService) Register(ctx context.Context, email, password, name string
 		Email:        email,
 		PasswordHash: string(hashedPassword),
 		Name:         name,
-		Role:         domain.RoleAdmin, // Temporarily admin for load testing
+		Role:         domain.RoleDeveloper,
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
 	}
