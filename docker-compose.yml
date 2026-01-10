@@ -57,8 +57,6 @@ services:
       - SECRETS_ENCRYPTION_KEY=${SECRETS_ENCRYPTION_KEY}
       - RATE_LIMIT_GLOBAL=1000
       - RATE_LIMIT_AUTH=3000
-      - NETWORK_BACKEND=noop
-      - COMPUTE_BACKEND=noop
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /var/run/openvswitch:/var/run/openvswitch

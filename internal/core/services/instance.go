@@ -119,14 +119,22 @@ func (s *InstanceService) Provision(ctx context.Context, instanceID uuid.UUID, v
 	// 1. Call Docker to create actual container
 	dockerName := s.formatContainerName(inst.ID)
 
-	// 2. Resolve networking config
-	networkID, allocatedIP, ovsPort, err := s.resolveNetworkConfig(ctx, inst.VpcID, inst.SubnetID)
-	if err != nil {
-		s.updateStatus(ctx, inst, domain.StatusError)
-		return err
+	// Bypass networking for noop backend to ensure stability in load tests
+	var networkID, allocatedIP string
+	var ovsPort string
+	if s.compute.Type() != "noop" {
+		// 2. Resolve networking config
+		var err error
+		networkID, allocatedIP, ovsPort, err = s.resolveNetworkConfig(ctx, inst.VpcID, inst.SubnetID)
+		if err != nil {
+			s.updateStatus(ctx, inst, domain.StatusError)
+			return err
+		}
+		inst.PrivateIP = allocatedIP
+		inst.OvsPort = ovsPort
+	} else {
+		inst.PrivateIP = "127.0.0.1"
 	}
-	inst.PrivateIP = allocatedIP
-	inst.OvsPort = ovsPort
 
 	// 3. Process volume attachments
 	volumeBinds, attachedVolumes, err := s.resolveVolumes(ctx, volumes)

@@ -146,7 +146,7 @@ func SetupRouter(cfg *platform.Config, logger *slog.Logger, handlers *Handlers, 
 	if authRPM <= 0 {
 		authRPM = 5
 	}
-	authLimiter := ratelimit.NewIPRateLimiter(rate.Limit(float64(authRPM)/60.0), 5, logger)
+	authLimiter := ratelimit.NewIPRateLimiter(rate.Limit(float64(authRPM)/60.0), authRPM, logger)
 	authMiddleware := ratelimit.Middleware(authLimiter)
 
 	// Identity Routes
