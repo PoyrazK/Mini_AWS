@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pgbouncer
+  namespace: thecloud
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: pgbouncer
+  template:
+    metadata:
+      labels:
+        app: pgbouncer
+    spec:
+      containers:
+      - name: pgbouncer
+        image: bitnami/pgbouncer:latest
+        ports:
+        - containerPort: 6432
+        env:
+        - name: POSTGRESQL_HOST
+          value: postgres-service
+        - name: POSTGRESQL_PORT
+          value: "5432"
+        - name: POSTGRESQL_USERNAME
+          value: cloud
+        - name: POSTGRESQL_PASSWORD
+          value: cloud
+        - name: POSTGRESQL_DATABASE
+          value: thecloud
+        - name: PGBOUNCER_POOL_MODE
+          value: transaction
+        - name: PGBOUNCER_MAX_CLIENT_CONN
+          value: "10000"
+        - name: PGBOUNCER_DEFAULT_POOL_SIZE
+          value: "100"
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "256Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pgbouncer-service
+  namespace: thecloud
+spec:
+  ports:
+  - port: 5432     # Expose as standard PG port internally
+    targetPort: 6432
+  selector:
+    app: pgbouncer
