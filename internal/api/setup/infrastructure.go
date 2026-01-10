@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/platform"
 	"github.com/poyrazk/thecloud/internal/repositories/docker"
@@ -23,17 +22,19 @@ func InitDatabase(ctx context.Context, cfg *platform.Config, logger *slog.Logger
 		return nil, fmt.Errorf("failed to connect to primary database: %w", err)
 	}
 
-	var replica *pgxpool.Pool
+	var replica postgres.DB // Initialize as nil interface
 	if cfg.DatabaseReadURL != "" {
 		readCfg := *cfg
 		readCfg.DatabaseURL = cfg.DatabaseReadURL
-		replica, err = platform.NewDatabase(ctx, &readCfg, logger)
+
+		pool, err := platform.NewDatabase(ctx, &readCfg, logger)
 		if err != nil {
 			logger.Warn("failed to connect to read replica, falling back to primary", "error", err)
 			// We fallback to primary if replica fails, or strict fail?
 			// Let's fallback for resilience, but in production we might want to know.
 			// Given it's a scaling feature, let's just warn and proceed without replica (DualDB handles nil replica)
 		} else {
+			replica = pool
 			logger.Info("connected to read replica database")
 		}
 	}
@@ -53,6 +54,10 @@ func RunMigrations(ctx context.Context, db postgres.DB, logger *slog.Logger) err
 
 // InitComputeBackend initializes the compute backend (Docker or Libvirt)
 func InitComputeBackend(cfg *platform.Config, logger *slog.Logger) (ports.ComputeBackend, error) {
+	if cfg.ComputeBackend == "noop" {
+		logger.Info("using no-op compute backend")
+		return noop.NewNoopComputeBackend(), nil
+	}
 	if cfg.ComputeBackend == "libvirt" {
 		logger.Info("using libvirt compute backend")
 		return libvirt.NewLibvirtAdapter(logger, "")
@@ -61,7 +66,12 @@ func InitComputeBackend(cfg *platform.Config, logger *slog.Logger) (ports.Comput
 	return docker.NewDockerAdapter()
 }
 
-func InitNetworkBackend(logger *slog.Logger) ports.NetworkBackend {
+func InitNetworkBackend(cfg *platform.Config, logger *slog.Logger) ports.NetworkBackend {
+	if cfg.NetworkBackend == "noop" {
+		logger.Info("using no-op network backend")
+		return noop.NewNoopNetworkAdapter(logger)
+	}
+
 	ovsAdapter, err := ovs.NewOvsAdapter(logger)
 	if err != nil {
 		logger.Warn("failed to initialize OVS adapter, using no-op network backend", "error", err)

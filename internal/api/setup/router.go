@@ -3,6 +3,7 @@ package setup
 import (
 	"log/slog"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
@@ -98,8 +99,12 @@ func SetupRouter(cfg *platform.Config, logger *slog.Logger, handlers *Handlers, 
 	// Security Middleware
 	r.Use(httputil.SecurityHeadersMiddleware())
 
-	// Rate Limiter (Restored to production values)
-	limiter := ratelimit.NewIPRateLimiter(rate.Limit(5), 10, logger)
+	// Rate Limiter
+	globalRPS, _ := strconv.Atoi(cfg.RateLimitGlobal)
+	if globalRPS <= 0 {
+		globalRPS = 5
+	}
+	limiter := ratelimit.NewIPRateLimiter(rate.Limit(globalRPS), globalRPS*2, logger)
 	r.Use(ratelimit.Middleware(limiter))
 	r.Use(httputil.Metrics())
 
@@ -136,8 +141,12 @@ func SetupRouter(cfg *platform.Config, logger *slog.Logger, handlers *Handlers, 
 		pprof.Register(r)
 	}
 
-	// Auth Rate Limiter (Restored to production values)
-	authLimiter := ratelimit.NewIPRateLimiter(rate.Limit(5.0/60.0), 5, logger)
+	// Auth Rate Limiter
+	authRPM, _ := strconv.Atoi(cfg.RateLimitAuth)
+	if authRPM <= 0 {
+		authRPM = 5
+	}
+	authLimiter := ratelimit.NewIPRateLimiter(rate.Limit(float64(authRPM)/60.0), 5, logger)
 	authMiddleware := ratelimit.Middleware(authLimiter)
 
 	// Identity Routes

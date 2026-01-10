@@ -83,7 +83,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	networkBackend := setup.InitNetworkBackend(logger)
+	networkBackend := setup.InitNetworkBackend(cfg, logger)
 
 	// 4. Dependencies
 	repos := setup.InitRepositories(db, rdb)

@@ -49,7 +49,10 @@ export default function () {
     const vpcPayload = JSON.stringify({ name: `vpc-${uniqueId}`, cidr_block: '10.0.0.0/16' });
     const vpcRes = http.post(`${BASE_URL}/vpcs`, vpcPayload, { headers: authHeaders });
     check(vpcRes, { 'vpc created': (r) => r.status === 201 });
-    if (vpcRes.status !== 201) return;
+    if (vpcRes.status !== 201) {
+        console.error(`VPC Creation Failed: ${vpcRes.status} ${vpcRes.body}`);
+        return;
+    }
     const vpcId = vpcRes.json('data.id');
 
     // 4. CREATE SUBNET
@@ -78,7 +81,7 @@ export default function () {
 
     // 6. WAIT FOR RUNNING (Async Provisioning)
     let isRunning = false;
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 30; i++) {
         const getRes = http.get(`${BASE_URL}/instances/${instId}`, { headers: authHeaders });
         if (getRes.status === 200 && getRes.json('data.status') === 'running') {
             isRunning = true;

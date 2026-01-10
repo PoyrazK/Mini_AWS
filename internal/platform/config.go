@@ -10,16 +10,19 @@ import (
 type Config struct {
 	Port                 string
 	DatabaseURL          string
+	DatabaseReadURL      string
 	Environment          string
 	SecretsEncryptionKey string
 	ComputeBackend       string
+	NetworkBackend       string
 	DefaultVPCCIDR       string
 	NetworkPoolStart     string
 	NetworkPoolEnd       string
 	DBMaxConns           string
 	DBMinConns           string
 	RedisURL             string
-	DatabaseReadURL      string
+	RateLimitGlobal      string
+	RateLimitAuth        string
 }
 
 func NewConfig() (*Config, error) {
@@ -32,12 +35,15 @@ func NewConfig() (*Config, error) {
 		Environment:          getEnv("APP_ENV", "development"),
 		SecretsEncryptionKey: os.Getenv("SECRETS_ENCRYPTION_KEY"),
 		ComputeBackend:       getEnv("COMPUTE_BACKEND", "docker"),
+		NetworkBackend:       getEnv("NETWORK_BACKEND", "ovs"),
 		DefaultVPCCIDR:       getEnv("DEFAULT_VPC_CIDR", "10.0.0.0/16"),
 		NetworkPoolStart:     getEnv("NETWORK_POOL_START", "192.168.100.0"),
 		NetworkPoolEnd:       getEnv("NETWORK_POOL_END", "192.168.200.255"),
 		DBMaxConns:           getEnv("DB_MAX_CONNS", "20"),
 		DBMinConns:           getEnv("DB_MIN_CONNS", "2"),
 		RedisURL:             getEnv("REDIS_URL", "localhost:6379"),
+		RateLimitGlobal:      getEnv("RATE_LIMIT_GLOBAL", "5"),
+		RateLimitAuth:        getEnv("RATE_LIMIT_AUTH", "5"), // Per minute
 	}, nil
 }
 
