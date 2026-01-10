@@ -40,14 +40,20 @@ func (s *rbacService) HasPermission(ctx context.Context, userID uuid.UUID, permi
 	// 1. Get user
 	user, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
+		s.logger.Error("RBAC: failed to get user", "user_id", userID, "error", err)
 		return false, fmt.Errorf("failed to get user: %w", err)
 	}
 
-	// 2. Get role
+	s.logger.Debug("RBAC: checking permission", "user_id", userID, "user_role", user.Role, "permission", permission)
+
+	// 2. Get role from DB
 	role, err := s.roleRepo.GetRoleByName(ctx, user.Role)
 	if err != nil {
+		s.logger.Debug("RBAC: role not found in DB, using default permissions", "role", user.Role, "error", err)
 		return s.hasDefaultPermission(user.Role, permission)
 	}
+
+	s.logger.Debug("RBAC: found role in DB", "role", role.Name, "permissions_count", len(role.Permissions))
 
 	// 3. Check permissions
 	for _, p := range role.Permissions {
@@ -59,6 +65,7 @@ func (s *rbacService) HasPermission(ctx context.Context, userID uuid.UUID, permi
 		}
 	}
 
+	s.logger.Warn("RBAC: permission denied (role in DB but permission not listed)", "role", role.Name, "permission", permission)
 	return false, nil
 }
 
@@ -129,22 +136,27 @@ func (s *rbacService) ListRoleBindings(ctx context.Context) ([]*domain.User, err
 
 func (s *rbacService) hasDefaultPermission(roleName string, permission domain.Permission) (bool, error) {
 	// Fallback to default roles if not found in DB
+	s.logger.Debug("RBAC: checking default permission", "role", roleName, "permission", permission)
+
 	switch roleName {
 	case domain.RoleAdmin:
+		s.logger.Debug("RBAC: admin role, granting permission", "permission", permission)
 		return true, nil
 	case domain.RoleViewer:
 		if permission == domain.PermissionInstanceRead ||
 			permission == domain.PermissionVolumeRead ||
 			permission == domain.PermissionVpcRead {
+			s.logger.Debug("RBAC: viewer role, granting read permission", "permission", permission)
 			return true, nil
 		}
 	case domain.RoleDeveloper:
 		// Developer gets most things except RBAC management
 		if permission != domain.PermissionFullAccess {
+			s.logger.Debug("RBAC: developer role, granting permission", "permission", permission)
 			return true, nil
 		}
 	}
 
-	s.logger.Warn("role not found in DB and no default fallback", "role", roleName)
+	s.logger.Warn("role not found in DB and no default fallback", "role", roleName, "permission", permission)
 	return false, nil
 }
