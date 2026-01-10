@@ -32,9 +32,9 @@ spec:
         - name: POOL_MODE
           value: transaction
         - name: MAX_CLIENT_CONN
-          value: "10000"
+          value: "20000"  # Increased for 10 API + 20 workers = 30 pods * ~100 conns each
         - name: DEFAULT_POOL_SIZE
-          value: "100"
+          value: "200"     # Increased pool to backend database
         - name: AUTH_TYPE
           value: "plain" # Trust auth from internal clients, or use 'md5'/'scram-sha-256' matching PG. 'plain' is easiest for k8s internal.
           

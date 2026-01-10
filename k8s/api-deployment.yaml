@@ -6,7 +6,7 @@ metadata:
   labels:
     app: cloud-api
 spec:
-  replicas: 5 # Initial scale
+  replicas: 10  # Initial replicas for 10K users, HPA will scale up to 20 # Initial scale
   selector:
     matchLabels:
       app: cloud-api

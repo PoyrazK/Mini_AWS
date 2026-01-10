@@ -6,7 +6,7 @@ metadata:
   labels:
     app: cloud-worker
 spec:
-  replicas: 3
+  replicas: 20  # Scaled for 10K concurrent users
   selector:
     matchLabels:
       app: cloud-worker

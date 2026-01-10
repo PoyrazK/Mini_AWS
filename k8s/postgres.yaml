@@ -26,6 +26,8 @@ spec:
           value: cloud
         - name: POSTGRES_DB
           value: thecloud
+        - name: POSTGRES_ARGS
+          value: "-c max_connections=300"  # Increased from default 100 to support PgBouncer pool of 200
         resources:
           requests:
             cpu: "250m"
