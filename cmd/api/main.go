@@ -86,7 +86,7 @@ func main() {
 	networkBackend := setup.InitNetworkBackend(logger)
 
 	// 4. Dependencies
-	repos := setup.InitRepositories(db)
+	repos := setup.InitRepositories(db, rdb)
 
 	// We need LBProxy for services initialization
 	lbProxy, err := setup.InitLBProxy(cfg, computeBackend, repos.Instance, repos.Vpc)
@@ -109,11 +109,12 @@ func main() {
 	// 6. Background Workers
 	wg := &sync.WaitGroup{}
 	workerCtx, workerCancel := context.WithCancel(context.Background())
-	wg.Add(4)
+	wg.Add(5)
 	go workers.LB.Run(workerCtx, wg)
 	go workers.AutoScaling.Run(workerCtx, wg)
 	go workers.Cron.Run(workerCtx, wg)
 	go workers.Container.Run(workerCtx, wg)
+	go workers.Provision.Run(workerCtx, wg)
 
 	// 7. Server
 	srv := &http.Server{

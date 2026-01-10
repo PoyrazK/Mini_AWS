@@ -34,6 +34,7 @@ func BenchmarkRealWorldLifecycle(b *testing.B) {
 		Network:    network,
 		EventSvc:   eventSvc,
 		AuditSvc:   auditSvc,
+		TaskQueue:  &services.TaskQueueStub{},
 		Logger:     logger,
 	})
 
@@ -78,6 +79,7 @@ func BenchmarkRealWorldLifecycleParallel(b *testing.B) {
 		Network:    network,
 		EventSvc:   eventSvc,
 		AuditSvc:   auditSvc,
+		TaskQueue:  &services.TaskQueueStub{},
 		Logger:     logger,
 	})
 

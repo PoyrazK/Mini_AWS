@@ -15,6 +15,16 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+type scaleTaskQueue struct{}
+
+func (q *scaleTaskQueue) Enqueue(ctx context.Context, queueName string, payload interface{}) error {
+	return nil
+}
+
+func (q *scaleTaskQueue) Dequeue(ctx context.Context, queueName string) (string, error) {
+	return "", nil
+}
+
 func BenchmarkInstanceServiceList(b *testing.B) {
 	// Setup
 	repo := &noop.NoopInstanceRepository{}
@@ -36,6 +46,7 @@ func BenchmarkInstanceServiceList(b *testing.B) {
 		Network:    network,
 		EventSvc:   eventSvc,
 		AuditSvc:   auditSvc,
+		TaskQueue:  &TaskQueueStub{},
 		Logger:     logger,
 	})
 
@@ -83,6 +94,7 @@ func BenchmarkInstanceServiceCreate(b *testing.B) {
 		Network:    network,
 		EventSvc:   eventSvc,
 		AuditSvc:   auditSvc,
+		TaskQueue:  &TaskQueueStub{},
 		Logger:     logger,
 	})
 
@@ -136,6 +148,7 @@ func BenchmarkInstanceServiceCreateParallel(b *testing.B) {
 		Network:    network,
 		EventSvc:   eventSvc,
 		AuditSvc:   auditSvc,
+		TaskQueue:  &TaskQueueStub{},
 		Logger:     logger,
 	})
 

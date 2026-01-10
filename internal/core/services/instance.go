@@ -31,6 +31,7 @@ type InstanceService struct {
 	network    ports.NetworkBackend
 	eventSvc   ports.EventService
 	auditSvc   ports.AuditService
+	taskQueue  ports.TaskQueue
 	logger     *slog.Logger
 }
 
@@ -44,6 +45,7 @@ type InstanceServiceParams struct {
 	Network    ports.NetworkBackend
 	EventSvc   ports.EventService
 	AuditSvc   ports.AuditService
+	TaskQueue  ports.TaskQueue
 	Logger     *slog.Logger
 }
 
@@ -58,6 +60,7 @@ func NewInstanceService(params InstanceServiceParams) *InstanceService {
 		network:    params.Network,
 		eventSvc:   params.EventSvc,
 		auditSvc:   params.AuditSvc,
+		taskQueue:  params.TaskQueue,
 		logger:     params.Logger,
 	}
 }
@@ -66,7 +69,7 @@ func NewInstanceService(params InstanceServiceParams) *InstanceService {
 // and attaches any requested volumes.
 func (s *InstanceService) LaunchInstance(ctx context.Context, name, image, ports string, vpcID, subnetID *uuid.UUID, volumes []domain.VolumeAttachment) (*domain.Instance, error) {
 	// 1. Validate ports if provided
-	portList, err := s.parseAndValidatePorts(ports)
+	_, err := s.parseAndValidatePorts(ports)
 	if err != nil {
 		return nil, err
 	}
@@ -86,59 +89,74 @@ func (s *InstanceService) LaunchInstance(ctx context.Context, name, image, ports
 		UpdatedAt: time.Now(),
 	}
 
-	// 3. Persist to DB first (Pending state)
 	if err := s.repo.Create(ctx, inst); err != nil {
 		return nil, err
 	}
 
-	// 4. Call Docker to create actual container
-	// 4. Call Docker to create actual container
+	// 4. Enqueue provision task
+	job := domain.ProvisionJob{
+		InstanceID: inst.ID,
+		Volumes:    volumes,
+	}
+
+	if err := s.taskQueue.Enqueue(ctx, "provision_queue", job); err != nil {
+		s.logger.Error("failed to enqueue provision job", "instance_id", inst.ID, "error", err)
+		// Fallback to sync if queue fails or just return error
+		// For now, return error as we want to guarantee the queue works for 1k users
+		return nil, errors.Wrap(errors.Internal, "failed to enqueue provisioning task", err)
+	}
+
+	return inst, nil
+}
+
+// Provision contains the heavy lifting of instance launch, called by background workers.
+func (s *InstanceService) Provision(ctx context.Context, instanceID uuid.UUID, volumes []domain.VolumeAttachment) error {
+	inst, err := s.repo.GetByID(ctx, instanceID)
+	if err != nil {
+		return err
+	}
+
+	// 1. Call Docker to create actual container
 	dockerName := s.formatContainerName(inst.ID)
 
-	// 4. Resolve networking config
-	networkID, allocatedIP, ovsPort, err := s.resolveNetworkConfig(ctx, vpcID, subnetID)
+	// 2. Resolve networking config
+	networkID, allocatedIP, ovsPort, err := s.resolveNetworkConfig(ctx, inst.VpcID, inst.SubnetID)
 	if err != nil {
-		return nil, err
+		s.updateStatus(ctx, inst, domain.StatusError)
+		return err
 	}
 	inst.PrivateIP = allocatedIP
 	inst.OvsPort = ovsPort
 
-	// 5. Process volume attachments
+	// 3. Process volume attachments
 	volumeBinds, attachedVolumes, err := s.resolveVolumes(ctx, volumes)
 	if err != nil {
-		return nil, err
+		s.updateStatus(ctx, inst, domain.StatusError)
+		return err
 	}
 
-	containerID, err := s.compute.CreateInstance(ctx, dockerName, image, portList, networkID, volumeBinds, nil, nil)
+	portList, _ := s.parseAndValidatePorts(inst.Ports)
+	containerID, err := s.compute.CreateInstance(ctx, dockerName, inst.Image, portList, networkID, volumeBinds, nil, nil)
 	if err != nil {
 		platform.InstanceOperationsTotal.WithLabelValues("launch", "failure").Inc()
-		s.logger.Error("failed to create docker container", "name", dockerName, "image", image, "error", err)
-		inst.Status = domain.StatusError
-		if err := s.repo.Update(ctx, inst); err != nil {
-			s.logger.Error("failed to update instance status after docker create failure", "instance_id", inst.ID, "error", err)
-		}
-		_ = s.eventSvc.RecordEvent(ctx, "INSTANCE_LAUNCH_FAILED", inst.ID.String(), "INSTANCE", map[string]interface{}{
-			"name":  inst.Name,
-			"image": inst.Image,
-			"error": err.Error(),
-		})
-		return nil, errors.Wrap(errors.Internal, "failed to launch container", err)
+		s.updateStatus(ctx, inst, domain.StatusError)
+		return errors.Wrap(errors.Internal, "failed to launch container", err)
 	}
 
-	// 4a. OVS Post-launch plumb
+	// 4. OVS Post-launch plumb
 	if err := s.plumbNetwork(ctx, inst, containerID); err != nil {
 		s.logger.Warn("failed to plumb network", "error", err)
-		// Non-fatal, just warn
 	}
-
-	s.logger.Info("container launched", "instance_id", inst.ID, "container_id", containerID)
 
 	// 5. Update status and save ContainerID
 	inst.Status = domain.StatusRunning
 	inst.ContainerID = containerID
 	if err := s.repo.Update(ctx, inst); err != nil {
-		return nil, err
+		return err
 	}
+
+	// 6. Update volume statuses
+	s.updateVolumesAfterLaunch(ctx, attachedVolumes, inst.ID)
 
 	_ = s.eventSvc.RecordEvent(ctx, "INSTANCE_LAUNCH", inst.ID.String(), "INSTANCE", map[string]interface{}{
 		"name":  inst.Name,
@@ -150,10 +168,12 @@ func (s *InstanceService) LaunchInstance(ctx context.Context, name, image, ports
 		"image": inst.Image,
 	})
 
-	// 6. Update volume statuses
-	s.updateVolumesAfterLaunch(ctx, attachedVolumes, inst.ID)
+	return nil
+}
 
-	return inst, nil
+func (s *InstanceService) updateStatus(ctx context.Context, inst *domain.Instance, status domain.InstanceStatus) {
+	inst.Status = status
+	_ = s.repo.Update(ctx, inst)
 }
 
 func (s *InstanceService) parseAndValidatePorts(ports string) ([]string, error) {

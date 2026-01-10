@@ -9,7 +9,9 @@ import (
 	"github.com/poyrazk/thecloud/internal/platform"
 	"github.com/poyrazk/thecloud/internal/repositories/filesystem"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
-	"github.com/redis/go-redis/v9"
+	"github.com/poyrazk/thecloud/internal/repositories/redis"
+	"github.com/poyrazk/thecloud/internal/workers"
+	redisv9 "github.com/redis/go-redis/v9"
 )
 
 type Repositories struct {
@@ -38,9 +40,10 @@ type Repositories struct {
 	Gateway       ports.GatewayRepository
 	Container     ports.ContainerRepository
 	AutoScaling   ports.AutoScalingRepository
+	TaskQueue     ports.TaskQueue
 }
 
-func InitRepositories(db *pgxpool.Pool) *Repositories {
+func InitRepositories(db *pgxpool.Pool, rdb *redisv9.Client) *Repositories {
 	return &Repositories{
 		Audit:         postgres.NewAuditRepository(db),
 		User:          postgres.NewUserRepo(db),
@@ -67,6 +70,7 @@ func InitRepositories(db *pgxpool.Pool) *Repositories {
 		Gateway:       postgres.NewPostgresGatewayRepository(db),
 		Container:     postgres.NewPostgresContainerRepository(db),
 		AutoScaling:   postgres.NewAutoScalingRepo(db),
+		TaskQueue:     redis.NewRedisTaskQueue(rdb),
 	}
 }
 
@@ -106,6 +110,7 @@ type Workers struct {
 	AutoScaling *services.AutoScalingWorker
 	Cron        *services.CronWorker
 	Container   *services.ContainerWorker
+	Provision   *workers.ProvisionWorker
 }
 
 func InitServices(
@@ -115,7 +120,7 @@ func InitServices(
 	network ports.NetworkBackend,
 	lbProxy ports.LBProxyAdapter,
 	db *pgxpool.Pool, // needed for HealthService
-	rdb *redis.Client,
+	rdb *redisv9.Client,
 	logger *slog.Logger,
 ) (*Services, *Workers, error) {
 	// Audit Service
@@ -142,6 +147,7 @@ func InitServices(
 		Network:    network,
 		EventSvc:   eventSvc,
 		AuditSvc:   auditSvc,
+		TaskQueue:  repos.TaskQueue,
 		Logger:     logger,
 	})
 	sgSvc := services.NewSecurityGroupService(repos.SecurityGroup, repos.Vpc, network, auditSvc, logger)
@@ -202,6 +208,8 @@ func InitServices(
 	asgSvc := services.NewAutoScalingService(repos.AutoScaling, repos.Vpc, auditSvc)
 	asgWorker := services.NewAutoScalingWorker(repos.AutoScaling, instanceSvc, lbSvc, eventSvc, ports.RealClock{})
 
+	provisionWorker := workers.NewProvisionWorker(instanceSvc, repos.TaskQueue, logger)
+
 	svcs := &Services{
 		Audit: auditSvc, Identity: identitySvc, Auth: authSvc, PasswordReset: pwdResetSvc,
 		RBAC: rbacSvc, Vpc: vpcSvc, Subnet: subnetSvc, Event: eventSvc, Volume: volumeSvc,
@@ -212,9 +220,10 @@ func InitServices(
 		AutoScaling: asgSvc,
 	}
 
-	workers := &Workers{
+	workersCollection := &Workers{
 		LB: lbWorker, AutoScaling: asgWorker, Cron: cronWorker, Container: containerWorker,
+		Provision: provisionWorker,
 	}
 
-	return svcs, workers, nil
+	return svcs, workersCollection, nil
 }
