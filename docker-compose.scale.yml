@@ -1,0 +1,17 @@
+services:
+  lb:
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - api
+    networks:
+      - cloud-network
+
+  api:
+    deploy:
+      replicas: 3
+    networks:
+      - cloud-network
