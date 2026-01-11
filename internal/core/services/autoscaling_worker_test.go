@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-func setupAutoScalingWorkerTest(t *testing.T) (*MockAutoScalingRepo, *MockInstanceService, *MockLBService, *MockEventService, *MockClock, *services.AutoScalingWorker) {
+func setupAutoScalingWorkerTest(_ *testing.T) (*MockAutoScalingRepo, *MockInstanceService, *MockLBService, *MockEventService, *MockClock, *services.AutoScalingWorker) {
 	mockRepo := new(MockAutoScalingRepo)
 	mockInstSvc := new(MockInstanceService)
 	mockLBSvc := new(MockLBService)

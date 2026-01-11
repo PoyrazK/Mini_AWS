@@ -51,7 +51,7 @@ func (m *MockSecretRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	return args.Error(0)
 }
 
-func setupSecretServiceTest(t *testing.T) (*MockSecretRepo, *MockEventService, *MockAuditService, ports.SecretService) {
+func setupSecretServiceTest(_ *testing.T) (*MockSecretRepo, *MockEventService, *MockAuditService, ports.SecretService) {
 	repo := new(MockSecretRepo)
 	eventSvc := new(MockEventService)
 	auditSvc := new(MockAuditService)

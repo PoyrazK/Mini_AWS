@@ -58,7 +58,7 @@ func (m *mockDatabaseService) GetConnectionString(ctx context.Context, id uuid.U
 	return args.String(0), args.Error(1)
 }
 
-func setupDatabaseHandlerTest(t *testing.T) (*mockDatabaseService, *DatabaseHandler, *gin.Engine) {
+func setupDatabaseHandlerTest(_ *testing.T) (*mockDatabaseService, *DatabaseHandler, *gin.Engine) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockDatabaseService)
 	handler := NewDatabaseHandler(svc)

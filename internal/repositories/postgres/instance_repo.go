@@ -17,8 +17,6 @@ type InstanceRepository struct {
 	db DB
 }
 
-const errScanInstance = "failed to scan instance"
-
 // NewInstanceRepository creates a new InstanceRepository with the given database pool.
 func NewInstanceRepository(db DB) *InstanceRepository {
 	return &InstanceRepository{db: db}

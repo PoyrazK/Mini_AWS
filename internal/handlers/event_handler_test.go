@@ -30,7 +30,7 @@ func (m *mockEventService) ListEvents(ctx context.Context, limit int) ([]*domain
 	return args.Get(0).([]*domain.Event), args.Error(1)
 }
 
-func setupEventHandlerTest(t *testing.T) (*mockEventService, *EventHandler, *gin.Engine) {
+func setupEventHandlerTest(_ *testing.T) (*mockEventService, *EventHandler, *gin.Engine) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockEventService)
 	handler := NewEventHandler(svc)

@@ -64,7 +64,7 @@ func (m *mockPasswordResetService) ResetPassword(ctx context.Context, token, new
 	return args.Error(0)
 }
 
-func setupAuthHandlerTest(t *testing.T) (*mockAuthService, *mockPasswordResetService, *AuthHandler, *gin.Engine) {
+func setupAuthHandlerTest(_ *testing.T) (*mockAuthService, *mockPasswordResetService, *AuthHandler, *gin.Engine) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockAuthService)
 	pwdSvc := new(mockPasswordResetService)

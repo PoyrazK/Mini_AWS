@@ -66,7 +66,7 @@ func (m *mockNotifyService) Publish(ctx context.Context, topicID uuid.UUID, body
 	return args.Error(0)
 }
 
-func setupNotifyHandlerTest(t *testing.T) (*mockNotifyService, *NotifyHandler, *gin.Engine) {
+func setupNotifyHandlerTest(_ *testing.T) (*mockNotifyService, *NotifyHandler, *gin.Engine) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockNotifyService)
 	handler := NewNotifyHandler(svc)

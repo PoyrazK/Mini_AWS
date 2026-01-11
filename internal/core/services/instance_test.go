@@ -21,7 +21,7 @@ const (
 	testVPCNetwork = "br-vpc-123"
 )
 
-func setupInstanceServiceTest(t *testing.T) (*MockInstanceRepo, *MockVpcRepo, *MockSubnetRepo, *MockVolumeRepo, *MockComputeBackend, *MockNetworkBackend, *MockEventService, *MockAuditService, *services.TaskQueueStub, ports.InstanceService) {
+func setupInstanceServiceTest(_ *testing.T) (*MockInstanceRepo, *MockVpcRepo, *MockSubnetRepo, *MockVolumeRepo, *MockComputeBackend, *MockNetworkBackend, *MockEventService, *MockAuditService, *services.TaskQueueStub, ports.InstanceService) {
 	repo := new(MockInstanceRepo)
 	vpcRepo := new(MockVpcRepo)
 	subnetRepo := new(MockSubnetRepo)

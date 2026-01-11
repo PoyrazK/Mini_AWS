@@ -59,7 +59,7 @@ func (m *mockGatewayService) GetProxy(path string) (*httputil.ReverseProxy, bool
 	return args.Get(0).(*httputil.ReverseProxy), args.Bool(1)
 }
 
-func setupGatewayHandlerTest(t *testing.T) (*mockGatewayService, *GatewayHandler, *gin.Engine) {
+func setupGatewayHandlerTest(_ *testing.T) (*mockGatewayService, *GatewayHandler, *gin.Engine) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockGatewayService)
 	handler := NewGatewayHandler(svc)

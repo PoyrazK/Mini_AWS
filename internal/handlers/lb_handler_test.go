@@ -66,7 +66,7 @@ func (m *mockLBService) ListTargets(ctx context.Context, lbID uuid.UUID) ([]*dom
 	return args.Get(0).([]*domain.LBTarget), args.Error(1)
 }
 
-func setupLBHandlerTest(t *testing.T) (*mockLBService, *LBHandler, *gin.Engine) {
+func setupLBHandlerTest(_ *testing.T) (*mockLBService, *LBHandler, *gin.Engine) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockLBService)
 	handler := NewLBHandler(svc)

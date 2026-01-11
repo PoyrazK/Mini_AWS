@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-func setupRBACServiceTest(t *testing.T) (*MockUserRepo, *MockRoleRepo, ports.RBACService) {
+func setupRBACServiceTest(_ *testing.T) (*MockUserRepo, *MockRoleRepo, ports.RBACService) {
 	userRepo := new(MockUserRepo)
 	roleRepo := new(MockRoleRepo)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))

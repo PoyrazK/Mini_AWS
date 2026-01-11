@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-func setupStackServiceTest(t *testing.T) (*MockStackRepo, *MockInstanceService, *MockVpcService, *MockVolumeService, *MockSnapshotService, ports.StackService) {
+func setupStackServiceTest(_ *testing.T) (*MockStackRepo, *MockInstanceService, *MockVpcService, *MockVolumeService, *MockSnapshotService, ports.StackService) {
 	repo := new(MockStackRepo)
 	instanceSvc := new(MockInstanceService)
 	vpcSvc := new(MockVpcService)

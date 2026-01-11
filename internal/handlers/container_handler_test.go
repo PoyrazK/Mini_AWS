@@ -60,7 +60,7 @@ func (m *mockContainerService) DeleteDeployment(ctx context.Context, id uuid.UUI
 	return args.Error(0)
 }
 
-func setupContainerHandlerTest(t *testing.T) (*mockContainerService, *ContainerHandler, *gin.Engine) {
+func setupContainerHandlerTest(_ *testing.T) (*mockContainerService, *ContainerHandler, *gin.Engine) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockContainerService)
 	handler := NewContainerHandler(svc)

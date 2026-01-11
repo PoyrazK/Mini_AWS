@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-func setupCronWorkerTest(t *testing.T) (*MockCronRepo, *services.CronWorker) {
+func setupCronWorkerTest(_ *testing.T) (*MockCronRepo, *services.CronWorker) {
 	repo := new(MockCronRepo)
 	worker := services.NewCronWorker(repo)
 	return repo, worker
