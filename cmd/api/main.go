@@ -101,7 +101,17 @@ func main() {
 		os.Exit(1)
 	}
 
-	svcs, workers, err := setup.InitServices(cfg, repos, computeBackend, storageBackend, networkBackend, lbProxy, db, rdb, logger)
+	svcs, workers, err := setup.InitServices(setup.ServiceConfig{
+		Config:  cfg,
+		Repos:   repos,
+		Compute: computeBackend,
+		Storage: storageBackend,
+		Network: networkBackend,
+		LBProxy: lbProxy,
+		DB:      db,
+		RDB:     rdb,
+		Logger:  logger,
+	})
 	if err != nil {
 		logger.Error("failed to initialize services", "error", err)
 		os.Exit(1)
@@ -122,13 +132,7 @@ func main() {
 	workerCtx, workerCancel := context.WithCancel(context.Background())
 
 	if role == "worker" || role == "all" {
-		wg.Add(6)
-		go workers.LB.Run(workerCtx, wg)
-		go workers.AutoScaling.Run(workerCtx, wg)
-		go workers.Cron.Run(workerCtx, wg)
-		go workers.Container.Run(workerCtx, wg)
-		go workers.Provision.Run(workerCtx, wg)
-		go workers.Accounting.Run(workerCtx, wg)
+		runWorkers(workerCtx, wg, workers)
 	}
 
 	// 7. Server
@@ -167,4 +171,14 @@ func main() {
 	wg.Wait()
 
 	logger.Info("server exited")
+}
+
+func runWorkers(ctx context.Context, wg *sync.WaitGroup, workers *setup.Workers) {
+	wg.Add(6)
+	go workers.LB.Run(ctx, wg)
+	go workers.AutoScaling.Run(ctx, wg)
+	go workers.Cron.Run(ctx, wg)
+	go workers.Container.Run(ctx, wg)
+	go workers.Provision.Run(ctx, wg)
+	go workers.Accounting.Run(ctx, wg)
 }

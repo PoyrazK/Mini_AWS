@@ -119,17 +119,30 @@ type Workers struct {
 	Accounting  *workers.AccountingWorker
 }
 
-func InitServices(
-	cfg *platform.Config,
-	repos *Repositories,
-	compute ports.ComputeBackend,
-	storage ports.StorageBackend,
-	network ports.NetworkBackend,
-	lbProxy ports.LBProxyAdapter,
-	db postgres.DB, // needed for HealthService
-	rdb *redisv9.Client,
-	logger *slog.Logger,
-) (*Services, *Workers, error) {
+// ServiceConfig holds the dependencies required to initialize services
+type ServiceConfig struct {
+	Config  *platform.Config
+	Repos   *Repositories
+	Compute ports.ComputeBackend
+	Storage ports.StorageBackend
+	Network ports.NetworkBackend
+	LBProxy ports.LBProxyAdapter
+	DB      postgres.DB
+	RDB     *redisv9.Client
+	Logger  *slog.Logger
+}
+
+func InitServices(c ServiceConfig) (*Services, *Workers, error) {
+	// Convenience variables
+	cfg := c.Config
+	repos := c.Repos
+	compute := c.Compute
+	storage := c.Storage
+	network := c.Network
+	lbProxy := c.LBProxy
+	db := c.DB
+	rdb := c.RDB
+	logger := c.Logger
 	// Audit Service
 	auditSvc := services.NewAuditService(repos.Audit)
 

@@ -22,6 +22,9 @@ type SnapshotService struct {
 	logger     *slog.Logger
 }
 
+const snapshotNamePrefix = "thecloud-snap-"
+const volumeNamePrefix = "thecloud-vol-"
+
 func NewSnapshotService(
 	repo ports.SnapshotRepository,
 	volumeRepo ports.VolumeRepository,
@@ -100,8 +103,8 @@ func (s *SnapshotService) GetSnapshot(ctx context.Context, id uuid.UUID) (*domai
 }
 
 func (s *SnapshotService) performSnapshot(ctx context.Context, vol *domain.Volume, snapshot *domain.Snapshot) error {
-	backendVolName := "thecloud-vol-" + vol.ID.String()[:8]
-	backendSnapName := "thecloud-snap-" + snapshot.ID.String()[:8]
+	backendVolName := volumeNamePrefix + vol.ID.String()[:8]
+	backendSnapName := snapshotNamePrefix + snapshot.ID.String()[:8]
 
 	if err := s.storage.CreateSnapshot(ctx, backendVolName, backendSnapName); err != nil {
 		return fmt.Errorf("failed to create block volume snapshot: %w", err)
@@ -117,7 +120,7 @@ func (s *SnapshotService) DeleteSnapshot(ctx context.Context, id uuid.UUID) erro
 	}
 
 	// 1. Delete from Backend
-	backendSnapName := "thecloud-snap-" + snapshot.ID.String()[:8]
+	backendSnapName := snapshotNamePrefix + snapshot.ID.String()[:8]
 	if err := s.storage.DeleteSnapshot(ctx, backendSnapName); err != nil {
 		s.logger.Warn("failed to delete backend snapshot", "name", backendSnapName, "error", err)
 	}
@@ -155,7 +158,7 @@ func (s *SnapshotService) RestoreSnapshot(ctx context.Context, snapshotID uuid.U
 	}
 
 	// 2. Create Block Volume
-	backendVolName := "thecloud-vol-" + vol.ID.String()[:8]
+	backendVolName := volumeNamePrefix + vol.ID.String()[:8]
 	path, err := s.storage.CreateVolume(ctx, backendVolName, vol.SizeGB)
 	if err != nil {
 		return nil, errors.Wrap(errors.Internal, "failed to create volume for restore", err)
@@ -163,7 +166,7 @@ func (s *SnapshotService) RestoreSnapshot(ctx context.Context, snapshotID uuid.U
 	vol.BackendPath = path
 
 	// 3. Restore snapshot into new volume
-	backendSnapName := "thecloud-snap-" + snapshot.ID.String()[:8]
+	backendSnapName := snapshotNamePrefix + snapshot.ID.String()[:8]
 	if err := s.storage.RestoreSnapshot(ctx, backendVolName, backendSnapName); err != nil {
 		_ = s.storage.DeleteVolume(ctx, backendVolName)
 		return nil, fmt.Errorf("failed to restore volume snapshot: %w", err)

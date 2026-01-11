@@ -35,20 +35,20 @@ func (m *mockInstanceRepo) GetByName(ctx context.Context, name string) (*domain.
 	}
 	return args.Get(0).(*domain.Instance), args.Error(1)
 }
-func (m *mockInstanceRepo) List(ctx context.Context) ([]*domain.Instance, error) {
-	args := m.Called(ctx)
+func (m *mockInstanceRepo) getList(args mock.Arguments) ([]*domain.Instance, error) {
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).([]*domain.Instance), args.Error(1)
+}
+
+func (m *mockInstanceRepo) List(ctx context.Context) ([]*domain.Instance, error) {
+	return m.getList(m.Called(ctx))
 }
 func (m *mockInstanceRepo) ListAll(ctx context.Context) ([]*domain.Instance, error) {
-	args := m.Called(ctx)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).([]*domain.Instance), args.Error(1)
+	return m.getList(m.Called(ctx))
 }
+
 func (m *mockInstanceRepo) ListBySubnet(ctx context.Context, subnetID uuid.UUID) ([]*domain.Instance, error) {
 	args := m.Called(ctx, subnetID)
 	if args.Get(0) == nil {
