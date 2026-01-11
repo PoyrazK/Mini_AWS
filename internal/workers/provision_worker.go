@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
@@ -54,16 +55,18 @@ func (w *ProvisionWorker) Run(ctx context.Context, wg *sync.WaitGroup) {
 				continue
 			}
 
-			w.logger.Info("processing provision job", "instance_id", job.InstanceID)
+			w.logger.Debug("processing provision job", "instance_id", job.InstanceID)
 
-			// Process job
-			// We use a new context for the actual provisioning so it's not canceled by the worker loop immediate next cycle
-			// though BRPop blocks anyway.
-			if err := w.instSvc.Provision(context.Background(), job.InstanceID, job.Volumes); err != nil {
-				w.logger.Error("failed to provision instance", "instance_id", job.InstanceID, "error", err)
-			} else {
-				w.logger.Info("successfully provisioned instance", "instance_id", job.InstanceID)
-			}
+			// Process job concurrently to handle high throughput in load tests
+			go func(job domain.ProvisionJob) {
+				// We use a new context with UserID for authorization
+				ctx := appcontext.WithUserID(context.Background(), job.UserID)
+				if err := w.instSvc.Provision(ctx, job.InstanceID, job.Volumes); err != nil {
+					w.logger.Error("failed to provision instance", "instance_id", job.InstanceID, "error", err)
+				} else {
+					w.logger.Debug("successfully provisioned instance", "instance_id", job.InstanceID)
+				}
+			}(job)
 		}
 	}
 }

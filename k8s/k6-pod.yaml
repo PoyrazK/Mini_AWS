@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: k6-loadtest
+  namespace: thecloud
+  labels:
+    app: k6-loadtest
+spec:
+  containers:
+  - name: k6
+    image: grafana/k6:latest
+    command: ["sleep", "infinity"]
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "512Mi"
+      limits:
+        cpu: "2000m"
+        memory: "2Gi"
+    volumeMounts:
+    - name: test-script
+      mountPath: /tmp/test.js
+      subPath: test.js
+  volumes:
+  - name: test-script
+    configMap:
+      name: k6-test-script
+  restartPolicy: Never

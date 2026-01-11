@@ -96,6 +96,7 @@ func (s *InstanceService) LaunchInstance(ctx context.Context, name, image, ports
 	// 4. Enqueue provision task
 	job := domain.ProvisionJob{
 		InstanceID: inst.ID,
+		UserID:     inst.UserID,
 		Volumes:    volumes,
 	}
 

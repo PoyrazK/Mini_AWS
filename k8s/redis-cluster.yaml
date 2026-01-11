@@ -5,7 +5,7 @@ metadata:
   namespace: thecloud
 spec:
   serviceName: redis-headless
-  replicas: 6
+  replicas: 1
   selector:
     matchLabels:
       app: cloud-redis
@@ -19,12 +19,6 @@ spec:
         image: redis:7-alpine
         command: ["redis-server"]
         args:
-        - "--cluster-enabled"
-        - "yes"
-        - "--cluster-config-file"
-        - "nodes.conf"
-        - "--cluster-node-timeout"
-        - "5000"
         - "--appendonly"
         - "yes"
         ports:
