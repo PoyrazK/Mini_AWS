@@ -594,7 +594,7 @@ func (s *InstanceService) resolveVolumes(ctx context.Context, volumes []domain.V
 	return volumeBinds, attachedVolumes, nil
 }
 
-func (s *InstanceService) plumbNetwork(ctx context.Context, inst *domain.Instance, containerID string) error {
+func (s *InstanceService) plumbNetwork(ctx context.Context, inst *domain.Instance, _ string) error {
 	if inst.OvsPort == "" || s.network == nil {
 		return nil
 	}

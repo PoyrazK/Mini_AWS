@@ -112,7 +112,7 @@ func (s *SubnetService) DeleteSubnet(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-func (s *SubnetService) calculateGatewayIP(ip net.IP, n *net.IPNet) string {
+func (s *SubnetService) calculateGatewayIP(ip net.IP, _ *net.IPNet) string {
 	// Simple implementation: IP + 1
 	gw := make(net.IP, len(ip))
 	copy(gw, ip)

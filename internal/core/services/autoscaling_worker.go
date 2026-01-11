@@ -274,7 +274,7 @@ func (w *AutoScalingWorker) triggerScaleIn(ctx context.Context, group *domain.Sc
 	return true
 }
 
-func (w *AutoScalingWorker) scaleOut(ctx context.Context, group *domain.ScalingGroup, policy *domain.ScalingPolicy) error {
+func (w *AutoScalingWorker) scaleOut(ctx context.Context, group *domain.ScalingGroup, _ *domain.ScalingPolicy) error {
 	// Create instance
 	name := fmt.Sprintf("%s-%d", group.Name, w.clock.Now().UnixNano()) // Unique name
 
@@ -308,7 +308,7 @@ func (w *AutoScalingWorker) scaleOut(ctx context.Context, group *domain.ScalingG
 	return nil
 }
 
-func (w *AutoScalingWorker) scaleIn(ctx context.Context, group *domain.ScalingGroup, instanceID uuid.UUID, policy *domain.ScalingPolicy) error {
+func (w *AutoScalingWorker) scaleIn(ctx context.Context, group *domain.ScalingGroup, instanceID uuid.UUID, _ *domain.ScalingPolicy) error {
 	// Remove from LB
 	if group.LoadBalancerID != nil {
 		if err := w.lbSvc.RemoveTarget(ctx, *group.LoadBalancerID, instanceID); err != nil {

@@ -660,7 +660,7 @@ func (a *LibvirtAdapter) RestoreVolumeSnapshot(ctx context.Context, volumeID str
 
 	return nil
 }
-func (a *LibvirtAdapter) generateCloudInitISO(ctx context.Context, name string, env []string, cmd []string) (string, error) {
+func (a *LibvirtAdapter) generateCloudInitISO(_ context.Context, name string, env []string, cmd []string) (string, error) {
 	safeName := a.sanitizeDomainName(name)
 
 	tmpDir, err := os.MkdirTemp("", prefixCloudInit+safeName)
