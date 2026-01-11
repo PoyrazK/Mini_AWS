@@ -2,7 +2,6 @@ package postgres
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -38,34 +37,14 @@ func (r *VpcRepository) Create(ctx context.Context, vpc *domain.VPC) error {
 func (r *VpcRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.VPC, error) {
 	userID := appcontext.UserIDFromContext(ctx)
 	query := `SELECT id, user_id, name, COALESCE(cidr_block::text, ''), network_id, vxlan_id, status, arn, created_at FROM vpcs WHERE id = $1 AND user_id = $2`
-	var vpc domain.VPC
-	err := r.db.QueryRow(ctx, query, id, userID).Scan(
-		&vpc.ID, &vpc.UserID, &vpc.Name, &vpc.CIDRBlock, &vpc.NetworkID, &vpc.VXLANID, &vpc.Status, &vpc.ARN, &vpc.CreatedAt,
-	)
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			return nil, errors.New(errors.NotFound, fmt.Sprintf("vpc %s not found", id))
-		}
-		return nil, errors.Wrap(errors.Internal, "failed to get vpc", err)
-	}
-	return &vpc, nil
+	return r.scanVPC(r.db.QueryRow(ctx, query, id, userID))
 }
 
 // GetByName retrieves a single VPC by its name and ensures it belongs to the authenticated user.
 func (r *VpcRepository) GetByName(ctx context.Context, name string) (*domain.VPC, error) {
 	userID := appcontext.UserIDFromContext(ctx)
 	query := `SELECT id, user_id, name, COALESCE(cidr_block::text, ''), network_id, vxlan_id, status, arn, created_at FROM vpcs WHERE name = $1 AND user_id = $2`
-	var vpc domain.VPC
-	err := r.db.QueryRow(ctx, query, name, userID).Scan(
-		&vpc.ID, &vpc.UserID, &vpc.Name, &vpc.CIDRBlock, &vpc.NetworkID, &vpc.VXLANID, &vpc.Status, &vpc.ARN, &vpc.CreatedAt,
-	)
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			return nil, errors.New(errors.NotFound, fmt.Sprintf("vpc name %s not found", name))
-		}
-		return nil, errors.Wrap(errors.Internal, "failed to get vpc by name", err)
-	}
-	return &vpc, nil
+	return r.scanVPC(r.db.QueryRow(ctx, query, name, userID))
 }
 
 // List returns all VPCs belonging to the authenticated user.
@@ -76,18 +55,30 @@ func (r *VpcRepository) List(ctx context.Context) ([]*domain.VPC, error) {
 	if err != nil {
 		return nil, errors.Wrap(errors.Internal, "failed to list vpcs", err)
 	}
-	defer rows.Close()
+	return r.scanVPCs(rows)
+}
 
+func (r *VpcRepository) scanVPC(row pgx.Row) (*domain.VPC, error) {
+	var vpc domain.VPC
+	err := row.Scan(&vpc.ID, &vpc.UserID, &vpc.Name, &vpc.CIDRBlock, &vpc.NetworkID, &vpc.VXLANID, &vpc.Status, &vpc.ARN, &vpc.CreatedAt)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, errors.New(errors.NotFound, "vpc not found")
+		}
+		return nil, errors.Wrap(errors.Internal, "failed to scan vpc", err)
+	}
+	return &vpc, nil
+}
+
+func (r *VpcRepository) scanVPCs(rows pgx.Rows) ([]*domain.VPC, error) {
+	defer rows.Close()
 	var vpcs []*domain.VPC
 	for rows.Next() {
-		var vpc domain.VPC
-		err := rows.Scan(
-			&vpc.ID, &vpc.UserID, &vpc.Name, &vpc.CIDRBlock, &vpc.NetworkID, &vpc.VXLANID, &vpc.Status, &vpc.ARN, &vpc.CreatedAt,
-		)
+		vpc, err := r.scanVPC(rows)
 		if err != nil {
-			return nil, errors.Wrap(errors.Internal, "failed to scan vpc", err)
+			return nil, err
 		}
-		vpcs = append(vpcs, &vpc)
+		vpcs = append(vpcs, vpc)
 	}
 	return vpcs, nil
 }
