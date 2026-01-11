@@ -1,3 +1,4 @@
+// Package lvm implements the StorageBackend interface using Linux Logical Volume Manager.
 package lvm
 
 import (
