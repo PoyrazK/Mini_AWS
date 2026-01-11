@@ -129,6 +129,153 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/images": {
+            "get": {
+                "description": "List available images for the current user and public images",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Images"
+                ],
+                "summary": "List images",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/domain.Image"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Register a new VM image metadata before uploading the actual file",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Images"
+                ],
+                "summary": "Register a new image",
+                "parameters": [
+                    {
+                        "description": "Registration Info",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httphandlers.registerImageRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/domain.Image"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/images/{id}": {
+            "get": {
+                "description": "Get detailed information about a specific image",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Images"
+                ],
+                "summary": "Get image detail",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Image ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.Image"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete an image and its associated file",
+                "tags": [
+                    "Images"
+                ],
+                "summary": "Delete image",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Image ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    }
+                }
+            }
+        },
+        "/api/v1/images/{id}/upload": {
+            "post": {
+                "description": "Upload the actual qcow2 file for a registered image",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Images"
+                ],
+                "summary": "Upload image file",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Image ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "Image File",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/audit": {
             "get": {
                 "produces": [
@@ -738,6 +885,87 @@ const docTemplate = `{
                 }
             }
         },
+        "/billing/summary": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "billing"
+                ],
+                "summary": "Get billing summary",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Start time (RFC3339)",
+                        "name": "start",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "End time (RFC3339)",
+                        "name": "end",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.BillSummary"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/billing/usage": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "billing"
+                ],
+                "summary": "List usage records",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Start time (RFC3339)",
+                        "name": "start",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "End time (RFC3339)",
+                        "name": "end",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/domain.UsageRecord"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/health/live": {
             "get": {
                 "tags": [
@@ -982,8 +1210,8 @@ const docTemplate = `{
                     }
                 ],
                 "responses": {
-                    "201": {
-                        "description": "Created",
+                    "202": {
+                        "description": "Accepted",
                         "schema": {
                             "$ref": "#/definitions/domain.Instance"
                         }
@@ -1076,6 +1304,55 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/instances/{id}/console": {
+            "get": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "description": "Gets a VNC URL for the instance console",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "instances"
+                ],
+                "summary": "Get instance console",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Instance ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
                         }
                     },
                     "404": {
@@ -2609,6 +2886,33 @@ const docTemplate = `{
                 }
             }
         },
+        "domain.BillSummary": {
+            "type": "object",
+            "properties": {
+                "currency": {
+                    "type": "string"
+                },
+                "period_end": {
+                    "type": "string"
+                },
+                "period_start": {
+                    "type": "string"
+                },
+                "total_amount": {
+                    "type": "number"
+                },
+                "usage_by_type": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "number",
+                        "format": "float64"
+                    }
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
         "domain.DashboardStats": {
             "type": "object",
             "properties": {
@@ -2663,6 +2967,65 @@ const docTemplate = `{
                     "type": "string"
                 }
             }
+        },
+        "domain.Image": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "file_path": {
+                    "type": "string"
+                },
+                "format": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "is_public": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "os": {
+                    "type": "string"
+                },
+                "size_gb": {
+                    "type": "integer"
+                },
+                "status": {
+                    "$ref": "#/definitions/domain.ImageStatus"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.ImageStatus": {
+            "type": "string",
+            "enum": [
+                "PENDING",
+                "ACTIVE",
+                "ERROR",
+                "DELETING"
+            ],
+            "x-enum-varnames": [
+                "ImageStatusPending",
+                "ImageStatusActive",
+                "ImageStatusError",
+                "ImageStatusDeleting"
+            ]
         },
         "domain.Instance": {
             "type": "object",
@@ -2928,6 +3291,9 @@ const docTemplate = `{
                 "container:delete",
                 "container:read",
                 "container:scale",
+                "image:create",
+                "image:read",
+                "image:delete",
                 "*"
             ],
             "x-enum-varnames": [
@@ -2990,6 +3356,9 @@ const docTemplate = `{
                 "PermissionContainerDelete",
                 "PermissionContainerRead",
                 "PermissionContainerUpdate",
+                "PermissionImageCreate",
+                "PermissionImageRead",
+                "PermissionImageDelete",
                 "PermissionFullAccess"
             ]
         },
@@ -3018,6 +3387,19 @@ const docTemplate = `{
                     "type": "integer"
                 }
             }
+        },
+        "domain.ResourceType": {
+            "type": "string",
+            "enum": [
+                "INSTANCE",
+                "STORAGE",
+                "NETWORK"
+            ],
+            "x-enum-varnames": [
+                "ResourceInstance",
+                "ResourceStorage",
+                "ResourceNetwork"
+            ]
         },
         "domain.Role": {
             "type": "object",
@@ -3303,6 +3685,37 @@ const docTemplate = `{
                 }
             }
         },
+        "domain.UsageRecord": {
+            "type": "object",
+            "properties": {
+                "end_time": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "quantity": {
+                    "description": "e.g., minutes, GB-hours",
+                    "type": "number"
+                },
+                "resource_id": {
+                    "type": "string"
+                },
+                "resource_type": {
+                    "$ref": "#/definitions/domain.ResourceType"
+                },
+                "start_time": {
+                    "type": "string"
+                },
+                "unit": {
+                    "description": "e.g., \"minute\", \"gb-hour\"",
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
         "domain.User": {
             "type": "object",
             "properties": {
@@ -3362,6 +3775,9 @@ const docTemplate = `{
         "domain.Volume": {
             "type": "object",
             "properties": {
+                "backend_path": {
+                    "type": "string"
+                },
                 "created_at": {
                     "type": "string"
                 },
@@ -3751,6 +4167,31 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "volume_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "httphandlers.registerImageRequest": {
+            "type": "object",
+            "required": [
+                "name",
+                "os",
+                "version"
+            ],
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "is_public": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "os": {
+                    "type": "string"
+                },
+                "version": {
                     "type": "string"
                 }
             }

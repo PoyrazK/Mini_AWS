@@ -38,6 +38,24 @@ definitions:
       user_id:
         type: string
     type: object
+  domain.BillSummary:
+    properties:
+      currency:
+        type: string
+      period_end:
+        type: string
+      period_start:
+        type: string
+      total_amount:
+        type: number
+      usage_by_type:
+        additionalProperties:
+          format: float64
+          type: number
+        type: object
+      user_id:
+        type: string
+    type: object
   domain.DashboardStats:
     properties:
       cpu_history:
@@ -75,6 +93,47 @@ definitions:
       user_id:
         type: string
     type: object
+  domain.Image:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      file_path:
+        type: string
+      format:
+        type: string
+      id:
+        type: string
+      is_public:
+        type: boolean
+      name:
+        type: string
+      os:
+        type: string
+      size_gb:
+        type: integer
+      status:
+        $ref: '#/definitions/domain.ImageStatus'
+      updated_at:
+        type: string
+      user_id:
+        type: string
+      version:
+        type: string
+    type: object
+  domain.ImageStatus:
+    enum:
+    - PENDING
+    - ACTIVE
+    - ERROR
+    - DELETING
+    type: string
+    x-enum-varnames:
+    - ImageStatusPending
+    - ImageStatusActive
+    - ImageStatusError
+    - ImageStatusDeleting
   domain.Instance:
     properties:
       container_id:
@@ -274,6 +333,9 @@ definitions:
     - container:delete
     - container:read
     - container:scale
+    - image:create
+    - image:read
+    - image:delete
     - '*'
     type: string
     x-enum-varnames:
@@ -336,6 +398,9 @@ definitions:
     - PermissionContainerDelete
     - PermissionContainerRead
     - PermissionContainerUpdate
+    - PermissionImageCreate
+    - PermissionImageRead
+    - PermissionImageDelete
     - PermissionFullAccess
   domain.ResourceSummary:
     properties:
@@ -354,6 +419,16 @@ definitions:
       total_vpcs:
         type: integer
     type: object
+  domain.ResourceType:
+    enum:
+    - INSTANCE
+    - STORAGE
+    - NETWORK
+    type: string
+    x-enum-varnames:
+    - ResourceInstance
+    - ResourceStorage
+    - ResourceNetwork
   domain.Role:
     properties:
       description:
@@ -552,6 +627,27 @@ definitions:
       valid:
         type: boolean
     type: object
+  domain.UsageRecord:
+    properties:
+      end_time:
+        type: string
+      id:
+        type: string
+      quantity:
+        description: e.g., minutes, GB-hours
+        type: number
+      resource_id:
+        type: string
+      resource_type:
+        $ref: '#/definitions/domain.ResourceType'
+      start_time:
+        type: string
+      unit:
+        description: e.g., "minute", "gb-hour"
+        type: string
+      user_id:
+        type: string
+    type: object
   domain.User:
     properties:
       created_at:
@@ -591,6 +687,8 @@ definitions:
     type: object
   domain.Volume:
     properties:
+      backend_path:
+        type: string
       created_at:
         type: string
       id:
@@ -860,6 +958,23 @@ definitions:
       volume_id:
         type: string
     type: object
+  httphandlers.registerImageRequest:
+    properties:
+      description:
+        type: string
+      is_public:
+        type: boolean
+      name:
+        type: string
+      os:
+        type: string
+      version:
+        type: string
+    required:
+    - name
+    - os
+    - version
+    type: object
   httputil.Meta:
     properties:
       request_id:
@@ -952,6 +1067,103 @@ paths:
       summary: Get dashboard summary
       tags:
       - dashboard
+  /api/v1/images:
+    get:
+      description: List available images for the current user and public images
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.Image'
+            type: array
+      summary: List images
+      tags:
+      - Images
+    post:
+      consumes:
+      - application/json
+      description: Register a new VM image metadata before uploading the actual file
+      parameters:
+      - description: Registration Info
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httphandlers.registerImageRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/domain.Image'
+      summary: Register a new image
+      tags:
+      - Images
+  /api/v1/images/{id}:
+    delete:
+      description: Delete an image and its associated file
+      parameters:
+      - description: Image ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+      summary: Delete image
+      tags:
+      - Images
+    get:
+      description: Get detailed information about a specific image
+      parameters:
+      - description: Image ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.Image'
+      summary: Get image detail
+      tags:
+      - Images
+  /api/v1/images/{id}/upload:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload the actual qcow2 file for a registered image
+      parameters:
+      - description: Image ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Image File
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Upload image file
+      tags:
+      - Images
   /audit:
     get:
       parameters:
@@ -1335,6 +1547,58 @@ paths:
       summary: Delete a scaling policy
       tags:
       - autoscaling
+  /billing/summary:
+    get:
+      parameters:
+      - description: Start time (RFC3339)
+        in: query
+        name: start
+        type: string
+      - description: End time (RFC3339)
+        in: query
+        name: end
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.BillSummary'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      summary: Get billing summary
+      tags:
+      - billing
+  /billing/usage:
+    get:
+      parameters:
+      - description: Start time (RFC3339)
+        in: query
+        name: start
+        type: string
+      - description: End time (RFC3339)
+        in: query
+        name: end
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.UsageRecord'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      summary: List usage records
+      tags:
+      - billing
   /health/live:
     get:
       responses:
@@ -1490,8 +1754,8 @@ paths:
       produces:
       - application/json
       responses:
-        "201":
-          description: Created
+        "202":
+          description: Accepted
           schema:
             $ref: '#/definitions/domain.Instance'
         "400":
@@ -1562,6 +1826,37 @@ paths:
       security:
       - APIKeyAuth: []
       summary: Get instance details
+      tags:
+      - instances
+  /instances/{id}/console:
+    get:
+      description: Gets a VNC URL for the instance console
+      parameters:
+      - description: Instance ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Get instance console
       tags:
       - instances
   /instances/{id}/logs:
