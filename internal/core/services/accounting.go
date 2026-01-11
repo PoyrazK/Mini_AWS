@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -13,13 +14,15 @@ import (
 type accountingService struct {
 	repo         ports.AccountingRepository
 	instanceRepo ports.InstanceRepository
+	logger       *slog.Logger
 	// In a real system, we'd have price configuration here
 }
 
-func NewAccountingService(repo ports.AccountingRepository, instanceRepo ports.InstanceRepository) ports.AccountingService {
+func NewAccountingService(repo ports.AccountingRepository, instanceRepo ports.InstanceRepository, logger *slog.Logger) ports.AccountingService {
 	return &accountingService{
 		repo:         repo,
 		instanceRepo: instanceRepo,
+		logger:       logger,
 	}
 }
 
@@ -86,8 +89,8 @@ func (s *accountingService) ProcessHourlyBilling(ctx context.Context) error {
 				EndTime:      now,
 			}
 			if err := s.repo.CreateRecord(ctx, record); err != nil {
-				// Log error but continue
-				fmt.Printf("Error recording usage for instance %s: %v\n", inst.ID, err)
+				s.logger.Error("failed to record usage for instance", "instance_id", inst.ID, "error", err)
+				continue
 			}
 		}
 	}

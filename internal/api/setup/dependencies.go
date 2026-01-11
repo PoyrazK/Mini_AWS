@@ -216,7 +216,7 @@ func InitServices(
 	asgSvc := services.NewAutoScalingService(repos.AutoScaling, repos.Vpc, auditSvc)
 	asgWorker := services.NewAutoScalingWorker(repos.AutoScaling, instanceSvc, lbSvc, eventSvc, ports.RealClock{})
 
-	accountingSvc := services.NewAccountingService(repos.Accounting, repos.Instance)
+	accountingSvc := services.NewAccountingService(repos.Accounting, repos.Instance, logger)
 	accountingWorker := workers.NewAccountingWorker(accountingSvc, logger)
 
 	imageSvc := services.NewImageService(repos.Image, fileStore, logger)
