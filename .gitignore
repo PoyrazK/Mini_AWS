@@ -58,4 +58,4 @@ api_test.log
 .mcp.json
 
 # Build artifacts
-api
+/api
