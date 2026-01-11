@@ -83,6 +83,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	storageBackend, err := setup.InitStorageBackend(cfg, logger)
+	if err != nil {
+		logger.Error("failed to initialize storage backend", "error", err)
+		os.Exit(1)
+	}
+
 	networkBackend := setup.InitNetworkBackend(cfg, logger)
 
 	// 4. Dependencies
@@ -95,7 +101,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	svcs, workers, err := setup.InitServices(cfg, repos, computeBackend, networkBackend, lbProxy, db, rdb, logger)
+	svcs, workers, err := setup.InitServices(cfg, repos, computeBackend, storageBackend, networkBackend, lbProxy, db, rdb, logger)
 	if err != nil {
 		logger.Error("failed to initialize services", "error", err)
 		os.Exit(1)

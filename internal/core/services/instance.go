@@ -581,8 +581,11 @@ func (s *InstanceService) resolveVolumes(ctx context.Context, volumes []domain.V
 		if vol.Status != domain.VolumeStatusAvailable {
 			return nil, nil, errors.New(errors.InvalidInput, "volume "+vol.Name+" is not available")
 		}
-		dockerVolName := "thecloud-vol-" + vol.ID.String()[:8]
-		volumeBinds = append(volumeBinds, dockerVolName+":"+va.MountPath)
+		volName := "thecloud-vol-" + vol.ID.String()[:8]
+		if vol.BackendPath != "" {
+			volName = vol.BackendPath
+		}
+		volumeBinds = append(volumeBinds, volName+":"+va.MountPath)
 		attachedVolumes = append(attachedVolumes, vol)
 	}
 	return volumeBinds, attachedVolumes, nil

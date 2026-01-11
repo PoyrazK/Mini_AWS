@@ -282,6 +282,54 @@ func (a *LibvirtAdapter) GetInstancePort(ctx context.Context, id string, interna
 	return 0, fmt.Errorf("no host port mapping found for instance %s port %s", id, internalPort)
 }
 
+func (a *LibvirtAdapter) AttachVolume(ctx context.Context, id string, volumePath string) error {
+	dom, err := a.conn.DomainLookupByName(id)
+	if err != nil {
+		return fmt.Errorf("domain not found: %w", err)
+	}
+
+	// We need to find an available device name (vdb, vdc, etc.)
+	// For simplicity, we'll try to get XML and check existing disks.
+	// In a real implementation we'd have a counter or better logic.
+	dev := "vdb" // Hardcoded for POC
+
+	diskType := "file"
+	driverType := "qcow2"
+	sourceAttr := "file"
+
+	if strings.HasPrefix(volumePath, "/dev/") {
+		diskType = "block"
+		driverType = "raw"
+		sourceAttr = "dev"
+	}
+
+	xml := fmt.Sprintf(`
+    <disk type='%s' device='disk'>
+      <driver name='qemu' type='%s'/>
+      <source %s='%s'/>
+      <target dev='%s' bus='virtio'/>
+    </disk>`, diskType, driverType, sourceAttr, volumePath, dev)
+
+	return a.conn.DomainAttachDevice(dom, xml)
+}
+
+func (a *LibvirtAdapter) DetachVolume(ctx context.Context, id string, volumePath string) error {
+	dom, err := a.conn.DomainLookupByName(id)
+	if err != nil {
+		return fmt.Errorf("domain not found: %w", err)
+	}
+
+	// To detach, we technically only need the target device or a matching XML.
+	// For simplicity, we construct a matching XML.
+	// Note: We'd need the same XML or at least target/source.
+	xml := fmt.Sprintf("<disk type='file' device='disk'><source file='%s'/><target dev='vdb' bus='virtio'/></disk>", volumePath)
+	if strings.HasPrefix(volumePath, "/dev/") {
+		xml = fmt.Sprintf("<disk type='block' device='disk'><source dev='%s'/><target dev='vdb' bus='virtio'/></disk>", volumePath)
+	}
+
+	return a.conn.DomainDetachDevice(dom, xml)
+}
+
 func (a *LibvirtAdapter) GetConsoleURL(ctx context.Context, id string) (string, error) {
 	if err := validateID(id); err != nil {
 		return "", err
@@ -858,16 +906,35 @@ func (a *LibvirtAdapter) resolveBinds(volumeBinds []string) []string {
 	}
 
 	pool, err := a.conn.StoragePoolLookupByName(defaultPoolName)
-	if err != nil {
-		return additionalDisks
-	}
+	// We don't return early if pool lookup fails because we might have LVM volumes
 
-	for _, volName := range volumeBinds {
-		v, err := a.conn.StorageVolLookupByName(pool, volName)
+	for _, bind := range volumeBinds {
+		// Format is name:mountPath
+		parts := strings.Split(bind, ":")
+		volName := parts[0]
+
+		// 1. Check if it's an LVM path
+		if strings.HasPrefix(volName, "/dev/") {
+			additionalDisks = append(additionalDisks, volName)
+			continue
+		}
+
+		// 2. Try libvirt pool lookup (legacy/file-based)
 		if err == nil {
-			path, err := a.conn.StorageVolGetPath(v)
+			v, err := a.conn.StorageVolLookupByName(pool, volName)
 			if err == nil {
-				additionalDisks = append(additionalDisks, path)
+				path, err := a.conn.StorageVolGetPath(v)
+				if err == nil {
+					additionalDisks = append(additionalDisks, path)
+					continue
+				}
+			}
+		}
+
+		// 3. Fallback: Check if it's a direct file path
+		if strings.HasPrefix(volName, "/") {
+			if _, statErr := os.Stat(volName); statErr == nil {
+				additionalDisks = append(additionalDisks, volName)
 			}
 		}
 	}

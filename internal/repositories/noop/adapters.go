@@ -130,13 +130,11 @@ func (c *NoopComputeBackend) WaitTask(ctx context.Context, id string) (int64, er
 func (c *NoopComputeBackend) CreateNetwork(ctx context.Context, name string) (string, error) {
 	return "net-id", nil
 }
-func (c *NoopComputeBackend) DeleteNetwork(ctx context.Context, id string) error  { return nil }
-func (c *NoopComputeBackend) CreateVolume(ctx context.Context, name string) error { return nil }
-func (c *NoopComputeBackend) DeleteVolume(ctx context.Context, name string) error { return nil }
-func (c *NoopComputeBackend) CreateVolumeSnapshot(ctx context.Context, volumeID string, destinationPath string) error {
+func (c *NoopComputeBackend) DeleteNetwork(ctx context.Context, id string) error { return nil }
+func (c *NoopComputeBackend) AttachVolume(ctx context.Context, id string, volumePath string) error {
 	return nil
 }
-func (c *NoopComputeBackend) RestoreVolumeSnapshot(ctx context.Context, volumeID string, sourcePath string) error {
+func (c *NoopComputeBackend) DetachVolume(ctx context.Context, id string, volumePath string) error {
 	return nil
 }
 func (c *NoopComputeBackend) Ping(ctx context.Context) error { return nil }
@@ -276,6 +274,10 @@ func (r *NoopIdentityRepository) ListAPIKeysByUserID(ctx context.Context, userID
 }
 func (r *NoopIdentityRepository) DeleteAPIKey(ctx context.Context, id uuid.UUID) error { return nil }
 
+func NewNoopStorageBackend() ports.StorageBackend {
+	return &NoopStorageBackend{}
+}
+
 type NoopStorageBackend struct{}
 
 func (b *NoopStorageBackend) CreateVolume(ctx context.Context, name string, sizeGB int) (string, error) {
@@ -288,7 +290,8 @@ func (b *NoopStorageBackend) AttachVolume(ctx context.Context, vol, inst string)
 func (b *NoopStorageBackend) DetachVolume(ctx context.Context, vol, inst string) error {
 	return nil
 }
-func (b *NoopStorageBackend) CreateSnapshot(ctx context.Context, vol, snap string) error { return nil }
-func (b *NoopStorageBackend) DeleteSnapshot(ctx context.Context, snap string) error      { return nil }
-func (b *NoopStorageBackend) Ping(ctx context.Context) error                            { return nil }
-func (b *NoopStorageBackend) Type() string                                              { return "noop" }
+func (b *NoopStorageBackend) CreateSnapshot(ctx context.Context, vol, snap string) error  { return nil }
+func (b *NoopStorageBackend) RestoreSnapshot(ctx context.Context, vol, snap string) error { return nil }
+func (b *NoopStorageBackend) DeleteSnapshot(ctx context.Context, snap string) error       { return nil }
+func (b *NoopStorageBackend) Ping(ctx context.Context) error                              { return nil }
+func (b *NoopStorageBackend) Type() string                                                { return "noop" }

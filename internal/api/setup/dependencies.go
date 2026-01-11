@@ -123,6 +123,7 @@ func InitServices(
 	cfg *platform.Config,
 	repos *Repositories,
 	compute ports.ComputeBackend,
+	storage ports.StorageBackend,
 	network ports.NetworkBackend,
 	lbProxy ports.LBProxyAdapter,
 	db postgres.DB, // needed for HealthService
@@ -144,7 +145,7 @@ func InitServices(
 	eventSvc := services.NewEventService(repos.Event, logger)
 	vpcSvc := services.NewVpcService(repos.Vpc, network, auditSvc, logger, cfg.DefaultVPCCIDR)
 	subnetSvc := services.NewSubnetService(repos.Subnet, repos.Vpc, auditSvc, logger)
-	volumeSvc := services.NewVolumeService(repos.Volume, compute, eventSvc, auditSvc, logger)
+	volumeSvc := services.NewVolumeService(repos.Volume, storage, eventSvc, auditSvc, logger)
 	instanceSvc := services.NewInstanceService(services.InstanceServiceParams{
 		Repo:       repos.Instance,
 		VpcRepo:    repos.Vpc,
@@ -167,7 +168,7 @@ func InitServices(
 	dashboardSvc := services.NewDashboardService(repos.Instance, repos.Volume, repos.Vpc, repos.Event, logger)
 
 	// Snapshot
-	snapshotSvc := services.NewSnapshotService(repos.Snapshot, repos.Volume, compute, eventSvc, auditSvc, logger)
+	snapshotSvc := services.NewSnapshotService(repos.Snapshot, repos.Volume, storage, eventSvc, auditSvc, logger)
 
 	// Stack (IaC)
 	stackSvc := services.NewStackService(repos.Stack, instanceSvc, vpcSvc, volumeSvc, snapshotSvc, logger)

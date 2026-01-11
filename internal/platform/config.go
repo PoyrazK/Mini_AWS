@@ -23,6 +23,7 @@ type Config struct {
 	RedisURL             string
 	RateLimitGlobal      string
 	RateLimitAuth        string
+	StorageBackend       string
 }
 
 func NewConfig() (*Config, error) {
@@ -42,8 +43,9 @@ func NewConfig() (*Config, error) {
 		DBMaxConns:           getEnv("DB_MAX_CONNS", "20"),
 		DBMinConns:           getEnv("DB_MIN_CONNS", "2"),
 		RedisURL:             getEnv("REDIS_URL", "localhost:6379"),
-		RateLimitGlobal:      getEnv("RATE_LIMIT_GLOBAL", "5"),
-		RateLimitAuth:        getEnv("RATE_LIMIT_AUTH", "5"), // Per minute
+		RateLimitGlobal:      getEnv("RATE_LIMIT_GLOBAL", "100"),
+		RateLimitAuth:        getEnv("RATE_LIMIT_AUTH", "10"),
+		StorageBackend:       getEnv("STORAGE_BACKEND", "noop"),
 	}, nil
 }
 

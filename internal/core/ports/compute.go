@@ -26,11 +26,9 @@ type ComputeBackend interface {
 	CreateNetwork(ctx context.Context, name string) (string, error)
 	DeleteNetwork(ctx context.Context, id string) error
 
-	// Volume Management
-	CreateVolume(ctx context.Context, name string) error
-	DeleteVolume(ctx context.Context, name string) error
-	CreateVolumeSnapshot(ctx context.Context, volumeID string, destinationPath string) error
-	RestoreVolumeSnapshot(ctx context.Context, volumeID string, sourcePath string) error
+	// Volume/Disk Attachment (Physical/Block)
+	AttachVolume(ctx context.Context, id string, volumePath string) error
+	DetachVolume(ctx context.Context, id string, volumePath string) error
 
 	// Health
 	Ping(ctx context.Context) error

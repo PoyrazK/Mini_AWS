@@ -890,12 +890,12 @@ func (m *MockComputeBackend) DeleteNetwork(ctx context.Context, id string) error
 	args := m.Called(ctx, id)
 	return args.Error(0)
 }
-func (m *MockComputeBackend) CreateVolume(ctx context.Context, name string) error {
-	args := m.Called(ctx, name)
+func (m *MockComputeBackend) AttachVolume(ctx context.Context, id string, volumePath string) error {
+	args := m.Called(ctx, id, volumePath)
 	return args.Error(0)
 }
-func (m *MockComputeBackend) DeleteVolume(ctx context.Context, name string) error {
-	args := m.Called(ctx, name)
+func (m *MockComputeBackend) DetachVolume(ctx context.Context, id string, volumePath string) error {
+	args := m.Called(ctx, id, volumePath)
 	return args.Error(0)
 }
 func (m *MockComputeBackend) RunTask(ctx context.Context, opts ports.RunTaskOptions) (string, error) {
@@ -920,13 +920,11 @@ func (m *MockComputeBackend) GetConsoleURL(ctx context.Context, id string) (stri
 	return args.String(0), args.Error(1)
 }
 func (m *MockComputeBackend) CreateVolumeSnapshot(ctx context.Context, volumeID string, destinationPath string) error {
-	args := m.Called(ctx, volumeID, destinationPath)
-	return args.Error(0)
+	return nil
 }
 
 func (m *MockComputeBackend) RestoreVolumeSnapshot(ctx context.Context, volumeID string, sourcePath string) error {
-	args := m.Called(ctx, volumeID, sourcePath)
-	return args.Error(0)
+	return nil
 }
 
 func (m *MockComputeBackend) Ping(ctx context.Context) error {
@@ -1628,4 +1626,46 @@ func (m *MockQueueRepository) DeleteMessage(ctx context.Context, queueID uuid.UU
 func (m *MockQueueRepository) PurgeMessages(ctx context.Context, queueID uuid.UUID) (int64, error) {
 	args := m.Called(ctx, queueID)
 	return int64(args.Int(0)), args.Error(1)
+}
+
+// MockStorageBackend
+type MockStorageBackend struct {
+	mock.Mock
+}
+
+func (m *MockStorageBackend) CreateVolume(ctx context.Context, name string, sizeGB int) (string, error) {
+	args := m.Called(ctx, name, sizeGB)
+	return args.String(0), args.Error(1)
+}
+func (m *MockStorageBackend) DeleteVolume(ctx context.Context, name string) error {
+	args := m.Called(ctx, name)
+	return args.Error(0)
+}
+func (m *MockStorageBackend) AttachVolume(ctx context.Context, volumeName, instanceID string) error {
+	args := m.Called(ctx, volumeName, instanceID)
+	return args.Error(0)
+}
+func (m *MockStorageBackend) DetachVolume(ctx context.Context, volumeName, instanceID string) error {
+	args := m.Called(ctx, volumeName, instanceID)
+	return args.Error(0)
+}
+func (m *MockStorageBackend) CreateSnapshot(ctx context.Context, volumeName, snapshotName string) error {
+	args := m.Called(ctx, volumeName, snapshotName)
+	return args.Error(0)
+}
+func (m *MockStorageBackend) RestoreSnapshot(ctx context.Context, volumeName, snapshotName string) error {
+	args := m.Called(ctx, volumeName, snapshotName)
+	return args.Error(0)
+}
+func (m *MockStorageBackend) DeleteSnapshot(ctx context.Context, snapshotName string) error {
+	args := m.Called(ctx, snapshotName)
+	return args.Error(0)
+}
+func (m *MockStorageBackend) Ping(ctx context.Context) error {
+	args := m.Called(ctx)
+	return args.Error(0)
+}
+func (m *MockStorageBackend) Type() string {
+	args := m.Called()
+	return args.String(0)
 }

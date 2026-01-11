@@ -19,6 +19,7 @@ import (
 	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/docker/go-connections/nat"
 	"github.com/poyrazk/thecloud/internal/core/ports"
+	"github.com/poyrazk/thecloud/internal/errors"
 )
 
 const (
@@ -333,6 +334,14 @@ func (a *DockerAdapter) RestoreVolumeSnapshot(ctx context.Context, volumeID stri
 	}
 
 	return nil
+}
+
+func (a *DockerAdapter) AttachVolume(ctx context.Context, id string, volumePath string) error {
+	return errors.New(errors.NotImplemented, "attaching volumes to running containers is not supported in docker adapter")
+}
+
+func (a *DockerAdapter) DetachVolume(ctx context.Context, id string, volumePath string) error {
+	return errors.New(errors.NotImplemented, "detaching volumes from running containers is not supported in docker adapter")
 }
 
 func (a *DockerAdapter) GetConsoleURL(ctx context.Context, id string) (string, error) {

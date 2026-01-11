@@ -56,6 +56,17 @@ func (a *LvmAdapter) CreateSnapshot(ctx context.Context, volumeName, snapshotNam
 	return nil
 }
 
+func (a *LvmAdapter) RestoreSnapshot(ctx context.Context, volumeName, snapshotName string) error {
+	// Restoring LVM snapshot usually involves:
+	// 1. lvconvert --merge vg_name/snapshot_name
+	// Note: The snapshot must not be open.
+	cmd := exec.CommandContext(ctx, "lvconvert", "--merge", fmt.Sprintf("%s/%s", a.vgName, snapshotName))
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to restore lvm snapshot: %v, output: %s", err, string(out))
+	}
+	return nil
+}
+
 func (a *LvmAdapter) DeleteSnapshot(ctx context.Context, snapshotName string) error {
 	cmd := exec.CommandContext(ctx, "lvremove", "-f", fmt.Sprintf("%s/%s", a.vgName, snapshotName))
 	if out, err := cmd.CombinedOutput(); err != nil {

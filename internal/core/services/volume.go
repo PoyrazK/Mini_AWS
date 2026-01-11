@@ -15,16 +15,16 @@ import (
 
 type VolumeService struct {
 	repo     ports.VolumeRepository
-	compute  ports.ComputeBackend
+	storage  ports.StorageBackend
 	eventSvc ports.EventService
 	auditSvc ports.AuditService
 	logger   *slog.Logger
 }
 
-func NewVolumeService(repo ports.VolumeRepository, compute ports.ComputeBackend, eventSvc ports.EventService, auditSvc ports.AuditService, logger *slog.Logger) *VolumeService {
+func NewVolumeService(repo ports.VolumeRepository, storage ports.StorageBackend, eventSvc ports.EventService, auditSvc ports.AuditService, logger *slog.Logger) *VolumeService {
 	return &VolumeService{
 		repo:     repo,
-		compute:  compute,
+		storage:  storage,
 		eventSvc: eventSvc,
 		auditSvc: auditSvc,
 		logger:   logger,
@@ -43,23 +43,26 @@ func (s *VolumeService) CreateVolume(ctx context.Context, name string, sizeGB in
 		UpdatedAt: time.Now(),
 	}
 
-	// 2. Create Docker Volume
-	dockerName := "thecloud-vol-" + vol.ID.String()[:8]
-	if err := s.compute.CreateVolume(ctx, dockerName); err != nil {
-		s.logger.Error("failed to create docker volume", "name", dockerName, "error", err)
+	// 2. Create Block Volume
+	backendName := "thecloud-vol-" + vol.ID.String()[:8]
+	path, err := s.storage.CreateVolume(ctx, backendName, sizeGB)
+	if err != nil {
+		s.logger.Error("failed to create storage volume", "name", backendName, "error", err)
 		return nil, errors.Wrap(errors.Internal, "failed to create volume", err)
 	}
+	vol.BackendPath = path // We need to add this field to domain.Volume
 
 	// 3. Persist to DB
 	if err := s.repo.Create(ctx, vol); err != nil {
-		// Rollback Docker Volume
-		_ = s.compute.DeleteVolume(ctx, dockerName)
+		// Rollback Storage Volume
+		_ = s.storage.DeleteVolume(ctx, backendName)
 		return nil, err
 	}
 
 	_ = s.eventSvc.RecordEvent(ctx, "VOLUME_CREATE", vol.ID.String(), "VOLUME", map[string]interface{}{
 		"name":    vol.Name,
 		"size_gb": vol.SizeGB,
+		"path":    path,
 	})
 
 	_ = s.auditSvc.Log(ctx, vol.UserID, "volume.create", "volume", vol.ID.String(), map[string]interface{}{
@@ -67,12 +70,8 @@ func (s *VolumeService) CreateVolume(ctx context.Context, name string, sizeGB in
 		"size_gb": vol.SizeGB,
 	})
 
-	s.logger.Info("volume created", "volume_id", vol.ID, "name", vol.Name)
-
-	platform.VolumesTotal.WithLabelValues("available").Inc()
-	platform.VolumeSizeBytes.Add(float64(vol.SizeGB * 1024 * 1024 * 1024))
-	platform.StorageOperationsTotal.WithLabelValues("volume_create").Inc()
-
+	s.logger.Info("volume created", "volume_id", vol.ID, "name", vol.Name, "path", path)
+	// platform metrics ...
 	return vol, nil
 }
 
@@ -98,10 +97,10 @@ func (s *VolumeService) DeleteVolume(ctx context.Context, idOrName string) error
 		return errors.New(errors.InvalidInput, "cannot delete volume that is in use")
 	}
 
-	// 1. Delete Docker Volume
-	dockerName := "thecloud-vol-" + vol.ID.String()[:8]
-	if err := s.compute.DeleteVolume(ctx, dockerName); err != nil {
-		s.logger.Warn("failed to delete docker volume", "name", dockerName, "error", err)
+	// 1. Delete Storage Volume
+	backendName := "thecloud-vol-" + vol.ID.String()[:8]
+	if err := s.storage.DeleteVolume(ctx, backendName); err != nil {
+		s.logger.Warn("failed to delete storage volume", "name", backendName, "error", err)
 	}
 
 	// 2. Delete from DB

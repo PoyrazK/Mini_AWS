@@ -15,13 +15,14 @@ const (
 )
 
 type Volume struct {
-	ID         uuid.UUID    `json:"id"`
-	UserID     uuid.UUID    `json:"user_id"`
-	Name       string       `json:"name"`
-	SizeGB     int          `json:"size_gb"`
-	Status     VolumeStatus `json:"status"`
-	InstanceID *uuid.UUID   `json:"instance_id,omitempty"`
-	MountPath  string       `json:"mount_path,omitempty"`
-	CreatedAt  time.Time    `json:"created_at"`
-	UpdatedAt  time.Time    `json:"updated_at"`
+	ID          uuid.UUID    `json:"id"`
+	UserID      uuid.UUID    `json:"user_id"`
+	Name        string       `json:"name"`
+	SizeGB      int          `json:"size_gb"`
+	Status      VolumeStatus `json:"status"`
+	InstanceID  *uuid.UUID   `json:"instance_id,omitempty"`
+	BackendPath string       `json:"backend_path,omitempty"`
+	MountPath   string       `json:"mount_path,omitempty"`
+	CreatedAt   time.Time    `json:"created_at"`
+	UpdatedAt   time.Time    `json:"updated_at"`
 }

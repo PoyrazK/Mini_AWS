@@ -52,7 +52,6 @@ func RunMigrations(ctx context.Context, db postgres.DB, logger *slog.Logger) err
 	return postgres.RunMigrations(ctx, db, logger)
 }
 
-// InitComputeBackend initializes the compute backend (Docker or Libvirt)
 func InitComputeBackend(cfg *platform.Config, logger *slog.Logger) (ports.ComputeBackend, error) {
 	if cfg.ComputeBackend == "noop" {
 		logger.Info("using no-op compute backend")
@@ -64,6 +63,17 @@ func InitComputeBackend(cfg *platform.Config, logger *slog.Logger) (ports.Comput
 	}
 	logger.Info("using docker compute backend")
 	return docker.NewDockerAdapter()
+}
+
+// InitStorageBackend initializes the storage backend (LVM or Noop)
+func InitStorageBackend(cfg *platform.Config, logger *slog.Logger) (ports.StorageBackend, error) {
+	if cfg.StorageBackend == "noop" {
+		logger.Info("using no-op storage backend")
+		return noop.NewNoopStorageBackend(), nil
+	}
+	// Default to noop for now if not specified, or use LVM if provided
+	logger.Info("using no-op storage backend (LVM not yet fully configured in infrastructure)")
+	return noop.NewNoopStorageBackend(), nil
 }
 
 func InitNetworkBackend(cfg *platform.Config, logger *slog.Logger) ports.NetworkBackend {

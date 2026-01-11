@@ -3,6 +3,7 @@ package libvirt
 
 import (
 	"fmt"
+	"strings"
 )
 
 func generateVolumeXML(name string, sizeGB int) string {
@@ -37,12 +38,22 @@ func generateDomainXML(name, diskPath, networkID, isoPath string, memoryMB, vcpu
 	additionalDisksXML := ""
 	for i, dPath := range additionalDisks {
 		dev := fmt.Sprintf("vd%c", 'b'+i)
+		diskType := "file"
+		driverType := "qcow2"
+		sourceAttr := "file"
+
+		if strings.HasPrefix(dPath, "/dev/") {
+			diskType = "block"
+			driverType = "raw"
+			sourceAttr = "dev"
+		}
+
 		additionalDisksXML += fmt.Sprintf(`
-    <disk type='file' device='disk'>
-      <driver name='qemu' type='qcow2'/>
-      <source file='%s'/>
+    <disk type='%s' device='disk'>
+      <driver name='qemu' type='%s'/>
+      <source %s='%s'/>
       <target dev='%s' bus='virtio'/>
-    </disk>`, dPath, dev)
+    </disk>`, diskType, driverType, sourceAttr, dPath, dev)
 	}
 
 	return fmt.Sprintf(`

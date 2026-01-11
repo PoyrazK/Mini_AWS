@@ -15,6 +15,7 @@ const (
 	Conflict              Type = "CONFLICT"
 	Forbidden             Type = "FORBIDDEN"
 	ResourceLimitExceeded Type = "RESOURCE_LIMIT_EXCEEDED"
+	NotImplemented        Type = "NOT_IMPLEMENTED"
 
 	// Storage Errors
 	BucketNotFound Type = "BUCKET_NOT_FOUND"
