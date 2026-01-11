@@ -5,6 +5,7 @@ import (
 
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
+	"github.com/poyrazk/thecloud/internal/handlers/ws"
 	"github.com/poyrazk/thecloud/internal/platform"
 	"github.com/poyrazk/thecloud/internal/repositories/filesystem"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
@@ -78,6 +79,7 @@ func InitRepositories(db postgres.DB, rdb *redisv9.Client) *Repositories {
 }
 
 type Services struct {
+	WsHub         *ws.Hub
 	Audit         ports.AuditService
 	Identity      ports.IdentityService
 	Auth          ports.AuthService
@@ -154,8 +156,12 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 	baseRbacSvc := services.NewRBACService(repos.User, repos.RBAC, logger)
 	rbacSvc := services.NewCachedRBACService(baseRbacSvc, rdb, logger)
 
+	// WebSocket Hub
+	wsHub := ws.NewHub(logger)
+	go wsHub.Run()
+
 	// Core Cloud Services
-	eventSvc := services.NewEventService(repos.Event, logger)
+	eventSvc := services.NewEventService(repos.Event, wsHub, logger)
 	vpcSvc := services.NewVpcService(repos.Vpc, network, auditSvc, logger, cfg.DefaultVPCCIDR)
 	subnetSvc := services.NewSubnetService(repos.Subnet, repos.Vpc, auditSvc, logger)
 	volumeSvc := services.NewVolumeService(repos.Volume, storage, eventSvc, auditSvc, logger)
@@ -237,8 +243,12 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 	provisionWorker := workers.NewProvisionWorker(instanceSvc, repos.TaskQueue, logger)
 
 	svcs := &Services{
-		Audit: auditSvc, Identity: identitySvc, Auth: authSvc, PasswordReset: pwdResetSvc,
-		RBAC: rbacSvc, Vpc: vpcSvc, Subnet: subnetSvc, Event: eventSvc, Volume: volumeSvc,
+		WsHub:         wsHub,
+		Audit:         auditSvc,
+		Identity:      identitySvc,
+		Auth:          authSvc,
+		PasswordReset: pwdResetSvc,
+		RBAC:          rbacSvc, Vpc: vpcSvc, Subnet: subnetSvc, Event: eventSvc, Volume: volumeSvc,
 		Instance: instanceSvc, SecurityGroup: sgSvc, LB: lbSvc, Dashboard: dashboardSvc,
 		Snapshot: snapshotSvc, Stack: stackSvc, Storage: storageSvc, Database: databaseSvc,
 		Secret: secretSvc, Function: fnSvc, Cache: cacheSvc, Queue: queueSvc, Notify: notifySvc,

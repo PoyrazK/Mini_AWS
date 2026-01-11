@@ -39,10 +39,16 @@ func Error(c *gin.Context, err error) {
 		e = apiErr
 	} else {
 		// Log unknown errors for debugging
-		// Use a global logger if available or just fmt (standard lib logging) as fallback
-		// ideally c.Error(err) should be used so middleware can log it
 		_ = c.Error(err)
-		fmt.Printf("DEBUG ERROR: %v\n", err)
+
+		// Use GetCause to show we care about the underlying error for logs
+		cause := errors.GetCause(err)
+		if cause != nil {
+			fmt.Printf("API ERROR CAUSE: %v\n", cause)
+		} else {
+			fmt.Printf("API ERROR: %v\n", err)
+		}
+
 		e = errors.Error{
 			Type:    errors.Internal,
 			Message: "An unexpected error occurred",

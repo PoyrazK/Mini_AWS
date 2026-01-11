@@ -10,16 +10,19 @@ import (
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
+	"github.com/poyrazk/thecloud/internal/handlers/ws"
 )
 
 type EventService struct {
 	repo   ports.EventRepository
+	hub    *ws.Hub
 	logger *slog.Logger
 }
 
-func NewEventService(repo ports.EventRepository, logger *slog.Logger) *EventService {
+func NewEventService(repo ports.EventRepository, hub *ws.Hub, logger *slog.Logger) *EventService {
 	return &EventService{
 		repo:   repo,
+		hub:    hub,
 		logger: logger,
 	}
 }
@@ -45,6 +48,14 @@ func (s *EventService) RecordEvent(ctx context.Context, action, resourceID, reso
 	if err := s.repo.Create(ctx, event); err != nil {
 		s.logger.Error("failed to record event", "action", action, "error", err)
 		return err
+	}
+
+	// Real-time broadcast
+	if s.hub != nil {
+		wsEvent, err := domain.NewWSEvent(domain.WSEventAuditLog, event)
+		if err == nil {
+			s.hub.BroadcastEvent(wsEvent)
+		}
 	}
 
 	return nil

@@ -143,6 +143,11 @@ func (h *InstanceHandler) Launch(c *gin.Context) {
 
 	inst, err := h.svc.LaunchInstance(c.Request.Context(), req.Name, req.Image, req.Ports, vpcUUID, subnetUUID, volumes)
 	if err != nil {
+		if errors.Is(err, errors.ResourceLimitExceeded) {
+			// Specific handling for resource limits if needed
+			httputil.Error(c, err)
+			return
+		}
 		httputil.Error(c, err)
 		return
 	}

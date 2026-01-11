@@ -9,6 +9,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/platform"
 	"github.com/poyrazk/thecloud/internal/repositories/docker"
 	"github.com/poyrazk/thecloud/internal/repositories/libvirt"
+	"github.com/poyrazk/thecloud/internal/repositories/lvm"
 	"github.com/poyrazk/thecloud/internal/repositories/noop"
 	"github.com/poyrazk/thecloud/internal/repositories/ovs"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
@@ -67,12 +68,17 @@ func InitComputeBackend(cfg *platform.Config, logger *slog.Logger) (ports.Comput
 
 // InitStorageBackend initializes the storage backend (LVM or Noop)
 func InitStorageBackend(cfg *platform.Config, logger *slog.Logger) (ports.StorageBackend, error) {
+	if cfg.StorageBackend == "lvm" {
+		logger.Info("using LVM storage backend", "vg", cfg.LvmVgName)
+		return lvm.NewLvmAdapter(cfg.LvmVgName), nil
+	}
+
 	if cfg.StorageBackend == "noop" {
 		logger.Info("using no-op storage backend")
 		return noop.NewNoopStorageBackend(), nil
 	}
-	// Default to noop for now if not specified, or use LVM if provided
-	logger.Info("using no-op storage backend (LVM not yet fully configured in infrastructure)")
+
+	logger.Info("using no-op storage backend (default)")
 	return noop.NewNoopStorageBackend(), nil
 }
 

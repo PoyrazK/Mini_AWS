@@ -11,6 +11,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	httphandlers "github.com/poyrazk/thecloud/internal/handlers"
+	"github.com/poyrazk/thecloud/internal/handlers/ws"
 	"github.com/poyrazk/thecloud/internal/platform"
 	"github.com/poyrazk/thecloud/pkg/httputil"
 	"github.com/poyrazk/thecloud/pkg/ratelimit"
@@ -54,9 +55,13 @@ type Handlers struct {
 	AutoScaling   *httphandlers.AutoScalingHandler
 	Accounting    *httphandlers.AccountingHandler
 	Image         *httphandlers.ImageHandler
+	Ws            *ws.Handler
 }
 
-func InitHandlers(svcs *Services) *Handlers {
+func InitHandlers(svcs *Services, logger *slog.Logger) *Handlers {
+	hub := ws.NewHub(logger)
+	go hub.Run()
+
 	return &Handlers{
 		Audit:         httphandlers.NewAuditHandler(svcs.Audit),
 		Identity:      httphandlers.NewIdentityHandler(svcs.Identity),
@@ -86,6 +91,7 @@ func InitHandlers(svcs *Services) *Handlers {
 		AutoScaling:   httphandlers.NewAutoScalingHandler(svcs.AutoScaling),
 		Accounting:    httphandlers.NewAccountingHandler(svcs.Accounting),
 		Image:         httphandlers.NewImageHandler(svcs.Image),
+		Ws:            ws.NewHandler(hub, svcs.Identity, logger),
 	}
 }
 
@@ -274,6 +280,7 @@ func SetupRouter(cfg *platform.Config, logger *slog.Logger, handlers *Handlers, 
 		dashboardGroup.GET("/events", handlers.Dashboard.GetRecentEvents)
 		dashboardGroup.GET("/stats", handlers.Dashboard.GetStats)
 		dashboardGroup.GET("/stream", handlers.Dashboard.StreamEvents)
+		dashboardGroup.GET("/ws", handlers.Ws.ServeWS)
 	}
 
 	// Snapshot Routes (Protected)

@@ -117,7 +117,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	handlers := setup.InitHandlers(svcs)
+	handlers := setup.InitHandlers(svcs, logger)
 
 	// 5. Router
 	r := setup.SetupRouter(cfg, logger, handlers, svcs, networkBackend)

@@ -24,6 +24,7 @@ type Config struct {
 	RateLimitGlobal      string
 	RateLimitAuth        string
 	StorageBackend       string
+	LvmVgName            string
 }
 
 func NewConfig() (*Config, error) {
@@ -46,6 +47,7 @@ func NewConfig() (*Config, error) {
 		RateLimitGlobal:      getEnv("RATE_LIMIT_GLOBAL", "100"),
 		RateLimitAuth:        getEnv("RATE_LIMIT_AUTH", "10"),
 		StorageBackend:       getEnv("STORAGE_BACKEND", "noop"),
+		LvmVgName:            getEnv("LVM_VG_NAME", "thecloud-vg"),
 	}, nil
 }
 
