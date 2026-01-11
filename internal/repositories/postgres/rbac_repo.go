@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
@@ -40,9 +41,8 @@ func (r *rbacRepository) CreateRole(ctx context.Context, role *domain.Role) erro
 }
 
 func (r *rbacRepository) GetRoleByID(ctx context.Context, id uuid.UUID) (*domain.Role, error) {
-	row := r.db.QueryRow(ctx, "SELECT id, name, description FROM roles WHERE id = $1", id)
-	role := &domain.Role{}
-	if err := row.Scan(&role.ID, &role.Name, &role.Description); err != nil {
+	role, err := r.scanRole(r.db.QueryRow(ctx, "SELECT id, name, description FROM roles WHERE id = $1", id))
+	if err != nil {
 		return nil, err
 	}
 
@@ -55,9 +55,8 @@ func (r *rbacRepository) GetRoleByID(ctx context.Context, id uuid.UUID) (*domain
 }
 
 func (r *rbacRepository) GetRoleByName(ctx context.Context, name string) (*domain.Role, error) {
-	row := r.db.QueryRow(ctx, "SELECT id, name, description FROM roles WHERE name = $1", name)
-	role := &domain.Role{}
-	if err := row.Scan(&role.ID, &role.Name, &role.Description); err != nil {
+	role, err := r.scanRole(r.db.QueryRow(ctx, "SELECT id, name, description FROM roles WHERE name = $1", name))
+	if err != nil {
 		return nil, err
 	}
 
@@ -74,15 +73,9 @@ func (r *rbacRepository) ListRoles(ctx context.Context) ([]*domain.Role, error) 
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-
-	var roles []*domain.Role
-	for rows.Next() {
-		role := &domain.Role{}
-		if err := rows.Scan(&role.ID, &role.Name, &role.Description); err != nil {
-			return nil, err
-		}
-		roles = append(roles, role)
+	roles, err := r.scanRoles(rows)
+	if err != nil {
+		return nil, err
 	}
 
 	for _, role := range roles {
@@ -93,6 +86,27 @@ func (r *rbacRepository) ListRoles(ctx context.Context) ([]*domain.Role, error) 
 		role.Permissions = perms
 	}
 
+	return roles, nil
+}
+
+func (r *rbacRepository) scanRole(row pgx.Row) (*domain.Role, error) {
+	role := &domain.Role{}
+	if err := row.Scan(&role.ID, &role.Name, &role.Description); err != nil {
+		return nil, err
+	}
+	return role, nil
+}
+
+func (r *rbacRepository) scanRoles(rows pgx.Rows) ([]*domain.Role, error) {
+	defer rows.Close()
+	var roles []*domain.Role
+	for rows.Next() {
+		role, err := r.scanRole(rows)
+		if err != nil {
+			return nil, err
+		}
+		roles = append(roles, role)
+	}
 	return roles, nil
 }
 

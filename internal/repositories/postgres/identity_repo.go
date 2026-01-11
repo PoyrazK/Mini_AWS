@@ -36,21 +36,7 @@ func (r *IdentityRepository) GetAPIKeyByKey(ctx context.Context, keyStr string) 
 		FROM api_keys
 		WHERE key = $1
 	`
-	var key domain.APIKey
-	var lastUsed *time.Time
-	err := r.db.QueryRow(ctx, query, keyStr).Scan(
-		&key.ID, &key.UserID, &key.Key, &key.Name, &key.CreatedAt, &lastUsed,
-	)
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			return nil, errors.New(errors.Unauthorized, "invalid api key")
-		}
-		return nil, errors.Wrap(errors.Internal, "failed to get api key", err)
-	}
-	if lastUsed != nil {
-		key.LastUsed = *lastUsed
-	}
-	return &key, nil
+	return r.scanAPIKey(r.db.QueryRow(ctx, query, keyStr), errors.Unauthorized)
 }
 func (r *IdentityRepository) GetAPIKeyByID(ctx context.Context, id uuid.UUID) (*domain.APIKey, error) {
 	query := `
@@ -58,21 +44,7 @@ func (r *IdentityRepository) GetAPIKeyByID(ctx context.Context, id uuid.UUID) (*
 		FROM api_keys
 		WHERE id = $1
 	`
-	var key domain.APIKey
-	var lastUsed *time.Time
-	err := r.db.QueryRow(ctx, query, id).Scan(
-		&key.ID, &key.UserID, &key.Key, &key.Name, &key.CreatedAt, &lastUsed,
-	)
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			return nil, errors.New(errors.ObjectNotFound, "api key not found")
-		}
-		return nil, errors.Wrap(errors.Internal, "failed to get api key", err)
-	}
-	if lastUsed != nil {
-		key.LastUsed = *lastUsed
-	}
-	return &key, nil
+	return r.scanAPIKey(r.db.QueryRow(ctx, query, id), errors.ObjectNotFound)
 }
 
 func (r *IdentityRepository) ListAPIKeysByUserID(ctx context.Context, userID uuid.UUID) ([]*domain.APIKey, error) {
@@ -85,20 +57,40 @@ func (r *IdentityRepository) ListAPIKeysByUserID(ctx context.Context, userID uui
 	if err != nil {
 		return nil, errors.Wrap(errors.Internal, "failed to list api keys", err)
 	}
-	defer rows.Close()
+	return r.scanAPIKeys(rows)
+}
 
+func (r *IdentityRepository) scanAPIKey(row pgx.Row, notFoundType errors.Type) (*domain.APIKey, error) {
+	var key domain.APIKey
+	var lastUsed *time.Time
+	err := row.Scan(
+		&key.ID, &key.UserID, &key.Key, &key.Name, &key.CreatedAt, &lastUsed,
+	)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			msg := "api key not found"
+			if notFoundType == errors.Unauthorized {
+				msg = "invalid api key"
+			}
+			return nil, errors.New(notFoundType, msg)
+		}
+		return nil, errors.Wrap(errors.Internal, "failed to scan api key", err)
+	}
+	if lastUsed != nil {
+		key.LastUsed = *lastUsed
+	}
+	return &key, nil
+}
+
+func (r *IdentityRepository) scanAPIKeys(rows pgx.Rows) ([]*domain.APIKey, error) {
+	defer rows.Close()
 	var keys []*domain.APIKey
 	for rows.Next() {
-		var key domain.APIKey
-		var lastUsed *time.Time
-		err := rows.Scan(&key.ID, &key.UserID, &key.Key, &key.Name, &key.CreatedAt, &lastUsed)
+		key, err := r.scanAPIKey(rows, errors.ObjectNotFound)
 		if err != nil {
-			return nil, errors.Wrap(errors.Internal, "failed to scan api key", err)
+			return nil, err
 		}
-		if lastUsed != nil {
-			key.LastUsed = *lastUsed
-		}
-		keys = append(keys, &key)
+		keys = append(keys, key)
 	}
 	return keys, nil
 }

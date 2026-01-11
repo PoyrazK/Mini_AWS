@@ -34,13 +34,9 @@ func (r *SecurityGroupRepository) GetByID(ctx context.Context, id uuid.UUID) (*d
 	userID := appcontext.UserIDFromContext(ctx)
 	query := `SELECT id, user_id, vpc_id, name, description, arn, created_at FROM security_groups WHERE id = $1 AND user_id = $2`
 
-	var sg domain.SecurityGroup
-	err := r.db.QueryRow(ctx, query, id, userID).Scan(&sg.ID, &sg.UserID, &sg.VPCID, &sg.Name, &sg.Description, &sg.ARN, &sg.CreatedAt)
+	sg, err := r.scanSecurityGroup(r.db.QueryRow(ctx, query, id, userID))
 	if err != nil {
-		if err == pgx.ErrNoRows {
-			return nil, errors.New(errors.NotFound, "security group not found")
-		}
-		return nil, errors.Wrap(errors.Internal, "failed to get security group", err)
+		return nil, err
 	}
 
 	rules, err := r.getRulesForGroup(ctx, sg.ID)
@@ -49,20 +45,16 @@ func (r *SecurityGroupRepository) GetByID(ctx context.Context, id uuid.UUID) (*d
 	}
 	sg.Rules = rules
 
-	return &sg, nil
+	return sg, nil
 }
 
 func (r *SecurityGroupRepository) GetByName(ctx context.Context, vpcID uuid.UUID, name string) (*domain.SecurityGroup, error) {
 	userID := appcontext.UserIDFromContext(ctx)
 	query := `SELECT id, user_id, vpc_id, name, description, arn, created_at FROM security_groups WHERE vpc_id = $1 AND name = $2 AND user_id = $3`
 
-	var sg domain.SecurityGroup
-	err := r.db.QueryRow(ctx, query, vpcID, name, userID).Scan(&sg.ID, &sg.UserID, &sg.VPCID, &sg.Name, &sg.Description, &sg.ARN, &sg.CreatedAt)
+	sg, err := r.scanSecurityGroup(r.db.QueryRow(ctx, query, vpcID, name, userID))
 	if err != nil {
-		if err == pgx.ErrNoRows {
-			return nil, errors.New(errors.NotFound, "security group not found")
-		}
-		return nil, errors.Wrap(errors.Internal, "failed to get security group by name", err)
+		return nil, err
 	}
 
 	rules, err := r.getRulesForGroup(ctx, sg.ID)
@@ -71,7 +63,7 @@ func (r *SecurityGroupRepository) GetByName(ctx context.Context, vpcID uuid.UUID
 	}
 	sg.Rules = rules
 
-	return &sg, nil
+	return sg, nil
 }
 
 func (r *SecurityGroupRepository) ListByVPC(ctx context.Context, vpcID uuid.UUID) ([]*domain.SecurityGroup, error) {
@@ -82,15 +74,30 @@ func (r *SecurityGroupRepository) ListByVPC(ctx context.Context, vpcID uuid.UUID
 	if err != nil {
 		return nil, errors.Wrap(errors.Internal, "failed to list security groups", err)
 	}
-	defer rows.Close()
+	return r.scanSecurityGroups(rows)
+}
 
+func (r *SecurityGroupRepository) scanSecurityGroup(row pgx.Row) (*domain.SecurityGroup, error) {
+	var sg domain.SecurityGroup
+	err := row.Scan(&sg.ID, &sg.UserID, &sg.VPCID, &sg.Name, &sg.Description, &sg.ARN, &sg.CreatedAt)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, errors.New(errors.NotFound, "security group not found")
+		}
+		return nil, errors.Wrap(errors.Internal, "failed to scan security group", err)
+	}
+	return &sg, nil
+}
+
+func (r *SecurityGroupRepository) scanSecurityGroups(rows pgx.Rows) ([]*domain.SecurityGroup, error) {
+	defer rows.Close()
 	var groups []*domain.SecurityGroup
 	for rows.Next() {
-		var sg domain.SecurityGroup
-		if err := rows.Scan(&sg.ID, &sg.UserID, &sg.VPCID, &sg.Name, &sg.Description, &sg.ARN, &sg.CreatedAt); err != nil {
-			return nil, errors.Wrap(errors.Internal, "failed to scan security group", err)
+		sg, err := r.scanSecurityGroup(rows)
+		if err != nil {
+			return nil, err
 		}
-		groups = append(groups, &sg)
+		groups = append(groups, sg)
 	}
 	return groups, nil
 }
@@ -231,17 +238,7 @@ func (r *SecurityGroupRepository) ListInstanceGroups(ctx context.Context, instan
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-
-	var groups []*domain.SecurityGroup
-	for rows.Next() {
-		var sg domain.SecurityGroup
-		if err := rows.Scan(&sg.ID, &sg.UserID, &sg.VPCID, &sg.Name, &sg.Description, &sg.ARN, &sg.CreatedAt); err != nil {
-			return nil, err
-		}
-		groups = append(groups, &sg)
-	}
-	return groups, nil
+	return r.scanSecurityGroups(rows)
 }
 
 func (r *SecurityGroupRepository) getRulesForGroup(ctx context.Context, groupID uuid.UUID) ([]domain.SecurityRule, error) {
@@ -250,16 +247,27 @@ func (r *SecurityGroupRepository) getRulesForGroup(ctx context.Context, groupID 
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	return r.scanSecurityRules(rows)
+}
 
+func (r *SecurityGroupRepository) scanSecurityRule(row pgx.Row) (domain.SecurityRule, error) {
+	var rule domain.SecurityRule
+	var direction string
+	if err := row.Scan(&rule.ID, &rule.GroupID, &direction, &rule.Protocol, &rule.PortMin, &rule.PortMax, &rule.CIDR, &rule.Priority, &rule.CreatedAt); err != nil {
+		return domain.SecurityRule{}, err
+	}
+	rule.Direction = domain.RuleDirection(direction)
+	return rule, nil
+}
+
+func (r *SecurityGroupRepository) scanSecurityRules(rows pgx.Rows) ([]domain.SecurityRule, error) {
+	defer rows.Close()
 	var rules []domain.SecurityRule
 	for rows.Next() {
-		var rule domain.SecurityRule
-		var direction string
-		if err := rows.Scan(&rule.ID, &rule.GroupID, &direction, &rule.Protocol, &rule.PortMin, &rule.PortMax, &rule.CIDR, &rule.Priority, &rule.CreatedAt); err != nil {
+		rule, err := r.scanSecurityRule(rows)
+		if err != nil {
 			return nil, err
 		}
-		rule.Direction = domain.RuleDirection(direction)
 		rules = append(rules, rule)
 	}
 	return rules, nil
