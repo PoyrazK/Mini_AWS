@@ -30,17 +30,12 @@ graph TB
     end
 
     subgraph "Secondary Adapters (Outbound)"
-        RepoPG[PostgreSQL<br/>Metadata Storage<br/>57.5% coverage]
+        RepoPG[PostgreSQL<br/>Metadata Storage]
         RepoDocker[Docker Engine<br/>Container Runtime]
-        RepoLibvirt[Libvirt/KVM<br/>VM Runtime]
-        RepoFS[Filesystem<br/>Object Storage]
+        RepoLibvirt[Libvirt/KVM<br/>Compute/VM Runtime]
+        RepoLVM[LVM<br/>Block Storage Backend]
+        RepoFS[Filesystem<br/>Object/Image Storage]
         RepoOVS[Open vSwitch<br/>SDN Networking]
-    end
-
-    subgraph "Background Workers"
-        ASWorker[AutoScaling Worker<br/>Policy Evaluation]
-        CronWorker[Cron Worker<br/>Task Execution]
-        ContainerWorker[Container Worker<br/>Health Monitoring]
     end
 
     User --> Console
@@ -57,6 +52,7 @@ graph TB
     Ports --> RepoPG
     Ports --> RepoDocker
     Ports --> RepoLibvirt
+    Ports --> RepoLVM
     Ports --> RepoFS
     Ports --> RepoOVS
     Service --> ASWorker
@@ -124,10 +120,20 @@ type InstanceRepository interface {
     Delete(ctx context.Context, id uuid.UUID) error
 }
 
-type ComputeAdapter interface {
-    CreateContainer(ctx context.Context, config ContainerConfig) (string, error)
-    StopContainer(ctx context.Context, id string) error
-    RemoveContainer(ctx context.Context, id string) error
+type ComputeBackend interface {
+    CreateInstance(ctx context.Context, name, imageName string, ports []string, networkID string, volumeBinds []string, env []string, cmd []string) (string, error)
+    StopInstance(ctx context.Context, id string) error
+    DeleteInstance(ctx context.Context, id string) error
+    AttachVolume(ctx context.Context, id string, volumePath string) error
+    DetachVolume(ctx context.Context, id string, volumePath string) error
+    GetConsoleURL(ctx context.Context, id string) (string, error)
+}
+
+type StorageBackend interface {
+    CreateVolume(ctx context.Context, name string, sizeGB int) (string, error)
+    DeleteVolume(ctx context.Context, name string) error
+    CreateSnapshot(ctx context.Context, volumeName, snapshotName string) error
+    RestoreSnapshot(ctx context.Context, volumeName, snapshotName string) error
 }
 ```
 

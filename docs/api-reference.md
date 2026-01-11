@@ -181,6 +181,15 @@ Update instance (e.g., status).
 ### DELETE /instances/:id
 Terminate an instance.
 
+### GET /instances/:id/console
+Get the VNC console URL for the instance.
+**Response:**
+```json
+{
+  "console_url": "vnc://127.0.0.1:5901"
+}
+```
+
 ---
 
 ## Networks (VPC)

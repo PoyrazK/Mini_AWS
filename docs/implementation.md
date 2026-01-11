@@ -59,35 +59,34 @@ Located in `internal/core/ports/instance.go`.
 ### Service Interface (Business Logic)
 ```go
 type InstanceService interface {
-    LaunchInstance(ctx context.Context, name, image string) (*domain.Instance, error)
+    LaunchInstance(ctx context.Context, name, image string, ...) (*domain.Instance, error)
     StopInstance(ctx context.Context, id uuid.UUID) error
-    ListInstances(ctx context.Context) ([]*domain.Instance, error)
+    GetConsoleURL(ctx context.Context, id uuid.UUID) (string, error)
 }
 ```
 
-### Repository Interface (Persistence)
-```go
-type InstanceRepository interface {
-    Create(ctx context.Context, instance *domain.Instance) error
-    GetByID(ctx context.Context, id uuid.UUID) (*domain.Instance, error)
-    Update(ctx context.Context, instance *domain.Instance) error
-}
-```
+### Backend Interfaces
+- **ComputeBackend**: Handles instance lifecycle and volume attachment.
+- **StorageBackend**: Handles raw volume creation and snapshots.
+- **NetworkBackend**: Handles SDN plumbing (OVS).
 
 ---
 
 ## 4. Adapters Implementation
 
-### Docker Adapter
-Located in `internal/repositories/docker/adapter.go`.
+### Libvirt Adapter
+Located in `internal/repositories/libvirt/adapter.go`.
+- Manages KVM VMs via dynamic XML generation.
+- Supports block device attachment via LVM backend paths.
 
-**Key Behaviors:**
-1.  **Image Pulling**: Automatically pulls the image if not present locally using `cli.ImagePull`.
-2.  **Container Creation**: Maps `Instance.Name` to Docker Container Name.
-3.  **Networking**: Currently uses default bridge network (to be upgraded to custom network).
+### LVM Adapter
+Located in `internal/repositories/lvm/adapter.go`.
+- Uses `os/exec` to call system LVM binaries.
+- Provides high-performance block storage for Libvirt instances.
 
-### Postgres Adapter (Planned)
-Planned to move to `internal/repositories/postgres/`. Currently using mock/in-memory for initial scaffolding.
+### OVS Adapter
+Located in `internal/repositories/ovs/adapter.go`.
+- Manages Open vSwitch bridges and flow rules for VPC isolation.
 
 ---
 
