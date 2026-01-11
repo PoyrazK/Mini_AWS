@@ -16,9 +16,14 @@ import (
 // Mocks are now in shared_test.go
 
 // Helper to get a strong password for tests
-const strongTestPassword = "CorrectHorseBatteryStaple123!"
+const (
+	testUserPassword = "CorrectHorseBatteryStaple123!"
+	defaultKeyName   = "Default Key"
+	userLoginAction  = "user.login"
+	wrongPassword    = "wrong-password"
+)
 
-func setupAuthServiceTest(t *testing.T) (*MockUserRepo, *MockIdentityService, *MockAuditService, *services.AuthService) {
+func setupAuthServiceTest(_ *testing.T) (*MockUserRepo, *MockIdentityService, *MockAuditService, *services.AuthService) {
 	userRepo := new(MockUserRepo)
 	identitySvc := new(MockIdentityService)
 	auditSvc := new(MockAuditService)
@@ -34,7 +39,7 @@ func TestAuthServiceRegisterSuccess(t *testing.T) {
 	ctx := context.Background()
 
 	email := "test@example.com"
-	password := strongTestPassword
+	password := testUserPassword
 	name := "Test User"
 
 	userRepo.On("GetByEmail", ctx, email).Return(nil, nil) // Not existing
@@ -76,7 +81,7 @@ func TestAuthServiceRegisterDuplicateEmail(t *testing.T) {
 
 	userRepo.On("GetByEmail", ctx, email).Return(existing, nil)
 
-	user, err := svc.Register(ctx, email, strongTestPassword, "name")
+	user, err := svc.Register(ctx, email, testUserPassword, "name")
 
 	assert.Error(t, err)
 	assert.Nil(t, user)
@@ -93,20 +98,20 @@ func TestAuthServiceLoginSuccess(t *testing.T) {
 
 	email := "login@example.com"
 	// Use predefined constant
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(strongTestPassword), bcrypt.DefaultCost)
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(testUserPassword), bcrypt.DefaultCost)
 	assert.NoError(t, err)
 	userID := uuid.New()
 	user := &domain.User{ID: userID, Email: email, PasswordHash: string(hashedPassword)}
 
 	userRepo.On("GetByEmail", ctx, email).Return(user, nil)
-	identitySvc.On("CreateKey", ctx, userID, "Default Key").Return(&domain.APIKey{
+	identitySvc.On("CreateKey", ctx, userID, defaultKeyName).Return(&domain.APIKey{
 		Key:       "mock-api-key",
 		UserID:    userID,
 		CreatedAt: time.Now(),
 	}, nil)
-	auditSvc.On("Log", ctx, userID, "user.login", "user", userID.String(), mock.Anything).Return(nil)
+	auditSvc.On("Log", ctx, userID, userLoginAction, "user", userID.String(), mock.Anything).Return(nil)
 
-	resultUser, apiKey, err := svc.Login(ctx, email, strongTestPassword)
+	resultUser, apiKey, err := svc.Login(ctx, email, testUserPassword)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, resultUser)
@@ -121,7 +126,7 @@ func TestAuthServiceLoginWrongPassword(t *testing.T) {
 
 	email := "wrong@example.com"
 	// Use predefined constant for the "real" password stored in DB
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(strongTestPassword), bcrypt.DefaultCost)
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(testUserPassword), bcrypt.DefaultCost)
 	assert.NoError(t, err)
 	user := &domain.User{ID: uuid.New(), Email: email, PasswordHash: string(hashedPassword)}
 
@@ -131,7 +136,7 @@ func TestAuthServiceLoginWrongPassword(t *testing.T) {
 	// This counts as a failed login attempt.
 	// However, GetByEmail is called.
 
-	resultUser, apiKey, err := svc.Login(ctx, email, "wrong-password")
+	resultUser, apiKey, err := svc.Login(ctx, email, wrongPassword)
 
 	assert.Error(t, err)
 	assert.Nil(t, resultUser)
@@ -178,19 +183,19 @@ func TestAuthServiceLoginAccountLockout(t *testing.T) {
 
 	ctx := context.Background()
 	email := "lockout@example.com"
-	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(strongTestPassword), bcrypt.DefaultCost)
+	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(testUserPassword), bcrypt.DefaultCost)
 	user := &domain.User{ID: uuid.New(), Email: email, PasswordHash: string(hashedPassword)}
 
 	userRepo.On("GetByEmail", ctx, email).Return(user, nil)
 
 	// Trigger 5 failed login attempts to cause lockout
 	for i := 0; i < 5; i++ {
-		_, _, err := svc.Login(ctx, email, "wrong-password")
+		_, _, err := svc.Login(ctx, email, wrongPassword)
 		assert.Error(t, err)
 	}
 
 	// The 6th attempt should be locked out
-	resultUser, apiKey, err := svc.Login(ctx, email, strongTestPassword)
+	resultUser, apiKey, err := svc.Login(ctx, email, testUserPassword)
 
 	assert.Error(t, err)
 	assert.Nil(t, resultUser)
@@ -206,7 +211,7 @@ func TestAuthServiceLoginLockedAccountExpiry(t *testing.T) {
 
 	ctx := context.Background()
 	email := "expiry@example.com"
-	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(strongTestPassword), bcrypt.DefaultCost)
+	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(testUserPassword), bcrypt.DefaultCost)
 	userID := uuid.New()
 	user := &domain.User{ID: userID, Email: email, PasswordHash: string(hashedPassword)}
 
@@ -214,7 +219,7 @@ func TestAuthServiceLoginLockedAccountExpiry(t *testing.T) {
 
 	// Trigger lockout
 	for i := 0; i < 5; i++ {
-		_, _, _ = svc.Login(ctx, email, "wrong-password")
+		_, _, _ = svc.Login(ctx, email, wrongPassword)
 	}
 
 	// Wait for lockout to expire (lockout is 15 minutes, but we can't wait that long in tests)
@@ -223,7 +228,7 @@ func TestAuthServiceLoginLockedAccountExpiry(t *testing.T) {
 	// Since we can't easily mock time in the service, we'll just document this behavior
 
 	// Verify account is locked
-	resultUser, apiKey, err := svc.Login(ctx, email, strongTestPassword)
+	resultUser, apiKey, err := svc.Login(ctx, email, testUserPassword)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "locked")
 	assert.Nil(t, resultUser)
@@ -237,14 +242,14 @@ func TestAuthServiceLoginAPIKeyCreationFailure(t *testing.T) {
 
 	ctx := context.Background()
 	email := "apikeyfail@example.com"
-	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(strongTestPassword), bcrypt.DefaultCost)
+	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(testUserPassword), bcrypt.DefaultCost)
 	userID := uuid.New()
 	user := &domain.User{ID: userID, Email: email, PasswordHash: string(hashedPassword)}
 
 	userRepo.On("GetByEmail", ctx, email).Return(user, nil)
-	identitySvc.On("CreateKey", ctx, userID, "Default Key").Return(nil, assert.AnError)
+	identitySvc.On("CreateKey", ctx, userID, defaultKeyName).Return(nil, assert.AnError)
 
-	resultUser, apiKey, err := svc.Login(ctx, email, strongTestPassword)
+	resultUser, apiKey, err := svc.Login(ctx, email, testUserPassword)
 
 	assert.Error(t, err)
 	assert.Nil(t, resultUser)
@@ -260,7 +265,7 @@ func TestAuthServiceLoginClearsFailuresOnSuccess(t *testing.T) {
 
 	ctx := context.Background()
 	email := "clearfailures@example.com"
-	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(strongTestPassword), bcrypt.DefaultCost)
+	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(testUserPassword), bcrypt.DefaultCost)
 	userID := uuid.New()
 	user := &domain.User{ID: userID, Email: email, PasswordHash: string(hashedPassword)}
 
@@ -268,33 +273,33 @@ func TestAuthServiceLoginClearsFailuresOnSuccess(t *testing.T) {
 
 	// Make some failed attempts first
 	for i := 0; i < 3; i++ {
-		_, _, err := svc.Login(ctx, email, "wrong-password")
+		_, _, err := svc.Login(ctx, email, wrongPassword)
 		assert.Error(t, err)
 	}
 
 	// Now login successfully
-	identitySvc.On("CreateKey", ctx, userID, "Default Key").Return(&domain.APIKey{
+	identitySvc.On("CreateKey", ctx, userID, defaultKeyName).Return(&domain.APIKey{
 		Key:       "success-key",
 		UserID:    userID,
 		CreatedAt: time.Now(),
 	}, nil).Once()
-	auditSvc.On("Log", ctx, userID, "user.login", "user", userID.String(), mock.Anything).Return(nil).Once()
+	auditSvc.On("Log", ctx, userID, userLoginAction, "user", userID.String(), mock.Anything).Return(nil).Once()
 
-	resultUser, apiKey, err := svc.Login(ctx, email, strongTestPassword)
+	resultUser, apiKey, err := svc.Login(ctx, email, testUserPassword)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, resultUser)
 	assert.Equal(t, "success-key", apiKey)
 
 	// Make another successful login to verify failures were cleared
-	identitySvc.On("CreateKey", ctx, userID, "Default Key").Return(&domain.APIKey{
+	identitySvc.On("CreateKey", ctx, userID, defaultKeyName).Return(&domain.APIKey{
 		Key:       "success-key-2",
 		UserID:    userID,
 		CreatedAt: time.Now(),
 	}, nil).Once()
-	auditSvc.On("Log", ctx, userID, "user.login", "user", userID.String(), mock.Anything).Return(nil).Once()
+	auditSvc.On("Log", ctx, userID, userLoginAction, "user", userID.String(), mock.Anything).Return(nil).Once()
 
-	resultUser2, apiKey2, err2 := svc.Login(ctx, email, strongTestPassword)
+	resultUser2, apiKey2, err2 := svc.Login(ctx, email, testUserPassword)
 
 	assert.NoError(t, err2)
 	assert.NotNil(t, resultUser2)

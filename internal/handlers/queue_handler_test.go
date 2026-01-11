@@ -79,7 +79,7 @@ func (m *mockQueueService) PurgeQueue(ctx context.Context, id uuid.UUID) error {
 	return m.Called(ctx, id).Error(0)
 }
 
-func setupQueueHandlerTest(t *testing.T) (*mockQueueService, *QueueHandler, *gin.Engine) {
+func setupQueueHandlerTest(_ *testing.T) (*mockQueueService, *QueueHandler, *gin.Engine) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockQueueService)
 	handler := NewQueueHandler(svc)

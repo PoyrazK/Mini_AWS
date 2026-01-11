@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/errors"
@@ -27,14 +28,7 @@ func (r *SnapshotRepository) Create(ctx context.Context, s *domain.Snapshot) err
 func (r *SnapshotRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Snapshot, error) {
 	userID := appcontext.UserIDFromContext(ctx)
 	query := `SELECT id, user_id, volume_id, volume_name, size_gb, status, description, created_at FROM snapshots WHERE id = $1 AND user_id = $2`
-	s := &domain.Snapshot{}
-	var status string
-	err := r.db.QueryRow(ctx, query, id, userID).Scan(&s.ID, &s.UserID, &s.VolumeID, &s.VolumeName, &s.SizeGB, &status, &s.Description, &s.CreatedAt)
-	if err != nil {
-		return nil, err
-	}
-	s.Status = domain.SnapshotStatus(status)
-	return s, nil
+	return r.scanSnapshot(r.db.QueryRow(ctx, query, id, userID))
 }
 
 func (r *SnapshotRepository) ListByVolumeID(ctx context.Context, volumeID uuid.UUID) ([]*domain.Snapshot, error) {
@@ -44,19 +38,7 @@ func (r *SnapshotRepository) ListByVolumeID(ctx context.Context, volumeID uuid.U
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-
-	var snapshots []*domain.Snapshot
-	for rows.Next() {
-		s := &domain.Snapshot{}
-		var status string
-		if err := rows.Scan(&s.ID, &s.UserID, &s.VolumeID, &s.VolumeName, &s.SizeGB, &status, &s.Description, &s.CreatedAt); err != nil {
-			return nil, err
-		}
-		s.Status = domain.SnapshotStatus(status)
-		snapshots = append(snapshots, s)
-	}
-	return snapshots, nil
+	return r.scanSnapshots(rows)
 }
 
 func (r *SnapshotRepository) ListByUserID(ctx context.Context, userID uuid.UUID) ([]*domain.Snapshot, error) {
@@ -65,16 +47,28 @@ func (r *SnapshotRepository) ListByUserID(ctx context.Context, userID uuid.UUID)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	return r.scanSnapshots(rows)
+}
 
+func (r *SnapshotRepository) scanSnapshot(row pgx.Row) (*domain.Snapshot, error) {
+	s := &domain.Snapshot{}
+	var status string
+	err := row.Scan(&s.ID, &s.UserID, &s.VolumeID, &s.VolumeName, &s.SizeGB, &status, &s.Description, &s.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	s.Status = domain.SnapshotStatus(status)
+	return s, nil
+}
+
+func (r *SnapshotRepository) scanSnapshots(rows pgx.Rows) ([]*domain.Snapshot, error) {
+	defer rows.Close()
 	var snapshots []*domain.Snapshot
 	for rows.Next() {
-		s := &domain.Snapshot{}
-		var status string
-		if err := rows.Scan(&s.ID, &s.UserID, &s.VolumeID, &s.VolumeName, &s.SizeGB, &status, &s.Description, &s.CreatedAt); err != nil {
+		s, err := r.scanSnapshot(rows)
+		if err != nil {
 			return nil, err
 		}
-		s.Status = domain.SnapshotStatus(status)
 		snapshots = append(snapshots, s)
 	}
 	return snapshots, nil

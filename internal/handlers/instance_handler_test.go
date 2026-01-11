@@ -77,7 +77,7 @@ func (m *instanceServiceMock) TerminateInstance(ctx context.Context, idOrName st
 	return args.Error(0)
 }
 
-func setupInstanceHandlerTest(t *testing.T) (*instanceServiceMock, *InstanceHandler, *gin.Engine) {
+func setupInstanceHandlerTest(_ *testing.T) (*instanceServiceMock, *InstanceHandler, *gin.Engine) {
 	gin.SetMode(gin.TestMode)
 	mockSvc := new(instanceServiceMock)
 	handler := NewInstanceHandler(mockSvc)

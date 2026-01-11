@@ -35,30 +35,14 @@ func (r *PostgresQueueRepository) Create(ctx context.Context, q *domain.Queue) e
 
 // GetByID retrieves a queue definition by its unique identifier.
 func (r *PostgresQueueRepository) GetByID(ctx context.Context, id, userID uuid.UUID) (*domain.Queue, error) {
-	q := &domain.Queue{}
 	query := `SELECT id, user_id, name, arn, visibility_timeout, retention_days, max_message_size, status, created_at, updated_at FROM queues WHERE id = $1 AND user_id = $2`
-	var status string
-	err := r.db.QueryRow(ctx, query, id, userID).Scan(
-		&q.ID, &q.UserID, &q.Name, &q.ARN, &q.VisibilityTimeout, &q.RetentionDays, &q.MaxMessageSize, &status, &q.CreatedAt, &q.UpdatedAt)
-	if err == pgx.ErrNoRows {
-		return nil, nil
-	}
-	q.Status = domain.QueueStatus(status)
-	return q, err
+	return r.scanQueue(r.db.QueryRow(ctx, query, id, userID))
 }
 
 // GetByName retrieves a queue definition by its user-defined name.
 func (r *PostgresQueueRepository) GetByName(ctx context.Context, name string, userID uuid.UUID) (*domain.Queue, error) {
-	q := &domain.Queue{}
 	query := `SELECT id, user_id, name, arn, visibility_timeout, retention_days, max_message_size, status, created_at, updated_at FROM queues WHERE name = $1 AND user_id = $2`
-	var status string
-	err := r.db.QueryRow(ctx, query, name, userID).Scan(
-		&q.ID, &q.UserID, &q.Name, &q.ARN, &q.VisibilityTimeout, &q.RetentionDays, &q.MaxMessageSize, &status, &q.CreatedAt, &q.UpdatedAt)
-	if err == pgx.ErrNoRows {
-		return nil, nil
-	}
-	q.Status = domain.QueueStatus(status)
-	return q, err
+	return r.scanQueue(r.db.QueryRow(ctx, query, name, userID))
 }
 
 // List returns all queues owned by the specified user.
@@ -68,16 +52,31 @@ func (r *PostgresQueueRepository) List(ctx context.Context, userID uuid.UUID) ([
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	return r.scanQueues(rows)
+}
 
+func (r *PostgresQueueRepository) scanQueue(row pgx.Row) (*domain.Queue, error) {
+	q := &domain.Queue{}
+	var status string
+	err := row.Scan(&q.ID, &q.UserID, &q.Name, &q.ARN, &q.VisibilityTimeout, &q.RetentionDays, &q.MaxMessageSize, &status, &q.CreatedAt, &q.UpdatedAt)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, nil // Return nil, nil when not found as per previous behavior
+		}
+		return nil, err
+	}
+	q.Status = domain.QueueStatus(status)
+	return q, nil
+}
+
+func (r *PostgresQueueRepository) scanQueues(rows pgx.Rows) ([]*domain.Queue, error) {
+	defer rows.Close()
 	var queues []*domain.Queue
 	for rows.Next() {
-		q := &domain.Queue{}
-		var status string
-		if err := rows.Scan(&q.ID, &q.UserID, &q.Name, &q.ARN, &q.VisibilityTimeout, &q.RetentionDays, &q.MaxMessageSize, &status, &q.CreatedAt, &q.UpdatedAt); err != nil {
+		q, err := r.scanQueue(rows)
+		if err != nil {
 			return nil, err
 		}
-		q.Status = domain.QueueStatus(status)
 		queues = append(queues, q)
 	}
 	return queues, nil

@@ -58,7 +58,7 @@ func (m *mockVolumeService) ReleaseVolumesForInstance(ctx context.Context, insta
 	return args.Error(0)
 }
 
-func setupVolumeHandlerTest(t *testing.T) (*mockVolumeService, *VolumeHandler, *gin.Engine) {
+func setupVolumeHandlerTest(_ *testing.T) (*mockVolumeService, *VolumeHandler, *gin.Engine) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockVolumeService)
 	handler := NewVolumeHandler(svc)

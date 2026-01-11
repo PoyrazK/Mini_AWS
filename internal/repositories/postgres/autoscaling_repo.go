@@ -50,32 +50,7 @@ func (r *AutoScalingRepo) GetGroupByID(ctx context.Context, id uuid.UUID) (*doma
 			   min_instances, max_instances, desired_count, current_count, status, version, created_at, updated_at
 		FROM scaling_groups WHERE id = $1 AND user_id = $2
 	`
-	var g domain.ScalingGroup
-	var lbID *uuid.UUID
-	var ports sql.NullString
-	var idk sql.NullString
-
-	var status string
-	err := r.db.QueryRow(ctx, query, id, userID).Scan(
-		&g.ID, &g.UserID, &idk, &g.Name, &g.VpcID, &lbID, &g.Image, &ports,
-		&g.MinInstances, &g.MaxInstances, &g.DesiredCount, &g.CurrentCount,
-		&status, &g.Version, &g.CreatedAt, &g.UpdatedAt,
-	)
-	g.Status = domain.ScalingGroupStatus(status)
-	if err == pgx.ErrNoRows {
-		return nil, errs.New(errs.NotFound, "scaling group not found")
-	}
-	if err != nil {
-		return nil, err
-	}
-	g.LoadBalancerID = lbID
-	if ports.Valid {
-		g.Ports = ports.String
-	}
-	if idk.Valid {
-		g.IdempotencyKey = idk.String
-	}
-	return &g, nil
+	return r.scanScalingGroup(r.db.QueryRow(ctx, query, id, userID))
 }
 
 func (r *AutoScalingRepo) GetGroupByIdempotencyKey(ctx context.Context, key string) (*domain.ScalingGroup, error) {
@@ -85,32 +60,7 @@ func (r *AutoScalingRepo) GetGroupByIdempotencyKey(ctx context.Context, key stri
 			   min_instances, max_instances, desired_count, current_count, status, version, created_at, updated_at
 		FROM scaling_groups WHERE idempotency_key = $1 AND user_id = $2
 	`
-	var g domain.ScalingGroup
-	var lbID *uuid.UUID
-	var ports sql.NullString
-	var idk sql.NullString // Should match key
-
-	var status string
-	err := r.db.QueryRow(ctx, query, key, userID).Scan(
-		&g.ID, &g.UserID, &idk, &g.Name, &g.VpcID, &lbID, &g.Image, &ports,
-		&g.MinInstances, &g.MaxInstances, &g.DesiredCount, &g.CurrentCount,
-		&status, &g.Version, &g.CreatedAt, &g.UpdatedAt,
-	)
-	g.Status = domain.ScalingGroupStatus(status)
-	if err == pgx.ErrNoRows {
-		return nil, errs.New(errs.NotFound, "scaling group not found")
-	}
-	if err != nil {
-		return nil, err
-	}
-	g.LoadBalancerID = lbID
-	if ports.Valid {
-		g.Ports = ports.String
-	}
-	if idk.Valid {
-		g.IdempotencyKey = idk.String
-	}
-	return &g, nil
+	return r.scanScalingGroup(r.db.QueryRow(ctx, query, key, userID))
 }
 
 func (r *AutoScalingRepo) ListGroups(ctx context.Context) ([]*domain.ScalingGroup, error) {
@@ -125,34 +75,7 @@ func (r *AutoScalingRepo) ListGroups(ctx context.Context) ([]*domain.ScalingGrou
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-
-	var groups []*domain.ScalingGroup
-	for rows.Next() {
-		var g domain.ScalingGroup
-		var lbID *uuid.UUID
-		var ports sql.NullString
-		var idk sql.NullString
-		var status string
-
-		if err := rows.Scan(
-			&g.ID, &g.UserID, &idk, &g.Name, &g.VpcID, &lbID, &g.Image, &ports,
-			&g.MinInstances, &g.MaxInstances, &g.DesiredCount, &g.CurrentCount,
-			&status, &g.Version, &g.CreatedAt, &g.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		g.Status = domain.ScalingGroupStatus(status)
-		g.LoadBalancerID = lbID
-		if ports.Valid {
-			g.Ports = ports.String
-		}
-		if idk.Valid {
-			g.IdempotencyKey = idk.String
-		}
-		groups = append(groups, &g)
-	}
-	return groups, nil
+	return r.scanScalingGroups(rows)
 }
 
 func (r *AutoScalingRepo) ListAllGroups(ctx context.Context) ([]*domain.ScalingGroup, error) {
@@ -165,32 +88,46 @@ func (r *AutoScalingRepo) ListAllGroups(ctx context.Context) ([]*domain.ScalingG
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	return r.scanScalingGroups(rows)
+}
 
+func (r *AutoScalingRepo) scanScalingGroup(row pgx.Row) (*domain.ScalingGroup, error) {
+	var g domain.ScalingGroup
+	var lbID *uuid.UUID
+	var ports sql.NullString
+	var idk sql.NullString
+	var status string
+	err := row.Scan(
+		&g.ID, &g.UserID, &idk, &g.Name, &g.VpcID, &lbID, &g.Image, &ports,
+		&g.MinInstances, &g.MaxInstances, &g.DesiredCount, &g.CurrentCount,
+		&status, &g.Version, &g.CreatedAt, &g.UpdatedAt,
+	)
+	if err == pgx.ErrNoRows {
+		return nil, errs.New(errs.NotFound, "scaling group not found")
+	}
+	if err != nil {
+		return nil, err
+	}
+	g.Status = domain.ScalingGroupStatus(status)
+	g.LoadBalancerID = lbID
+	if ports.Valid {
+		g.Ports = ports.String
+	}
+	if idk.Valid {
+		g.IdempotencyKey = idk.String
+	}
+	return &g, nil
+}
+
+func (r *AutoScalingRepo) scanScalingGroups(rows pgx.Rows) ([]*domain.ScalingGroup, error) {
+	defer rows.Close()
 	var groups []*domain.ScalingGroup
 	for rows.Next() {
-		var g domain.ScalingGroup
-		var lbID *uuid.UUID
-		var ports sql.NullString
-		var idk sql.NullString
-		var status string
-
-		if err := rows.Scan(
-			&g.ID, &g.UserID, &idk, &g.Name, &g.VpcID, &lbID, &g.Image, &ports,
-			&g.MinInstances, &g.MaxInstances, &g.DesiredCount, &g.CurrentCount,
-			&status, &g.Version, &g.CreatedAt, &g.UpdatedAt,
-		); err != nil {
+		g, err := r.scanScalingGroup(rows)
+		if err != nil {
 			return nil, err
 		}
-		g.Status = domain.ScalingGroupStatus(status)
-		g.LoadBalancerID = lbID
-		if ports.Valid {
-			g.Ports = ports.String
-		}
-		if idk.Valid {
-			g.IdempotencyKey = idk.String
-		}
-		groups = append(groups, &g)
+		groups = append(groups, g)
 	}
 	return groups, nil
 }
@@ -259,25 +196,7 @@ func (r *AutoScalingRepo) GetPoliciesForGroup(ctx context.Context, groupID uuid.
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-
-	var policies []*domain.ScalingPolicy
-	for rows.Next() {
-		var p domain.ScalingPolicy
-		var lastScaledAt sql.NullTime
-		if err := rows.Scan(
-			&p.ID, &p.ScalingGroupID, &p.Name, &p.MetricType, &p.TargetValue,
-			&p.ScaleOutStep, &p.ScaleInStep, &p.CooldownSec, &lastScaledAt,
-		); err != nil {
-			return nil, err
-		}
-		if lastScaledAt.Valid {
-			t := lastScaledAt.Time
-			p.LastScaledAt = &t
-		}
-		policies = append(policies, &p)
-	}
-	return policies, nil
+	return r.scanScalingPolicies(rows)
 }
 
 func (r *AutoScalingRepo) GetAllPolicies(ctx context.Context, groupIDs []uuid.UUID) (map[uuid.UUID][]*domain.ScalingPolicy, error) {
@@ -298,21 +217,42 @@ func (r *AutoScalingRepo) GetAllPolicies(ctx context.Context, groupIDs []uuid.UU
 
 	result := make(map[uuid.UUID][]*domain.ScalingPolicy)
 	for rows.Next() {
-		var p domain.ScalingPolicy
-		var lastScaledAt sql.NullTime
-		if err := rows.Scan(
-			&p.ID, &p.ScalingGroupID, &p.Name, &p.MetricType, &p.TargetValue,
-			&p.ScaleOutStep, &p.ScaleInStep, &p.CooldownSec, &lastScaledAt,
-		); err != nil {
+		p, err := r.scanScalingPolicy(rows)
+		if err != nil {
 			return nil, err
 		}
-		if lastScaledAt.Valid {
-			t := lastScaledAt.Time
-			p.LastScaledAt = &t
-		}
-		result[p.ScalingGroupID] = append(result[p.ScalingGroupID], &p)
+		result[p.ScalingGroupID] = append(result[p.ScalingGroupID], p)
 	}
 	return result, nil
+}
+
+func (r *AutoScalingRepo) scanScalingPolicy(row pgx.Row) (*domain.ScalingPolicy, error) {
+	var p domain.ScalingPolicy
+	var lastScaledAt sql.NullTime
+	if err := row.Scan(
+		&p.ID, &p.ScalingGroupID, &p.Name, &p.MetricType, &p.TargetValue,
+		&p.ScaleOutStep, &p.ScaleInStep, &p.CooldownSec, &lastScaledAt,
+	); err != nil {
+		return nil, err
+	}
+	if lastScaledAt.Valid {
+		t := lastScaledAt.Time
+		p.LastScaledAt = &t
+	}
+	return &p, nil
+}
+
+func (r *AutoScalingRepo) scanScalingPolicies(rows pgx.Rows) ([]*domain.ScalingPolicy, error) {
+	defer rows.Close()
+	var policies []*domain.ScalingPolicy
+	for rows.Next() {
+		p, err := r.scanScalingPolicy(rows)
+		if err != nil {
+			return nil, err
+		}
+		policies = append(policies, p)
+	}
+	return policies, nil
 }
 
 func (r *AutoScalingRepo) UpdatePolicyLastScaled(ctx context.Context, policyID uuid.UUID, t time.Time) error {
@@ -345,12 +285,19 @@ func (r *AutoScalingRepo) GetInstancesInGroup(ctx context.Context, groupID uuid.
 	defer rows.Close()
 	var ids []uuid.UUID
 	for rows.Next() {
-		var id uuid.UUID
-		if err := rows.Scan(&id); err == nil {
-			ids = append(ids, id)
+		id, err := r.scanScalingGroupInstance(rows)
+		if err != nil {
+			return nil, err
 		}
+		ids = append(ids, id)
 	}
 	return ids, nil
+}
+
+func (r *AutoScalingRepo) scanScalingGroupInstance(row pgx.Row) (uuid.UUID, error) {
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
 }
 
 func (r *AutoScalingRepo) GetAllScalingGroupInstances(ctx context.Context, groupIDs []uuid.UUID) (map[uuid.UUID][]uuid.UUID, error) {

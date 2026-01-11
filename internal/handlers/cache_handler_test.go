@@ -71,7 +71,7 @@ func (m *mockCacheService) GetCacheStats(ctx context.Context, idOrName string) (
 	return args.Get(0).(*ports.CacheStats), args.Error(1)
 }
 
-func setupCacheHandlerTest(t *testing.T) (*mockCacheService, *CacheHandler, *gin.Engine) {
+func setupCacheHandlerTest(_ *testing.T) (*mockCacheService, *CacheHandler, *gin.Engine) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockCacheService)
 	handler := NewCacheHandler(svc)

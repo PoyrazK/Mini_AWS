@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-func setupStorageServiceTest(t *testing.T) (*MockStorageRepo, *MockFileStore, *MockAuditService, ports.StorageService) {
+func setupStorageServiceTest(_ *testing.T) (*MockStorageRepo, *MockFileStore, *MockAuditService, ports.StorageService) {
 	repo := new(MockStorageRepo)
 	store := new(MockFileStore)
 	auditSvc := new(MockAuditService)

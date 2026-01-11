@@ -17,8 +17,7 @@ type MockUserRepo struct {
 }
 
 func (m *MockUserRepo) Create(ctx context.Context, user *domain.User) error {
-	args := m.Called(ctx, user)
-	return args.Error(0)
+	return m.Called(ctx, user).Error(0)
 }
 func (m *MockUserRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.User, error) {
 	args := m.Called(ctx, id)
@@ -35,8 +34,7 @@ func (m *MockUserRepo) GetByEmail(ctx context.Context, email string) (*domain.Us
 	return args.Get(0).(*domain.User), args.Error(1)
 }
 func (m *MockUserRepo) Update(ctx context.Context, user *domain.User) error {
-	args := m.Called(ctx, user)
-	return args.Error(0)
+	return m.Called(ctx, user).Error(0)
 }
 
 func (m *MockUserRepo) List(ctx context.Context) ([]*domain.User, error) {
@@ -89,8 +87,7 @@ func (m *MockIdentityService) RotateKey(ctx context.Context, userID, id uuid.UUI
 type MockAutoScalingRepo struct{ mock.Mock }
 
 func (m *MockAutoScalingRepo) CreateGroup(ctx context.Context, group *domain.ScalingGroup) error {
-	args := m.Called(ctx, group)
-	return args.Error(0)
+	return m.Called(ctx, group).Error(0)
 }
 func (m *MockAutoScalingRepo) GetGroupByID(ctx context.Context, id uuid.UUID) (*domain.ScalingGroup, error) {
 	args := m.Called(ctx, id)
@@ -125,12 +122,10 @@ func (m *MockAutoScalingRepo) CountGroupsByVPC(ctx context.Context, vpcID uuid.U
 	return args.Int(0), args.Error(1)
 }
 func (m *MockAutoScalingRepo) UpdateGroup(ctx context.Context, group *domain.ScalingGroup) error {
-	args := m.Called(ctx, group)
-	return args.Error(0)
+	return m.Called(ctx, group).Error(0)
 }
 func (m *MockAutoScalingRepo) DeleteGroup(ctx context.Context, id uuid.UUID) error {
-	args := m.Called(ctx, id)
-	return args.Error(0)
+	return m.Called(ctx, id).Error(0)
 }
 func (m *MockAutoScalingRepo) CreatePolicy(ctx context.Context, policy *domain.ScalingPolicy) error {
 	args := m.Called(ctx, policy)
@@ -159,12 +154,10 @@ func (m *MockAutoScalingRepo) DeletePolicy(ctx context.Context, id uuid.UUID) er
 	return args.Error(0)
 }
 func (m *MockAutoScalingRepo) AddInstanceToGroup(ctx context.Context, groupID, instanceID uuid.UUID) error {
-	args := m.Called(ctx, groupID, instanceID)
-	return args.Error(0)
+	return m.Called(ctx, groupID, instanceID).Error(0)
 }
 func (m *MockAutoScalingRepo) RemoveInstanceFromGroup(ctx context.Context, groupID, instanceID uuid.UUID) error {
-	args := m.Called(ctx, groupID, instanceID)
-	return args.Error(0)
+	return m.Called(ctx, groupID, instanceID).Error(0)
 }
 func (m *MockAutoScalingRepo) GetInstancesInGroup(ctx context.Context, groupID uuid.UUID) ([]uuid.UUID, error) {
 	args := m.Called(ctx, groupID)
@@ -196,8 +189,7 @@ func (m *MockInstanceService) LaunchInstance(ctx context.Context, name, image, p
 	return args.Get(0).(*domain.Instance), args.Error(1)
 }
 func (m *MockInstanceService) StopInstance(ctx context.Context, idOrName string) error {
-	args := m.Called(ctx, idOrName)
-	return args.Error(0)
+	return m.Called(ctx, idOrName).Error(0)
 }
 func (m *MockInstanceService) ListInstances(ctx context.Context) ([]*domain.Instance, error) {
 	args := m.Called(ctx)
@@ -225,12 +217,10 @@ func (m *MockInstanceService) GetInstanceStats(ctx context.Context, idOrName str
 	return args.Get(0).(*domain.InstanceStats), args.Error(1)
 }
 func (m *MockInstanceService) GetConsoleURL(ctx context.Context, idOrName string) (string, error) {
-	args := m.Called(ctx, idOrName)
-	return args.String(0), args.Error(1)
+	return m.GetInstanceLogs(ctx, idOrName)
 }
 func (m *MockInstanceService) TerminateInstance(ctx context.Context, idOrName string) error {
-	args := m.Called(ctx, idOrName)
-	return args.Error(0)
+	return m.Called(ctx, idOrName).Error(0)
 }
 
 // MockLBService
@@ -304,8 +294,7 @@ func (m *MockClock) Now() time.Time {
 type MockVpcRepo struct{ mock.Mock }
 
 func (m *MockVpcRepo) Create(ctx context.Context, vpc *domain.VPC) error {
-	args := m.Called(ctx, vpc)
-	return args.Error(0)
+	return m.Called(ctx, vpc).Error(0)
 }
 func (m *MockVpcRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.VPC, error) {
 	args := m.Called(ctx, id)
@@ -330,8 +319,7 @@ func (m *MockVpcRepo) List(ctx context.Context) ([]*domain.VPC, error) {
 }
 
 func (m *MockVpcRepo) Delete(ctx context.Context, id uuid.UUID) error {
-	args := m.Called(ctx, id)
-	return args.Error(0)
+	return m.Called(ctx, id).Error(0)
 }
 
 // MockSubnetRepo
@@ -457,13 +445,11 @@ func (m *MockVolumeRepo) ListByInstanceID(ctx context.Context, id uuid.UUID) ([]
 }
 
 func (m *MockVolumeRepo) Update(ctx context.Context, v *domain.Volume) error {
-	args := m.Called(ctx, v)
-	return args.Error(0)
+	return m.Called(ctx, v).Error(0)
 }
 
 func (m *MockVolumeRepo) Delete(ctx context.Context, id uuid.UUID) error {
-	args := m.Called(ctx, id)
-	return args.Error(0)
+	return m.Called(ctx, id).Error(0)
 }
 
 // MockQueueRepo
@@ -605,12 +591,10 @@ func (m *MockNotifyRepo) ListTopics(ctx context.Context, userID uuid.UUID) ([]*d
 	return args.Get(0).([]*domain.Topic), args.Error(1)
 }
 func (m *MockNotifyRepo) DeleteTopic(ctx context.Context, id uuid.UUID) error {
-	args := m.Called(ctx, id)
-	return args.Error(0)
+	return m.Called(ctx, id).Error(0)
 }
 func (m *MockNotifyRepo) CreateSubscription(ctx context.Context, sub *domain.Subscription) error {
-	args := m.Called(ctx, sub)
-	return args.Error(0)
+	return m.Called(ctx, sub).Error(0)
 }
 func (m *MockNotifyRepo) GetSubscriptionByID(ctx context.Context, id, userID uuid.UUID) (*domain.Subscription, error) {
 	args := m.Called(ctx, id, userID)
@@ -627,8 +611,7 @@ func (m *MockNotifyRepo) ListSubscriptions(ctx context.Context, topicID uuid.UUI
 	return args.Get(0).([]*domain.Subscription), args.Error(1)
 }
 func (m *MockNotifyRepo) DeleteSubscription(ctx context.Context, id uuid.UUID) error {
-	args := m.Called(ctx, id)
-	return args.Error(0)
+	return m.Called(ctx, id).Error(0)
 }
 func (m *MockNotifyRepo) SaveMessage(ctx context.Context, msg *domain.NotifyMessage) error {
 	args := m.Called(ctx, msg)
@@ -639,8 +622,7 @@ func (m *MockNotifyRepo) SaveMessage(ctx context.Context, msg *domain.NotifyMess
 type MockCronRepo struct{ mock.Mock }
 
 func (m *MockCronRepo) CreateJob(ctx context.Context, job *domain.CronJob) error {
-	args := m.Called(ctx, job)
-	return args.Error(0)
+	return m.Called(ctx, job).Error(0)
 }
 func (m *MockCronRepo) GetJobByID(ctx context.Context, id, userID uuid.UUID) (*domain.CronJob, error) {
 	args := m.Called(ctx, id, userID)
@@ -657,12 +639,10 @@ func (m *MockCronRepo) ListJobs(ctx context.Context, userID uuid.UUID) ([]*domai
 	return args.Get(0).([]*domain.CronJob), args.Error(1)
 }
 func (m *MockCronRepo) UpdateJob(ctx context.Context, job *domain.CronJob) error {
-	args := m.Called(ctx, job)
-	return args.Error(0)
+	return m.Called(ctx, job).Error(0)
 }
 func (m *MockCronRepo) DeleteJob(ctx context.Context, id uuid.UUID) error {
-	args := m.Called(ctx, id)
-	return args.Error(0)
+	return m.Called(ctx, id).Error(0)
 }
 func (m *MockCronRepo) GetNextJobsToRun(ctx context.Context) ([]*domain.CronJob, error) {
 	args := m.Called(ctx)
@@ -672,16 +652,14 @@ func (m *MockCronRepo) GetNextJobsToRun(ctx context.Context) ([]*domain.CronJob,
 	return args.Get(0).([]*domain.CronJob), args.Error(1)
 }
 func (m *MockCronRepo) SaveJobRun(ctx context.Context, run *domain.CronJobRun) error {
-	args := m.Called(ctx, run)
-	return args.Error(0)
+	return m.Called(ctx, run).Error(0)
 }
 
 // MockGatewayRepo
 type MockGatewayRepo struct{ mock.Mock }
 
 func (m *MockGatewayRepo) CreateRoute(ctx context.Context, route *domain.GatewayRoute) error {
-	args := m.Called(ctx, route)
-	return args.Error(0)
+	return m.Called(ctx, route).Error(0)
 }
 func (m *MockGatewayRepo) GetRouteByID(ctx context.Context, id, userID uuid.UUID) (*domain.GatewayRoute, error) {
 	args := m.Called(ctx, id, userID)
@@ -698,8 +676,7 @@ func (m *MockGatewayRepo) ListRoutes(ctx context.Context, userID uuid.UUID) ([]*
 	return args.Get(0).([]*domain.GatewayRoute), args.Error(1)
 }
 func (m *MockGatewayRepo) DeleteRoute(ctx context.Context, id uuid.UUID) error {
-	args := m.Called(ctx, id)
-	return args.Error(0)
+	return m.Called(ctx, id).Error(0)
 }
 func (m *MockGatewayRepo) GetAllActiveRoutes(ctx context.Context) ([]*domain.GatewayRoute, error) {
 	args := m.Called(ctx)
@@ -731,20 +708,16 @@ func (m *MockContainerRepo) ListDeployments(ctx context.Context, userID uuid.UUI
 	return args.Get(0).([]*domain.Deployment), args.Error(1)
 }
 func (m *MockContainerRepo) UpdateDeployment(ctx context.Context, d *domain.Deployment) error {
-	args := m.Called(ctx, d)
-	return args.Error(0)
+	return m.Called(ctx, d).Error(0)
 }
 func (m *MockContainerRepo) DeleteDeployment(ctx context.Context, id uuid.UUID) error {
-	args := m.Called(ctx, id)
-	return args.Error(0)
+	return m.Called(ctx, id).Error(0)
 }
 func (m *MockContainerRepo) AddContainer(ctx context.Context, deploymentID, instanceID uuid.UUID) error {
-	args := m.Called(ctx, deploymentID, instanceID)
-	return args.Error(0)
+	return m.Called(ctx, deploymentID, instanceID).Error(0)
 }
 func (m *MockContainerRepo) RemoveContainer(ctx context.Context, deploymentID, instanceID uuid.UUID) error {
-	args := m.Called(ctx, deploymentID, instanceID)
-	return args.Error(0)
+	return m.Called(ctx, deploymentID, instanceID).Error(0)
 }
 func (m *MockContainerRepo) GetContainers(ctx context.Context, deploymentID uuid.UUID) ([]uuid.UUID, error) {
 	args := m.Called(ctx, deploymentID)
@@ -795,8 +768,7 @@ func (m *MockAuditService) ListLogs(ctx context.Context, userID uuid.UUID, limit
 type MockInstanceRepo struct{ mock.Mock }
 
 func (m *MockInstanceRepo) Create(ctx context.Context, inst *domain.Instance) error {
-	args := m.Called(ctx, inst)
-	return args.Error(0)
+	return m.Called(ctx, inst).Error(0)
 }
 func (m *MockInstanceRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.Instance, error) {
 	args := m.Called(ctx, id)
@@ -820,11 +792,7 @@ func (m *MockInstanceRepo) List(ctx context.Context) ([]*domain.Instance, error)
 	return args.Get(0).([]*domain.Instance), args.Error(1)
 }
 func (m *MockInstanceRepo) ListAll(ctx context.Context) ([]*domain.Instance, error) {
-	args := m.Called(ctx)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).([]*domain.Instance), args.Error(1)
+	return m.List(ctx)
 }
 func (m *MockInstanceRepo) ListBySubnet(ctx context.Context, subnetID uuid.UUID) ([]*domain.Instance, error) {
 	args := m.Called(ctx, subnetID)
@@ -834,12 +802,10 @@ func (m *MockInstanceRepo) ListBySubnet(ctx context.Context, subnetID uuid.UUID)
 	return args.Get(0).([]*domain.Instance), args.Error(1)
 }
 func (m *MockInstanceRepo) Update(ctx context.Context, inst *domain.Instance) error {
-	args := m.Called(ctx, inst)
-	return args.Error(0)
+	return m.Called(ctx, inst).Error(0)
 }
 func (m *MockInstanceRepo) Delete(ctx context.Context, id uuid.UUID) error {
-	args := m.Called(ctx, id)
-	return args.Error(0)
+	return m.Called(ctx, id).Error(0)
 }
 func (m *MockInstanceRepo) ListByVPC(ctx context.Context, vpcID uuid.UUID) ([]*domain.Instance, error) {
 	args := m.Called(ctx, vpcID)
@@ -852,17 +818,15 @@ func (m *MockInstanceRepo) ListByVPC(ctx context.Context, vpcID uuid.UUID) ([]*d
 // MockDockerClient
 type MockComputeBackend struct{ mock.Mock }
 
-func (m *MockComputeBackend) CreateInstance(ctx context.Context, name, image string, ports []string, networkID string, volumeBinds []string, env []string, cmd []string) (string, error) {
-	args := m.Called(ctx, name, image, ports, networkID, volumeBinds, env, cmd)
+func (m *MockComputeBackend) CreateInstance(ctx context.Context, opts ports.CreateInstanceOptions) (string, error) {
+	args := m.Called(ctx, opts)
 	return args.String(0), args.Error(1)
 }
 func (m *MockComputeBackend) StopInstance(ctx context.Context, id string) error {
-	args := m.Called(ctx, id)
-	return args.Error(0)
+	return m.Called(ctx, id).Error(0)
 }
 func (m *MockComputeBackend) DeleteInstance(ctx context.Context, id string) error {
-	args := m.Called(ctx, id)
-	return args.Error(0)
+	return m.Called(ctx, id).Error(0)
 }
 func (m *MockComputeBackend) GetInstanceLogs(ctx context.Context, id string) (io.ReadCloser, error) {
 	args := m.Called(ctx, id)
@@ -887,16 +851,13 @@ func (m *MockComputeBackend) CreateNetwork(ctx context.Context, name string) (st
 	return args.String(0), args.Error(1)
 }
 func (m *MockComputeBackend) DeleteNetwork(ctx context.Context, id string) error {
-	args := m.Called(ctx, id)
-	return args.Error(0)
+	return m.Called(ctx, id).Error(0)
 }
 func (m *MockComputeBackend) AttachVolume(ctx context.Context, id string, volumePath string) error {
-	args := m.Called(ctx, id, volumePath)
-	return args.Error(0)
+	return m.Called(ctx, id, volumePath).Error(0)
 }
 func (m *MockComputeBackend) DetachVolume(ctx context.Context, id string, volumePath string) error {
-	args := m.Called(ctx, id, volumePath)
-	return args.Error(0)
+	return m.Called(ctx, id, volumePath).Error(0)
 }
 func (m *MockComputeBackend) RunTask(ctx context.Context, opts ports.RunTaskOptions) (string, error) {
 	args := m.Called(ctx, opts)
@@ -916,8 +877,7 @@ func (m *MockComputeBackend) GetInstanceIP(ctx context.Context, id string) (stri
 	return args.String(0), args.Error(1)
 }
 func (m *MockComputeBackend) GetConsoleURL(ctx context.Context, id string) (string, error) {
-	args := m.Called(ctx, id)
-	return args.String(0), args.Error(1)
+	return m.GetInstanceIP(ctx, id)
 }
 func (m *MockComputeBackend) CreateVolumeSnapshot(ctx context.Context, volumeID string, destinationPath string) error {
 	return nil
@@ -956,12 +916,10 @@ func (m *MockNetworkBackend) ListBridges(ctx context.Context) ([]string, error) 
 	return args.Get(0).([]string), args.Error(1)
 }
 func (m *MockNetworkBackend) AddPort(ctx context.Context, bridge, portName string) error {
-	args := m.Called(ctx, bridge, portName)
-	return args.Error(0)
+	return m.Called(ctx, bridge, portName).Error(0)
 }
 func (m *MockNetworkBackend) DeletePort(ctx context.Context, bridge, portName string) error {
-	args := m.Called(ctx, bridge, portName)
-	return args.Error(0)
+	return m.AddPort(ctx, bridge, portName)
 }
 func (m *MockNetworkBackend) CreateVXLANTunnel(ctx context.Context, bridge string, vni int, remoteIP string) error {
 	args := m.Called(ctx, bridge, vni, remoteIP)
@@ -1065,8 +1023,7 @@ func (m *MockSnapshotRepo) ListByUserID(ctx context.Context, userID uuid.UUID) (
 }
 
 func (m *MockSnapshotRepo) Update(ctx context.Context, s *domain.Snapshot) error {
-	args := m.Called(ctx, s)
-	return args.Error(0)
+	return m.Called(ctx, s).Error(0)
 }
 
 func (m *MockSnapshotRepo) Delete(ctx context.Context, id uuid.UUID) error {
@@ -1105,20 +1062,16 @@ func (m *MockRoleRepo) ListRoles(ctx context.Context) ([]*domain.Role, error) {
 	return args.Get(0).([]*domain.Role), args.Error(1)
 }
 func (m *MockRoleRepo) UpdateRole(ctx context.Context, role *domain.Role) error {
-	args := m.Called(ctx, role)
-	return args.Error(0)
+	return m.Called(ctx, role).Error(0)
 }
 func (m *MockRoleRepo) DeleteRole(ctx context.Context, id uuid.UUID) error {
-	args := m.Called(ctx, id)
-	return args.Error(0)
+	return m.Called(ctx, id).Error(0)
 }
 func (m *MockRoleRepo) AddPermissionToRole(ctx context.Context, roleID uuid.UUID, permission domain.Permission) error {
-	args := m.Called(ctx, roleID, permission)
-	return args.Error(0)
+	return m.Called(ctx, roleID, permission).Error(0)
 }
 func (m *MockRoleRepo) RemovePermissionFromRole(ctx context.Context, roleID uuid.UUID, permission domain.Permission) error {
-	args := m.Called(ctx, roleID, permission)
-	return args.Error(0)
+	return m.Called(ctx, roleID, permission).Error(0)
 }
 func (m *MockRoleRepo) GetPermissionsForRole(ctx context.Context, roleID uuid.UUID) ([]domain.Permission, error) {
 	args := m.Called(ctx, roleID)
@@ -1159,8 +1112,7 @@ func (m *MockStackRepo) ListByUserID(ctx context.Context, userID uuid.UUID) ([]*
 	return args.Get(0).([]*domain.Stack), args.Error(1)
 }
 func (m *MockStackRepo) Update(ctx context.Context, s *domain.Stack) error {
-	args := m.Called(ctx, s)
-	return args.Error(0)
+	return m.Called(ctx, s).Error(0)
 }
 func (m *MockStackRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	args := m.Called(ctx, id)
@@ -1356,8 +1308,7 @@ func (m *MockContainerRepository) ListDeployments(ctx context.Context, userID uu
 	return args.Get(0).([]*domain.Deployment), args.Error(1)
 }
 func (m *MockContainerRepository) UpdateDeployment(ctx context.Context, dep *domain.Deployment) error {
-	args := m.Called(ctx, dep)
-	return args.Error(0)
+	return m.Called(ctx, dep).Error(0)
 }
 func (m *MockContainerRepository) DeleteDeployment(ctx context.Context, id uuid.UUID) error {
 	args := m.Called(ctx, id)
@@ -1366,12 +1317,10 @@ func (m *MockContainerRepository) DeleteDeployment(ctx context.Context, id uuid.
 
 // Replication management
 func (m *MockContainerRepository) AddContainer(ctx context.Context, deploymentID, instanceID uuid.UUID) error {
-	args := m.Called(ctx, deploymentID, instanceID)
-	return args.Error(0)
+	return m.Called(ctx, deploymentID, instanceID).Error(0)
 }
 func (m *MockContainerRepository) RemoveContainer(ctx context.Context, deploymentID, instanceID uuid.UUID) error {
-	args := m.Called(ctx, deploymentID, instanceID)
-	return args.Error(0)
+	return m.AddContainer(ctx, deploymentID, instanceID)
 }
 func (m *MockContainerRepository) GetContainers(ctx context.Context, deploymentID uuid.UUID) ([]uuid.UUID, error) {
 	args := m.Called(ctx, deploymentID)
@@ -1414,8 +1363,7 @@ func (m *MockCronRepository) ListJobs(ctx context.Context, userID uuid.UUID) ([]
 	return args.Get(0).([]*domain.CronJob), args.Error(1)
 }
 func (m *MockCronRepository) UpdateJob(ctx context.Context, job *domain.CronJob) error {
-	args := m.Called(ctx, job)
-	return args.Error(0)
+	return m.Called(ctx, job).Error(0)
 }
 func (m *MockCronRepository) DeleteJob(ctx context.Context, id uuid.UUID) error {
 	args := m.Called(ctx, id)
@@ -1495,15 +1443,10 @@ func (m *MockLBRepo) List(ctx context.Context) ([]*domain.LoadBalancer, error) {
 	return args.Get(0).([]*domain.LoadBalancer), args.Error(1)
 }
 func (m *MockLBRepo) ListAll(ctx context.Context) ([]*domain.LoadBalancer, error) {
-	args := m.Called(ctx)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).([]*domain.LoadBalancer), args.Error(1)
+	return m.List(ctx)
 }
 func (m *MockLBRepo) Update(ctx context.Context, lb *domain.LoadBalancer) error {
-	args := m.Called(ctx, lb)
-	return args.Error(0)
+	return m.Called(ctx, lb).Error(0)
 }
 func (m *MockLBRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	args := m.Called(ctx, id)

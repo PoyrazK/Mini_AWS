@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
@@ -38,25 +39,7 @@ func (r *PostgresContainerRepository) CreateDeployment(ctx context.Context, d *d
 
 func (r *PostgresContainerRepository) GetDeploymentByID(ctx context.Context, id, userID uuid.UUID) (*domain.Deployment, error) {
 	query := `SELECT id, user_id, name, image, replicas, current_count, ports, status, created_at, updated_at FROM deployments WHERE id = $1 AND user_id = $2`
-	var d domain.Deployment
-	var status string
-	err := r.db.QueryRow(ctx, query, id, userID).Scan(
-		&d.ID,
-		&d.UserID,
-		&d.Name,
-		&d.Image,
-		&d.Replicas,
-		&d.CurrentCount,
-		&d.Ports,
-		&status,
-		&d.CreatedAt,
-		&d.UpdatedAt,
-	)
-	if err != nil {
-		return nil, err
-	}
-	d.Status = domain.DeploymentStatus(status)
-	return &d, nil
+	return r.scanDeployment(r.db.QueryRow(ctx, query, id, userID))
 }
 
 func (r *PostgresContainerRepository) ListDeployments(ctx context.Context, userID uuid.UUID) ([]*domain.Deployment, error) {
@@ -65,30 +48,7 @@ func (r *PostgresContainerRepository) ListDeployments(ctx context.Context, userI
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-
-	var deps []*domain.Deployment
-	for rows.Next() {
-		var d domain.Deployment
-		var status string
-		if err := rows.Scan(
-			&d.ID,
-			&d.UserID,
-			&d.Name,
-			&d.Image,
-			&d.Replicas,
-			&d.CurrentCount,
-			&d.Ports,
-			&status,
-			&d.CreatedAt,
-			&d.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		d.Status = domain.DeploymentStatus(status)
-		deps = append(deps, &d)
-	}
-	return deps, nil
+	return r.scanDeployments(rows)
 }
 
 func (r *PostgresContainerRepository) UpdateDeployment(ctx context.Context, d *domain.Deployment) error {
@@ -144,28 +104,40 @@ func (r *PostgresContainerRepository) ListAllDeployments(ctx context.Context) ([
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	return r.scanDeployments(rows)
+}
 
+func (r *PostgresContainerRepository) scanDeployment(row pgx.Row) (*domain.Deployment, error) {
+	var d domain.Deployment
+	var status string
+	err := row.Scan(
+		&d.ID,
+		&d.UserID,
+		&d.Name,
+		&d.Image,
+		&d.Replicas,
+		&d.CurrentCount,
+		&d.Ports,
+		&status,
+		&d.CreatedAt,
+		&d.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	d.Status = domain.DeploymentStatus(status)
+	return &d, nil
+}
+
+func (r *PostgresContainerRepository) scanDeployments(rows pgx.Rows) ([]*domain.Deployment, error) {
+	defer rows.Close()
 	var deps []*domain.Deployment
 	for rows.Next() {
-		var d domain.Deployment
-		var status string
-		if err := rows.Scan(
-			&d.ID,
-			&d.UserID,
-			&d.Name,
-			&d.Image,
-			&d.Replicas,
-			&d.CurrentCount,
-			&d.Ports,
-			&status,
-			&d.CreatedAt,
-			&d.UpdatedAt,
-		); err != nil {
+		d, err := r.scanDeployment(rows)
+		if err != nil {
 			return nil, err
 		}
-		d.Status = domain.DeploymentStatus(status)
-		deps = append(deps, &d)
+		deps = append(deps, d)
 	}
 	return deps, nil
 }

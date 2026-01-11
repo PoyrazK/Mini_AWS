@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-func setupVolumeServiceTest(t *testing.T) (*MockVolumeRepo, *MockStorageBackend, *MockEventService, *MockAuditService, ports.VolumeService) {
+func setupVolumeServiceTest(_ *testing.T) (*MockVolumeRepo, *MockStorageBackend, *MockEventService, *MockAuditService, ports.VolumeService) {
 	repo := new(MockVolumeRepo)
 	storage := new(MockStorageBackend)
 	eventSvc := new(MockEventService)

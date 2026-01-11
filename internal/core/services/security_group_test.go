@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-func setupSecurityGroupServiceTest(t *testing.T) (*MockSecurityGroupRepo, *MockVpcRepo, *MockNetworkBackend, *MockAuditService, ports.SecurityGroupService) {
+func setupSecurityGroupServiceTest(_ *testing.T) (*MockSecurityGroupRepo, *MockVpcRepo, *MockNetworkBackend, *MockAuditService, ports.SecurityGroupService) {
 	repo := new(MockSecurityGroupRepo)
 	vpcRepo := new(MockVpcRepo)
 	network := new(MockNetworkBackend)

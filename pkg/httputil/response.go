@@ -57,26 +57,24 @@ func Error(c *gin.Context, err error) {
 		}
 	}
 
+	statusCodeMap := map[errors.Type]int{
+		errors.NotFound:              http.StatusNotFound,
+		errors.InvalidInput:          http.StatusBadRequest,
+		errors.Unauthorized:          http.StatusUnauthorized,
+		errors.Forbidden:             http.StatusForbidden,
+		errors.Conflict:              http.StatusConflict,
+		errors.BucketNotFound:        http.StatusNotFound,
+		errors.ObjectNotFound:        http.StatusNotFound,
+		errors.ObjectTooLarge:        http.StatusRequestEntityTooLarge,
+		errors.InstanceNotRunning:    http.StatusConflict,
+		errors.PortConflict:          http.StatusConflict,
+		errors.TooManyPorts:          http.StatusConflict,
+		errors.ResourceLimitExceeded: http.StatusTooManyRequests,
+	}
+
 	statusCode := http.StatusInternalServerError
-	switch e.Type {
-	case errors.NotFound:
-		statusCode = http.StatusNotFound
-	case errors.InvalidInput:
-		statusCode = http.StatusBadRequest
-	case errors.Unauthorized:
-		statusCode = http.StatusUnauthorized
-	case errors.Forbidden:
-		statusCode = http.StatusForbidden
-	case errors.Conflict:
-		statusCode = http.StatusConflict
-	case errors.BucketNotFound, errors.ObjectNotFound:
-		statusCode = http.StatusNotFound
-	case errors.ObjectTooLarge:
-		statusCode = http.StatusRequestEntityTooLarge
-	case errors.InstanceNotRunning, errors.PortConflict, errors.TooManyPorts:
-		statusCode = http.StatusConflict
-	case errors.ResourceLimitExceeded:
-		statusCode = http.StatusTooManyRequests // 429
+	if code, ok := statusCodeMap[e.Type]; ok {
+		statusCode = code
 	}
 
 	requestID, _ := c.Get("requestID")

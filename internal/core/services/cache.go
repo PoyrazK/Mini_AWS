@@ -48,16 +48,13 @@ func NewCacheService(
 func (s *CacheService) CreateCache(ctx context.Context, name, version string, memoryMB int, vpcID *uuid.UUID) (*domain.Cache, error) {
 	userID := appcontext.UserIDFromContext(ctx)
 
-	// Generate password
 	password, err := util.GenerateRandomPassword(16)
 	if err != nil {
 		return nil, errors.Wrap(errors.Internal, "failed to generate password", err)
 	}
 
-	// Prepare domain object
-	cacheID := uuid.New()
 	cache := &domain.Cache{
-		ID:        cacheID,
+		ID:        uuid.New(),
 		UserID:    userID,
 		Name:      name,
 		Engine:    domain.EngineRedis,
@@ -70,59 +67,27 @@ func (s *CacheService) CreateCache(ctx context.Context, name, version string, me
 		UpdatedAt: time.Now(),
 	}
 
-	// Persist initial state
 	if err := s.repo.Create(ctx, cache); err != nil {
 		return nil, err
 	}
 
-	// Network config
-	networkID := ""
-	if vpcID != nil {
-		vpc, err := s.vpcRepo.GetByID(ctx, *vpcID)
-		if err != nil {
-			s.logger.Error("failed to get VPC", "vpc_id", vpcID, "error", err)
-			return nil, err
-		}
-		networkID = vpc.NetworkID
-	}
-
-	// Docker config
-	dockerName := fmt.Sprintf("thecloud-cache-%s", cache.ID.String()[:8])
-	imageName := fmt.Sprintf("redis:%s-alpine", version)
-
-	// Redis Command Arguments
-	cmd := []string{
-		"redis-server",
-		"--appendonly", "yes",
-		"--save", "", // Disable RDB
-		"--requirepass", password,
-		"--maxmemory", fmt.Sprintf("%dmb", memoryMB),
-		"--maxmemory-policy", "allkeys-lru",
-		"--tcp-keepalive", "300",
-	}
-
-	// Expose default port
-	portMapping := []string{"0:6379"}
-
-	containerID, err := s.compute.CreateInstance(ctx, dockerName, imageName, portMapping, networkID, nil, nil, cmd)
+	networkID, err := s.resolveNetworkID(ctx, vpcID)
 	if err != nil {
-		s.logger.Error("failed to create cache container", "error", err)
+		return nil, err
+	}
+
+	containerID, err := s.launchCacheContainer(ctx, cache, networkID)
+	if err != nil {
 		cache.Status = domain.CacheStatusFailed
-		_ = s.repo.Delete(ctx, cache.ID) // Rollback
+		_ = s.repo.Delete(ctx, cache.ID)
 		return nil, errors.Wrap(errors.Internal, "failed to launch cache container", err)
 	}
 
-	// Get assigned port
 	port, err := s.compute.GetInstancePort(ctx, containerID, "6379")
 	if err != nil {
 		s.logger.Error("failed to get cache port", "error", err)
-		// Don't fail completely, try to recover later or let user retry
 	}
 
-	// Wait for container to be ready (healthcheck mock)
-	// In real world we would wait for healthcheck. Here we assume generic success if started.
-
-	// Update cache with container info
 	cache.Status = domain.CacheStatusRunning
 	cache.ContainerID = containerID
 	cache.Port = port
@@ -131,6 +96,52 @@ func (s *CacheService) CreateCache(ctx context.Context, name, version string, me
 		s.logger.Warn("failed to update cache status after launch", "id", cache.ID, "error", err)
 	}
 
+	s.logCacheCreation(ctx, cache, name)
+
+	return cache, nil
+}
+
+func (s *CacheService) resolveNetworkID(ctx context.Context, vpcID *uuid.UUID) (string, error) {
+	if vpcID == nil {
+		return "", nil
+	}
+	vpc, err := s.vpcRepo.GetByID(ctx, *vpcID)
+	if err != nil {
+		s.logger.Error("failed to get VPC", "vpc_id", vpcID, "error", err)
+		return "", err
+	}
+	return vpc.NetworkID, nil
+}
+
+func (s *CacheService) launchCacheContainer(ctx context.Context, cache *domain.Cache, networkID string) (string, error) {
+	dockerName := fmt.Sprintf("thecloud-cache-%s", cache.ID.String()[:8])
+	imageName := fmt.Sprintf("redis:%s-alpine", cache.Version)
+
+	cmd := []string{
+		"redis-server",
+		"--appendonly", "yes",
+		"--save", "",
+		"--requirepass", cache.Password,
+		"--maxmemory", fmt.Sprintf("%dmb", cache.MemoryMB),
+		"--maxmemory-policy", "allkeys-lru",
+		"--tcp-keepalive", "300",
+	}
+
+	containerID, err := s.compute.CreateInstance(ctx, ports.CreateInstanceOptions{
+		Name:      dockerName,
+		ImageName: imageName,
+		Ports:     []string{"0:6379"},
+		NetworkID: networkID,
+		Cmd:       cmd,
+	})
+	if err != nil {
+		s.logger.Error("failed to create cache container", "error", err)
+		return "", err
+	}
+	return containerID, nil
+}
+
+func (s *CacheService) logCacheCreation(ctx context.Context, cache *domain.Cache, originalName string) {
 	_ = s.eventSvc.RecordEvent(ctx, "CACHE_CREATE", cache.ID.String(), "CACHE", map[string]interface{}{
 		"name":    cache.Name,
 		"version": cache.Version,
@@ -138,12 +149,10 @@ func (s *CacheService) CreateCache(ctx context.Context, name, version string, me
 	})
 
 	_ = s.auditSvc.Log(ctx, cache.UserID, "cache.create", "cache", cache.ID.String(), map[string]interface{}{
-		"name": name,
+		"name": originalName,
 	})
 
 	platform.CacheInstancesTotal.WithLabelValues("running").Inc()
-
-	return cache, nil
 }
 
 func (s *CacheService) GetCache(ctx context.Context, idOrName string) (*domain.Cache, error) {
@@ -300,29 +309,31 @@ func parseRedisClients(info string) int {
 }
 
 func parseRedisKeys(info string) int64 {
-	// Look for Keyspace section, e.g. db0:keys=1,expires=0,avg_ttl=0
-	// We want to sum all keys across all DBs
 	var total int64
 	lines := strings.Split(info, "\r\n")
 	for _, line := range lines {
 		if strings.HasPrefix(line, "db") && strings.Contains(line, "keys=") {
-			// db0:keys=1,...
-			parts := strings.Split(line, ":")
-			if len(parts) < 2 {
-				continue
-			}
-			stats := parts[1] // keys=1,expires=0...
-			pairs := strings.Split(stats, ",")
-			for _, pair := range pairs {
-				if strings.HasPrefix(pair, "keys=") {
-					kv := strings.Split(pair, "=")
-					if len(kv) == 2 {
-						val, _ := strconv.ParseInt(kv[1], 10, 64)
-						total += val
-					}
-				}
-			}
+			total += parseKeysFromLine(line)
 		}
 	}
 	return total
+}
+
+func parseKeysFromLine(line string) int64 {
+	parts := strings.Split(line, ":")
+	if len(parts) < 2 {
+		return 0
+	}
+	stats := parts[1]
+	pairs := strings.Split(stats, ",")
+	for _, pair := range pairs {
+		if strings.HasPrefix(pair, "keys=") {
+			kv := strings.Split(pair, "=")
+			if len(kv) == 2 {
+				val, _ := strconv.ParseInt(kv[1], 10, 64)
+				return val
+			}
+		}
+	}
+	return 0
 }

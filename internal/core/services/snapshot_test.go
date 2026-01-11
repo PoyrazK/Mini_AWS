@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-func setupSnapshotServiceTest(t *testing.T) (*MockSnapshotRepo, *MockVolumeRepo, *MockStorageBackend, *MockEventService, *MockAuditService, ports.SnapshotService) {
+func setupSnapshotServiceTest(_ *testing.T) (*MockSnapshotRepo, *MockVolumeRepo, *MockStorageBackend, *MockEventService, *MockAuditService, ports.SnapshotService) {
 	repo := new(MockSnapshotRepo)
 	volRepo := new(MockVolumeRepo)
 	storage := new(MockStorageBackend)
@@ -27,7 +27,7 @@ func setupSnapshotServiceTest(t *testing.T) (*MockSnapshotRepo, *MockVolumeRepo,
 	return repo, volRepo, storage, eventSvc, auditSvc, svc
 }
 
-func TestCreateSnapshot_Success(t *testing.T) {
+func TestCreateSnapshotSuccess(t *testing.T) {
 	repo, volRepo, storage, eventSvc, auditSvc, svc := setupSnapshotServiceTest(t)
 	defer repo.AssertExpectations(t)
 	defer volRepo.AssertExpectations(t)
@@ -63,7 +63,7 @@ func TestCreateSnapshot_Success(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 }
 
-func TestRestoreSnapshot_Success(t *testing.T) {
+func TestRestoreSnapshotSuccess(t *testing.T) {
 	repo, volRepo, storage, eventSvc, auditSvc, svc := setupSnapshotServiceTest(t)
 	defer repo.AssertExpectations(t)
 	defer volRepo.AssertExpectations(t)
@@ -100,7 +100,7 @@ func TestRestoreSnapshot_Success(t *testing.T) {
 	assert.Equal(t, 10, vol.SizeGB)
 }
 
-func TestDeleteSnapshot_Success(t *testing.T) {
+func TestDeleteSnapshotSuccess(t *testing.T) {
 	repo, _, storage, eventSvc, auditSvc, svc := setupSnapshotServiceTest(t)
 	defer repo.AssertExpectations(t)
 	defer storage.AssertExpectations(t)

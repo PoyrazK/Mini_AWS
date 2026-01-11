@@ -117,54 +117,69 @@ func (s *InstanceService) Provision(ctx context.Context, instanceID uuid.UUID, v
 		return err
 	}
 
-	// 1. Call Docker to create actual container
-	dockerName := s.formatContainerName(inst.ID)
-
-	// Bypass networking for noop backend to ensure stability in load tests
-	var networkID, allocatedIP string
-	var ovsPort string
-	if s.compute.Type() != "noop" {
-		// 2. Resolve networking config
-		var err error
-		networkID, allocatedIP, ovsPort, err = s.resolveNetworkConfig(ctx, inst.VpcID, inst.SubnetID)
-		if err != nil {
-			s.updateStatus(ctx, inst, domain.StatusError)
-			return err
-		}
-		inst.PrivateIP = allocatedIP
-		inst.OvsPort = ovsPort
-	} else {
-		inst.PrivateIP = "127.0.0.1"
+	// 1. Resolve Networking
+	networkID, err := s.provisionNetwork(ctx, inst)
+	if err != nil {
+		s.updateStatus(ctx, inst, domain.StatusError)
+		return err
 	}
 
-	// 3. Process volume attachments
+	// 2. Resolve Volumes
 	volumeBinds, attachedVolumes, err := s.resolveVolumes(ctx, volumes)
 	if err != nil {
 		s.updateStatus(ctx, inst, domain.StatusError)
 		return err
 	}
 
+	// 3. Create Instance
+	dockerName := s.formatContainerName(inst.ID)
 	portList, _ := s.parseAndValidatePorts(inst.Ports)
-	containerID, err := s.compute.CreateInstance(ctx, dockerName, inst.Image, portList, networkID, volumeBinds, nil, nil)
+	containerID, err := s.compute.CreateInstance(ctx, ports.CreateInstanceOptions{
+		Name:        dockerName,
+		ImageName:   inst.Image,
+		Ports:       portList,
+		NetworkID:   networkID,
+		VolumeBinds: volumeBinds,
+		Env:         nil,
+		Cmd:         nil,
+	})
 	if err != nil {
 		platform.InstanceOperationsTotal.WithLabelValues("launch", "failure").Inc()
 		s.updateStatus(ctx, inst, domain.StatusError)
 		return errors.Wrap(errors.Internal, "failed to launch container", err)
 	}
 
-	// 4. OVS Post-launch plumb
+	// 4. Finalize
+	return s.finalizeProvision(ctx, inst, containerID, attachedVolumes)
+}
+
+func (s *InstanceService) provisionNetwork(ctx context.Context, inst *domain.Instance) (string, error) {
+	if s.compute.Type() == "noop" {
+		inst.PrivateIP = "127.0.0.1"
+		return "", nil
+	}
+
+	networkID, allocatedIP, ovsPort, err := s.resolveNetworkConfig(ctx, inst.VpcID, inst.SubnetID)
+	if err != nil {
+		return "", err
+	}
+
+	inst.PrivateIP = allocatedIP
+	inst.OvsPort = ovsPort
+	return networkID, nil
+}
+
+func (s *InstanceService) finalizeProvision(ctx context.Context, inst *domain.Instance, containerID string, attachedVolumes []*domain.Volume) error {
 	if err := s.plumbNetwork(ctx, inst, containerID); err != nil {
 		s.logger.Warn("failed to plumb network", "error", err)
 	}
 
-	// 5. Update status and save ContainerID
 	inst.Status = domain.StatusRunning
 	inst.ContainerID = containerID
 	if err := s.repo.Update(ctx, inst); err != nil {
 		return err
 	}
 
-	// 6. Update volume statuses
 	s.updateVolumesAfterLaunch(ctx, attachedVolumes, inst.ID)
 
 	_ = s.eventSvc.RecordEvent(ctx, "INSTANCE_LAUNCH", inst.ID.String(), "INSTANCE", map[string]interface{}{
@@ -196,36 +211,40 @@ func (s *InstanceService) parseAndValidatePorts(ports string) ([]string, error) 
 	}
 
 	for _, p := range portList {
-		idx := strings.Index(p, ":")
-		if idx == -1 {
-			return nil, errors.New(errors.InvalidPortFormat, "port format must be host:container")
-		}
-		// Ensure only one colon
-		if strings.Contains(p[idx+1:], ":") {
-			return nil, errors.New(errors.InvalidPortFormat, "port format must be host:container")
-		}
-
-		hostPart := p[:idx]
-		containerPart := p[idx+1:]
-
-		hostPort, err := parsePort(hostPart)
-		if err != nil {
-			return nil, errors.New(errors.InvalidPortFormat, fmt.Sprintf("invalid host port: %s", hostPart))
-		}
-		containerPort, err := parsePort(containerPart)
-		if err != nil {
-			return nil, errors.New(errors.InvalidPortFormat, fmt.Sprintf("invalid container port: %s", containerPart))
-		}
-
-		if hostPort < domain.MinPort || hostPort > domain.MaxPort {
-			return nil, errors.New(errors.InvalidPortFormat, fmt.Sprintf("host port %d out of range (%d-%d)", hostPort, domain.MinPort, domain.MaxPort))
-		}
-		if containerPort < domain.MinPort || containerPort > domain.MaxPort {
-			return nil, errors.New(errors.InvalidPortFormat, fmt.Sprintf("container port %d out of range (%d-%d)", containerPort, domain.MinPort, domain.MaxPort))
+		if err := validatePortMapping(p); err != nil {
+			return nil, err
 		}
 	}
 
 	return portList, nil
+}
+
+func validatePortMapping(p string) error {
+	idx := strings.Index(p, ":")
+	if idx == -1 || strings.Contains(p[idx+1:], ":") {
+		return errors.New(errors.InvalidPortFormat, "port format must be host:container")
+	}
+
+	hostPart := p[:idx]
+	containerPart := p[idx+1:]
+
+	hostPort, err := parsePort(hostPart)
+	if err != nil {
+		return errors.New(errors.InvalidPortFormat, fmt.Sprintf("invalid host port: %s", hostPart))
+	}
+	containerPort, err := parsePort(containerPart)
+	if err != nil {
+		return errors.New(errors.InvalidPortFormat, fmt.Sprintf("invalid container port: %s", containerPart))
+	}
+
+	if hostPort < domain.MinPort || hostPort > domain.MaxPort {
+		return errors.New(errors.InvalidPortFormat, fmt.Sprintf("host port %d out of range (%d-%d)", hostPort, domain.MinPort, domain.MaxPort))
+	}
+	if containerPort < domain.MinPort || containerPort > domain.MaxPort {
+		return errors.New(errors.InvalidPortFormat, fmt.Sprintf("container port %d out of range (%d-%d)", containerPort, domain.MinPort, domain.MaxPort))
+	}
+
+	return nil
 }
 
 func parsePort(s string) (int, error) {
@@ -341,18 +360,26 @@ func (s *InstanceService) GetConsoleURL(ctx context.Context, idOrName string) (s
 }
 
 func (s *InstanceService) TerminateInstance(ctx context.Context, idOrName string) error {
-	// 1. Get from DB (handles both Name and UUID)
 	inst, err := s.GetInstance(ctx, idOrName)
 	if err != nil {
 		return err
 	}
 
-	// 2. Remove from Docker (force remove handles running containers)
 	if err := s.removeInstanceContainer(ctx, inst); err != nil {
 		platform.InstanceOperationsTotal.WithLabelValues("terminate", "failure").Inc()
 		return err
 	}
 
+	s.updateTerminationMetrics(inst)
+
+	if err := s.releaseAttachedVolumes(ctx, inst.ID); err != nil {
+		s.logger.Warn("failed to release volumes during termination", "instance_id", inst.ID, "error", err)
+	}
+
+	return s.finalizeTermination(ctx, inst)
+}
+
+func (s *InstanceService) updateTerminationMetrics(inst *domain.Instance) {
 	switch inst.Status {
 	case domain.StatusRunning:
 		platform.InstancesTotal.WithLabelValues("running", s.compute.Type()).Dec()
@@ -360,13 +387,9 @@ func (s *InstanceService) TerminateInstance(ctx context.Context, idOrName string
 		platform.InstancesTotal.WithLabelValues("stopped", s.compute.Type()).Dec()
 	}
 	platform.InstanceOperationsTotal.WithLabelValues("terminate", "success").Inc()
+}
 
-	// 3. Release attached volumes after container removal
-	if err := s.releaseAttachedVolumes(ctx, inst.ID); err != nil {
-		s.logger.Warn("failed to release volumes during termination", "instance_id", inst.ID, "error", err)
-	}
-
-	// 4. Delete from DB
+func (s *InstanceService) finalizeTermination(ctx context.Context, inst *domain.Instance) error {
 	if err := s.repo.Delete(ctx, inst.ID); err != nil {
 		return err
 	}
@@ -436,33 +459,15 @@ func (s *InstanceService) GetInstanceStats(ctx context.Context, idOrName string)
 	}
 	defer func() { _ = stream.Close() }()
 
-	// Parse JSON
-	var stats struct {
-		CPUStats struct {
-			CPUUsage struct {
-				TotalUsage uint64 `json:"total_usage"`
-			} `json:"cpu_usage"`
-			SystemCPUUsage uint64 `json:"system_cpu_usage"`
-		} `json:"cpu_stats"`
-		PreCPUStats struct {
-			CPUUsage struct {
-				TotalUsage uint64 `json:"total_usage"`
-			} `json:"cpu_usage"`
-			SystemCPUUsage uint64 `json:"system_cpu_usage"`
-		} `json:"precpu_stats"`
-		MemoryStats struct {
-			Usage uint64 `json:"usage"`
-			Limit uint64 `json:"limit"`
-		} `json:"memory_stats"`
-	}
-
+	var stats domain.RawDockerStats
 	if err := json.NewDecoder(stream).Decode(&stats); err != nil {
 		return nil, errors.Wrap(errors.Internal, "failed to decode stats", err)
 	}
 
-	// Calculate CPU %
-	// (total - pre_total) / (system - pre_system) * number_cpus * 100
-	// For simplicity, we assume single core or simple calc for now
+	return s.calculateInstanceStats(&stats), nil
+}
+
+func (s *InstanceService) calculateInstanceStats(stats *domain.RawDockerStats) *domain.InstanceStats {
 	cpuDelta := float64(stats.CPUStats.CPUUsage.TotalUsage) - float64(stats.PreCPUStats.CPUUsage.TotalUsage)
 	systemDelta := float64(stats.CPUStats.SystemCPUUsage) - float64(stats.PreCPUStats.SystemCPUUsage)
 
@@ -483,7 +488,7 @@ func (s *InstanceService) GetInstanceStats(ctx context.Context, idOrName string)
 		MemoryUsageBytes: memUsage,
 		MemoryLimitBytes: memLimit,
 		MemoryPercentage: memPercent,
-	}, nil
+	}
 }
 
 func (s *InstanceService) getVolumeByIDOrName(ctx context.Context, idOrName string) (*domain.Volume, error) {
@@ -538,7 +543,7 @@ func (s *InstanceService) isValidHostIP(ip net.IP, n *net.IPNet) bool {
 }
 
 func (s *InstanceService) resolveNetworkConfig(ctx context.Context, vpcID, subnetID *uuid.UUID) (string, string, string, error) {
-	networkID := ""
+	var networkID string
 	if vpcID != nil {
 		vpc, err := s.vpcRepo.GetByID(ctx, *vpcID)
 		if err != nil {
@@ -548,24 +553,22 @@ func (s *InstanceService) resolveNetworkConfig(ctx context.Context, vpcID, subne
 		networkID = vpc.NetworkID
 	}
 
-	allocatedIP := ""
-	ovsPort := ""
-
-	// OVS Networking Setup (Pre-conditional)
-	if subnetID != nil && s.network != nil {
-		subnet, err := s.subnetRepo.GetByID(ctx, *subnetID)
-		if err != nil {
-			return "", "", "", errors.Wrap(errors.NotFound, "subnet not found", err)
-		}
-
-		// Dynamic IP allocation
-		allocatedIP, err = s.allocateIP(ctx, subnet)
-		if err != nil {
-			return "", "", "", errors.Wrap(errors.ResourceLimitExceeded, "failed to allocate IP in subnet", err)
-		}
-
-		ovsPort = "veth-" + uuid.New().String()[:8]
+	if subnetID == nil || s.network == nil {
+		return networkID, "", "", nil
 	}
+
+	subnet, err := s.subnetRepo.GetByID(ctx, *subnetID)
+	if err != nil {
+		return "", "", "", errors.Wrap(errors.NotFound, "subnet not found", err)
+	}
+
+	// Dynamic IP allocation
+	allocatedIP, err := s.allocateIP(ctx, subnet)
+	if err != nil {
+		return "", "", "", errors.Wrap(errors.ResourceLimitExceeded, "failed to allocate IP in subnet", err)
+	}
+
+	ovsPort := "veth-" + uuid.New().String()[:8]
 	return networkID, allocatedIP, ovsPort, nil
 }
 
@@ -591,7 +594,7 @@ func (s *InstanceService) resolveVolumes(ctx context.Context, volumes []domain.V
 	return volumeBinds, attachedVolumes, nil
 }
 
-func (s *InstanceService) plumbNetwork(ctx context.Context, inst *domain.Instance, containerID string) error {
+func (s *InstanceService) plumbNetwork(ctx context.Context, inst *domain.Instance, _ string) error {
 	if inst.OvsPort == "" || s.network == nil {
 		return nil
 	}
@@ -602,28 +605,33 @@ func (s *InstanceService) plumbNetwork(ctx context.Context, inst *domain.Instanc
 	}
 
 	if inst.VpcID != nil {
-		vpc, _ := s.vpcRepo.GetByID(ctx, *inst.VpcID)
-		if vpc != nil {
-			if err := s.network.AttachVethToBridge(ctx, vpc.NetworkID, inst.OvsPort); err != nil {
-				return err
-			}
+		if err := s.attachToVpcBridge(ctx, *inst.VpcID, inst.OvsPort); err != nil {
+			return err
 		}
 	}
 
-	// Set IP on the host simulation "container" end
 	if inst.SubnetID != nil {
-		subnet, _ := s.subnetRepo.GetByID(ctx, *inst.SubnetID)
-		if subnet != nil {
-			_, ipNet, _ := net.ParseCIDR(subnet.CIDRBlock)
-			ones, _ := ipNet.Mask.Size()
-			// In a real cloud, this happens inside the container namespace.
-			// For this demo, we do it on the host for the 'peer' end.
-			if err := s.network.SetVethIP(ctx, vethContainer, inst.PrivateIP, strconv.Itoa(ones)); err != nil {
-				return err
-			}
-		}
+		return s.configureVethIP(ctx, *inst.SubnetID, vethContainer, inst.PrivateIP)
 	}
 	return nil
+}
+
+func (s *InstanceService) attachToVpcBridge(ctx context.Context, vpcID uuid.UUID, ovsPort string) error {
+	vpc, err := s.vpcRepo.GetByID(ctx, vpcID)
+	if err != nil || vpc == nil {
+		return err
+	}
+	return s.network.AttachVethToBridge(ctx, vpc.NetworkID, ovsPort)
+}
+
+func (s *InstanceService) configureVethIP(ctx context.Context, subnetID uuid.UUID, vethContainer, privateIP string) error {
+	subnet, err := s.subnetRepo.GetByID(ctx, subnetID)
+	if err != nil || subnet == nil {
+		return err
+	}
+	_, ipNet, _ := net.ParseCIDR(subnet.CIDRBlock)
+	ones, _ := ipNet.Mask.Size()
+	return s.network.SetVethIP(ctx, vethContainer, privateIP, strconv.Itoa(ones))
 }
 
 func (s *InstanceService) formatContainerName(id uuid.UUID) string {

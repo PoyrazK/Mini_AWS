@@ -17,8 +17,6 @@ type InstanceRepository struct {
 	db DB
 }
 
-const errScanInstance = "failed to scan instance"
-
 // NewInstanceRepository creates a new InstanceRepository with the given database pool.
 func NewInstanceRepository(db DB) *InstanceRepository {
 	return &InstanceRepository{db: db}
@@ -48,18 +46,22 @@ func (r *InstanceRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain
 		FROM instances
 		WHERE id = $1 AND user_id = $2
 	`
+	return r.scanInstance(r.db.QueryRow(ctx, query, id, userID))
+}
+
+func (r *InstanceRepository) scanInstance(row pgx.Row) (*domain.Instance, error) {
 	var inst domain.Instance
 	var status string
-	err := r.db.QueryRow(ctx, query, id, userID).Scan(
+	err := row.Scan(
 		&inst.ID, &inst.UserID, &inst.Name, &inst.Image, &inst.ContainerID, &status, &inst.Ports, &inst.VpcID, &inst.SubnetID, &inst.PrivateIP, &inst.OvsPort, &inst.Version, &inst.CreatedAt, &inst.UpdatedAt,
 	)
-	inst.Status = domain.InstanceStatus(status)
 	if err != nil {
 		if err == pgx.ErrNoRows {
-			return nil, errors.New(errors.NotFound, fmt.Sprintf("instance %s not found", id))
+			return nil, errors.New(errors.NotFound, "instance not found")
 		}
-		return nil, errors.Wrap(errors.Internal, "failed to get instance", err)
+		return nil, errors.Wrap(errors.Internal, "failed to scan instance", err)
 	}
+	inst.Status = domain.InstanceStatus(status)
 	return &inst, nil
 }
 
@@ -71,19 +73,7 @@ func (r *InstanceRepository) GetByName(ctx context.Context, name string) (*domai
 		FROM instances
 		WHERE name = $1 AND user_id = $2
 	`
-	var inst domain.Instance
-	var status string
-	err := r.db.QueryRow(ctx, query, name, userID).Scan(
-		&inst.ID, &inst.UserID, &inst.Name, &inst.Image, &inst.ContainerID, &status, &inst.Ports, &inst.VpcID, &inst.SubnetID, &inst.PrivateIP, &inst.OvsPort, &inst.Version, &inst.CreatedAt, &inst.UpdatedAt,
-	)
-	inst.Status = domain.InstanceStatus(status)
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			return nil, errors.New(errors.NotFound, fmt.Sprintf("instance name %s not found", name))
-		}
-		return nil, errors.Wrap(errors.Internal, "failed to get instance by name", err)
-	}
-	return &inst, nil
+	return r.scanInstance(r.db.QueryRow(ctx, query, name, userID))
 }
 
 // List returns all instances belonging to the authenticated user.
@@ -99,22 +89,7 @@ func (r *InstanceRepository) List(ctx context.Context) ([]*domain.Instance, erro
 	if err != nil {
 		return nil, errors.Wrap(errors.Internal, "failed to list instances", err)
 	}
-	defer rows.Close()
-
-	var instances []*domain.Instance
-	for rows.Next() {
-		var inst domain.Instance
-		var status string
-		err := rows.Scan(
-			&inst.ID, &inst.UserID, &inst.Name, &inst.Image, &inst.ContainerID, &status, &inst.Ports, &inst.VpcID, &inst.SubnetID, &inst.PrivateIP, &inst.OvsPort, &inst.Version, &inst.CreatedAt, &inst.UpdatedAt,
-		)
-		if err != nil {
-			return nil, errors.Wrap(errors.Internal, errScanInstance, err)
-		}
-		inst.Status = domain.InstanceStatus(status)
-		instances = append(instances, &inst)
-	}
-	return instances, nil
+	return r.scanInstances(rows)
 }
 
 func (r *InstanceRepository) ListAll(ctx context.Context) ([]*domain.Instance, error) {
@@ -127,22 +102,7 @@ func (r *InstanceRepository) ListAll(ctx context.Context) ([]*domain.Instance, e
 	if err != nil {
 		return nil, errors.Wrap(errors.Internal, "failed to list all instances", err)
 	}
-	defer rows.Close()
-
-	var instances []*domain.Instance
-	for rows.Next() {
-		var inst domain.Instance
-		var status string
-		err := rows.Scan(
-			&inst.ID, &inst.UserID, &inst.Name, &inst.Image, &inst.ContainerID, &status, &inst.Ports, &inst.VpcID, &inst.SubnetID, &inst.PrivateIP, &inst.OvsPort, &inst.Version, &inst.CreatedAt, &inst.UpdatedAt,
-		)
-		if err != nil {
-			return nil, errors.Wrap(errors.Internal, errScanInstance, err)
-		}
-		inst.Status = domain.InstanceStatus(status)
-		instances = append(instances, &inst)
-	}
-	return instances, nil
+	return r.scanInstances(rows)
 }
 
 // Update modifies an existing instance record using optimistic locking (via the version field).
@@ -181,20 +141,18 @@ func (r *InstanceRepository) ListBySubnet(ctx context.Context, subnetID uuid.UUI
 	if err != nil {
 		return nil, errors.Wrap(errors.Internal, "failed to list instances by subnet", err)
 	}
-	defer rows.Close()
+	return r.scanInstances(rows)
+}
 
+func (r *InstanceRepository) scanInstances(rows pgx.Rows) ([]*domain.Instance, error) {
+	defer rows.Close()
 	var instances []*domain.Instance
 	for rows.Next() {
-		var inst domain.Instance
-		var status string
-		err := rows.Scan(
-			&inst.ID, &inst.UserID, &inst.Name, &inst.Image, &inst.ContainerID, &status, &inst.Ports, &inst.VpcID, &inst.SubnetID, &inst.PrivateIP, &inst.OvsPort, &inst.Version, &inst.CreatedAt, &inst.UpdatedAt,
-		)
+		inst, err := r.scanInstance(rows)
 		if err != nil {
-			return nil, errors.Wrap(errors.Internal, errScanInstance, err)
+			return nil, err
 		}
-		inst.Status = domain.InstanceStatus(status)
-		instances = append(instances, &inst)
+		instances = append(instances, inst)
 	}
 	return instances, nil
 }

@@ -70,7 +70,7 @@ func (m *mockFunctionService) GetFunctionLogs(ctx context.Context, id uuid.UUID,
 	return args.Get(0).([]*domain.Invocation), args.Error(1)
 }
 
-func setupFunctionHandlerTest(t *testing.T) (*mockFunctionService, *FunctionHandler, *gin.Engine) {
+func setupFunctionHandlerTest(_ *testing.T) (*mockFunctionService, *FunctionHandler, *gin.Engine) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockFunctionService)
 	handler := NewFunctionHandler(svc)

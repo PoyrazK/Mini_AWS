@@ -39,17 +39,7 @@ func (r *SecretRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.S
 		FROM secrets
 		WHERE id = $1 AND user_id = $2
 	`
-	s := &domain.Secret{}
-	err := r.db.QueryRow(ctx, query, id, userID).Scan(
-		&s.ID, &s.UserID, &s.Name, &s.EncryptedValue, &s.Description, &s.CreatedAt, &s.UpdatedAt, &s.LastAccessedAt,
-	)
-	if err == pgx.ErrNoRows {
-		return nil, errors.New(errors.NotFound, "secret not found")
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to get secret: %w", err)
-	}
-	return s, nil
+	return r.scanSecret(r.db.QueryRow(ctx, query, id, userID))
 }
 
 func (r *SecretRepository) GetByName(ctx context.Context, name string) (*domain.Secret, error) {
@@ -59,17 +49,7 @@ func (r *SecretRepository) GetByName(ctx context.Context, name string) (*domain.
 		FROM secrets
 		WHERE name = $1 AND user_id = $2
 	`
-	s := &domain.Secret{}
-	err := r.db.QueryRow(ctx, query, name, userID).Scan(
-		&s.ID, &s.UserID, &s.Name, &s.EncryptedValue, &s.Description, &s.CreatedAt, &s.UpdatedAt, &s.LastAccessedAt,
-	)
-	if err == pgx.ErrNoRows {
-		return nil, errors.New(errors.NotFound, "secret not found")
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to get secret by name: %w", err)
-	}
-	return s, nil
+	return r.scanSecret(r.db.QueryRow(ctx, query, name, userID))
 }
 
 func (r *SecretRepository) List(ctx context.Context) ([]*domain.Secret, error) {
@@ -84,16 +64,30 @@ func (r *SecretRepository) List(ctx context.Context) ([]*domain.Secret, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to list secrets: %w", err)
 	}
-	defer rows.Close()
+	return r.scanSecrets(rows)
+}
 
+func (r *SecretRepository) scanSecret(row pgx.Row) (*domain.Secret, error) {
+	s := &domain.Secret{}
+	err := row.Scan(
+		&s.ID, &s.UserID, &s.Name, &s.EncryptedValue, &s.Description, &s.CreatedAt, &s.UpdatedAt, &s.LastAccessedAt,
+	)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, errors.New(errors.NotFound, "secret not found")
+		}
+		return nil, fmt.Errorf("failed to scan secret: %w", err)
+	}
+	return s, nil
+}
+
+func (r *SecretRepository) scanSecrets(rows pgx.Rows) ([]*domain.Secret, error) {
+	defer rows.Close()
 	var secrets []*domain.Secret
 	for rows.Next() {
-		s := &domain.Secret{}
-		err := rows.Scan(
-			&s.ID, &s.UserID, &s.Name, &s.EncryptedValue, &s.Description, &s.CreatedAt, &s.UpdatedAt, &s.LastAccessedAt,
-		)
+		s, err := r.scanSecret(rows)
 		if err != nil {
-			return nil, fmt.Errorf("failed to scan secret: %w", err)
+			return nil, err
 		}
 		secrets = append(secrets, s)
 	}

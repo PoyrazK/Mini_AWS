@@ -19,8 +19,7 @@ type mockImageRepo struct {
 }
 
 func (m *mockImageRepo) Create(ctx context.Context, img *domain.Image) error {
-	args := m.Called(ctx, img)
-	return args.Error(0)
+	return m.Called(ctx, img).Error(0)
 }
 
 func (m *mockImageRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.Image, error) {
@@ -37,13 +36,11 @@ func (m *mockImageRepo) List(ctx context.Context, userID uuid.UUID, includePubli
 }
 
 func (m *mockImageRepo) Update(ctx context.Context, img *domain.Image) error {
-	args := m.Called(ctx, img)
-	return args.Error(0)
+	return m.Called(ctx, img).Error(0)
 }
 
 func (m *mockImageRepo) Delete(ctx context.Context, id uuid.UUID) error {
-	args := m.Called(ctx, id)
-	return args.Error(0)
+	return m.Called(ctx, id).Error(0)
 }
 
 type mockFileStore struct {
@@ -52,7 +49,11 @@ type mockFileStore struct {
 
 func (m *mockFileStore) Write(ctx context.Context, bucket, key string, r io.Reader) (int64, error) {
 	args := m.Called(ctx, bucket, key, r)
-	return int64(args.Int(0)), args.Error(1)
+	val := args.Get(0)
+	if v, ok := val.(int); ok {
+		return int64(v), args.Error(1)
+	}
+	return val.(int64), args.Error(1)
 }
 
 func (m *mockFileStore) Read(ctx context.Context, bucket, key string) (io.ReadCloser, error) {
@@ -61,8 +62,7 @@ func (m *mockFileStore) Read(ctx context.Context, bucket, key string) (io.ReadCl
 }
 
 func (m *mockFileStore) Delete(ctx context.Context, bucket, key string) error {
-	args := m.Called(ctx, bucket, key)
-	return args.Error(0)
+	return m.Called(ctx, bucket, key).Error(0)
 }
 
 func TestImageService(t *testing.T) {

@@ -2,7 +2,6 @@ package postgres
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -34,33 +33,13 @@ func (r *SubnetRepository) Create(ctx context.Context, subnet *domain.Subnet) er
 func (r *SubnetRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Subnet, error) {
 	userID := appcontext.UserIDFromContext(ctx)
 	query := `SELECT id, user_id, vpc_id, name, cidr_block::text, availability_zone, COALESCE(gateway_ip::text, ''), arn, status, created_at FROM subnets WHERE id = $1 AND user_id = $2`
-	var s domain.Subnet
-	err := r.db.QueryRow(ctx, query, id, userID).Scan(
-		&s.ID, &s.UserID, &s.VPCID, &s.Name, &s.CIDRBlock, &s.AvailabilityZone, &s.GatewayIP, &s.ARN, &s.Status, &s.CreatedAt,
-	)
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			return nil, errors.New(errors.NotFound, fmt.Sprintf("subnet %s not found", id))
-		}
-		return nil, errors.Wrap(errors.Internal, "failed to get subnet", err)
-	}
-	return &s, nil
+	return r.scanSubnet(r.db.QueryRow(ctx, query, id, userID))
 }
 
 func (r *SubnetRepository) GetByName(ctx context.Context, vpcID uuid.UUID, name string) (*domain.Subnet, error) {
 	userID := appcontext.UserIDFromContext(ctx)
 	query := `SELECT id, user_id, vpc_id, name, cidr_block::text, availability_zone, COALESCE(gateway_ip::text, ''), arn, status, created_at FROM subnets WHERE vpc_id = $1 AND name = $2 AND user_id = $3`
-	var s domain.Subnet
-	err := r.db.QueryRow(ctx, query, vpcID, name, userID).Scan(
-		&s.ID, &s.UserID, &s.VPCID, &s.Name, &s.CIDRBlock, &s.AvailabilityZone, &s.GatewayIP, &s.ARN, &s.Status, &s.CreatedAt,
-	)
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			return nil, errors.New(errors.NotFound, fmt.Sprintf("subnet %s not found in vpc %s", name, vpcID))
-		}
-		return nil, errors.Wrap(errors.Internal, "failed to get subnet by name", err)
-	}
-	return &s, nil
+	return r.scanSubnet(r.db.QueryRow(ctx, query, vpcID, name, userID))
 }
 
 func (r *SubnetRepository) ListByVPC(ctx context.Context, vpcID uuid.UUID) ([]*domain.Subnet, error) {
@@ -70,18 +49,30 @@ func (r *SubnetRepository) ListByVPC(ctx context.Context, vpcID uuid.UUID) ([]*d
 	if err != nil {
 		return nil, errors.Wrap(errors.Internal, "failed to list subnets", err)
 	}
-	defer rows.Close()
+	return r.scanSubnets(rows)
+}
 
+func (r *SubnetRepository) scanSubnet(row pgx.Row) (*domain.Subnet, error) {
+	var s domain.Subnet
+	err := row.Scan(&s.ID, &s.UserID, &s.VPCID, &s.Name, &s.CIDRBlock, &s.AvailabilityZone, &s.GatewayIP, &s.ARN, &s.Status, &s.CreatedAt)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, errors.New(errors.NotFound, "subnet not found")
+		}
+		return nil, errors.Wrap(errors.Internal, "failed to scan subnet", err)
+	}
+	return &s, nil
+}
+
+func (r *SubnetRepository) scanSubnets(rows pgx.Rows) ([]*domain.Subnet, error) {
+	defer rows.Close()
 	var subnets []*domain.Subnet
 	for rows.Next() {
-		var s domain.Subnet
-		err := rows.Scan(
-			&s.ID, &s.UserID, &s.VPCID, &s.Name, &s.CIDRBlock, &s.AvailabilityZone, &s.GatewayIP, &s.ARN, &s.Status, &s.CreatedAt,
-		)
+		s, err := r.scanSubnet(rows)
 		if err != nil {
-			return nil, errors.Wrap(errors.Internal, "failed to scan subnet", err)
+			return nil, err
 		}
-		subnets = append(subnets, &s)
+		subnets = append(subnets, s)
 	}
 	return subnets, nil
 }

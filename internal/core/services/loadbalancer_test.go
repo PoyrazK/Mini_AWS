@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-func setupLBServiceTest(t *testing.T) (*MockLBRepo, *MockVpcRepo, *MockInstanceRepo, *MockAuditService, ports.LBService) {
+func setupLBServiceTest(_ *testing.T) (*MockLBRepo, *MockVpcRepo, *MockInstanceRepo, *MockAuditService, ports.LBService) {
 	lbRepo := new(MockLBRepo)
 	vpcRepo := new(MockVpcRepo)
 	instRepo := new(MockInstanceRepo)

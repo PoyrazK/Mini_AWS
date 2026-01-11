@@ -61,7 +61,7 @@ func (m *mockSecretService) DeleteSecret(ctx context.Context, id uuid.UUID) erro
 	return args.Error(0)
 }
 
-func setupSecretHandlerTest(t *testing.T) (*mockSecretService, *SecretHandler, *gin.Engine) {
+func setupSecretHandlerTest(_ *testing.T) (*mockSecretService, *SecretHandler, *gin.Engine) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockSecretService)
 	handler := NewSecretHandler(svc)

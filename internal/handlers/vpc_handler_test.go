@@ -54,7 +54,7 @@ func (m *mockVpcService) DeleteVPC(ctx context.Context, idOrName string) error {
 	return args.Error(0)
 }
 
-func setupVpcHandlerTest(t *testing.T) (*mockVpcService, *VpcHandler, *gin.Engine) {
+func setupVpcHandlerTest(_ *testing.T) (*mockVpcService, *VpcHandler, *gin.Engine) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockVpcService)
 	handler := NewVpcHandler(svc)

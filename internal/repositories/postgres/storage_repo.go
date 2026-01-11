@@ -45,17 +45,7 @@ func (r *StorageRepository) GetMeta(ctx context.Context, bucket, key string) (*d
 		FROM objects
 		WHERE bucket = $1 AND key = $2 AND deleted_at IS NULL AND user_id = $3
 	`
-	var obj domain.Object
-	err := r.db.QueryRow(ctx, query, bucket, key, userID).Scan(
-		&obj.ID, &obj.UserID, &obj.ARN, &obj.Bucket, &obj.Key, &obj.SizeBytes, &obj.ContentType, &obj.CreatedAt,
-	)
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			return nil, errors.New(errors.ObjectNotFound, "object metadata not found")
-		}
-		return nil, errors.Wrap(errors.Internal, "failed to get object metadata", err)
-	}
-	return &obj, nil
+	return r.scanObject(r.db.QueryRow(ctx, query, bucket, key, userID))
 }
 
 func (r *StorageRepository) List(ctx context.Context, bucket string) ([]*domain.Object, error) {
@@ -70,18 +60,32 @@ func (r *StorageRepository) List(ctx context.Context, bucket string) ([]*domain.
 	if err != nil {
 		return nil, errors.Wrap(errors.Internal, "failed to list objects", err)
 	}
-	defer rows.Close()
+	return r.scanObjects(rows)
+}
 
+func (r *StorageRepository) scanObject(row pgx.Row) (*domain.Object, error) {
+	var obj domain.Object
+	err := row.Scan(
+		&obj.ID, &obj.UserID, &obj.ARN, &obj.Bucket, &obj.Key, &obj.SizeBytes, &obj.ContentType, &obj.CreatedAt,
+	)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, errors.New(errors.ObjectNotFound, "object metadata not found")
+		}
+		return nil, errors.Wrap(errors.Internal, "failed to scan object metadata", err)
+	}
+	return &obj, nil
+}
+
+func (r *StorageRepository) scanObjects(rows pgx.Rows) ([]*domain.Object, error) {
+	defer rows.Close()
 	var objects []*domain.Object
 	for rows.Next() {
-		var obj domain.Object
-		err := rows.Scan(
-			&obj.ID, &obj.UserID, &obj.ARN, &obj.Bucket, &obj.Key, &obj.SizeBytes, &obj.ContentType, &obj.CreatedAt,
-		)
+		obj, err := r.scanObject(rows)
 		if err != nil {
-			return nil, errors.Wrap(errors.Internal, "failed to scan object metadata", err)
+			return nil, err
 		}
-		objects = append(objects, &obj)
+		objects = append(objects, obj)
 	}
 	return objects, nil
 }

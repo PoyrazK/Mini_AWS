@@ -21,7 +21,7 @@ const (
 	existingTopicName = "existing-topic"
 )
 
-func setupNotifyServiceTest(t *testing.T) (*MockNotifyRepo, *MockQueueService, *MockEventService, *MockAuditService, ports.NotifyService) {
+func setupNotifyServiceTest(_ *testing.T) (*MockNotifyRepo, *MockQueueService, *MockEventService, *MockAuditService, ports.NotifyService) {
 	notifyRepo := new(MockNotifyRepo)
 	queueSvc := new(MockQueueService)
 	eventSvc := new(MockEventService)

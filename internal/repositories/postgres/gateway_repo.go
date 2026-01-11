@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
@@ -37,8 +38,36 @@ func (r *PostgresGatewayRepository) CreateRoute(ctx context.Context, route *doma
 
 func (r *PostgresGatewayRepository) GetRouteByID(ctx context.Context, id, userID uuid.UUID) (*domain.GatewayRoute, error) {
 	query := `SELECT id, user_id, name, path_prefix, target_url, strip_prefix, rate_limit, created_at, updated_at FROM gateway_routes WHERE id = $1 AND user_id = $2`
+	return r.scanRoute(r.db.QueryRow(ctx, query, id, userID))
+}
+
+func (r *PostgresGatewayRepository) ListRoutes(ctx context.Context, userID uuid.UUID) ([]*domain.GatewayRoute, error) {
+	query := `SELECT id, user_id, name, path_prefix, target_url, strip_prefix, rate_limit, created_at, updated_at FROM gateway_routes WHERE user_id = $1 ORDER BY created_at DESC`
+	rows, err := r.db.Query(ctx, query, userID)
+	if err != nil {
+		return nil, err
+	}
+	return r.scanRoutes(rows)
+}
+
+func (r *PostgresGatewayRepository) DeleteRoute(ctx context.Context, id uuid.UUID) error {
+	query := `DELETE FROM gateway_routes WHERE id = $1`
+	_, err := r.db.Exec(ctx, query, id)
+	return err
+}
+
+func (r *PostgresGatewayRepository) GetAllActiveRoutes(ctx context.Context) ([]*domain.GatewayRoute, error) {
+	query := `SELECT id, user_id, name, path_prefix, target_url, strip_prefix, rate_limit, created_at, updated_at FROM gateway_routes`
+	rows, err := r.db.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	return r.scanRoutes(rows)
+}
+
+func (r *PostgresGatewayRepository) scanRoute(row pgx.Row) (*domain.GatewayRoute, error) {
 	var route domain.GatewayRoute
-	err := r.db.QueryRow(ctx, query, id, userID).Scan(
+	err := row.Scan(
 		&route.ID,
 		&route.UserID,
 		&route.Name,
@@ -55,66 +84,15 @@ func (r *PostgresGatewayRepository) GetRouteByID(ctx context.Context, id, userID
 	return &route, nil
 }
 
-func (r *PostgresGatewayRepository) ListRoutes(ctx context.Context, userID uuid.UUID) ([]*domain.GatewayRoute, error) {
-	query := `SELECT id, user_id, name, path_prefix, target_url, strip_prefix, rate_limit, created_at, updated_at FROM gateway_routes WHERE user_id = $1 ORDER BY created_at DESC`
-	rows, err := r.db.Query(ctx, query, userID)
-	if err != nil {
-		return nil, err
-	}
+func (r *PostgresGatewayRepository) scanRoutes(rows pgx.Rows) ([]*domain.GatewayRoute, error) {
 	defer rows.Close()
-
 	var routes []*domain.GatewayRoute
 	for rows.Next() {
-		var route domain.GatewayRoute
-		if err := rows.Scan(
-			&route.ID,
-			&route.UserID,
-			&route.Name,
-			&route.PathPrefix,
-			&route.TargetURL,
-			&route.StripPrefix,
-			&route.RateLimit,
-			&route.CreatedAt,
-			&route.UpdatedAt,
-		); err != nil {
+		route, err := r.scanRoute(rows)
+		if err != nil {
 			return nil, err
 		}
-		routes = append(routes, &route)
-	}
-	return routes, nil
-}
-
-func (r *PostgresGatewayRepository) DeleteRoute(ctx context.Context, id uuid.UUID) error {
-	query := `DELETE FROM gateway_routes WHERE id = $1`
-	_, err := r.db.Exec(ctx, query, id)
-	return err
-}
-
-func (r *PostgresGatewayRepository) GetAllActiveRoutes(ctx context.Context) ([]*domain.GatewayRoute, error) {
-	query := `SELECT id, user_id, name, path_prefix, target_url, strip_prefix, rate_limit, created_at, updated_at FROM gateway_routes`
-	rows, err := r.db.Query(ctx, query)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var routes []*domain.GatewayRoute
-	for rows.Next() {
-		var route domain.GatewayRoute
-		if err := rows.Scan(
-			&route.ID,
-			&route.UserID,
-			&route.Name,
-			&route.PathPrefix,
-			&route.TargetURL,
-			&route.StripPrefix,
-			&route.RateLimit,
-			&route.CreatedAt,
-			&route.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		routes = append(routes, &route)
+		routes = append(routes, route)
 	}
 	return routes, nil
 }

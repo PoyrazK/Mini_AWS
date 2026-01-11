@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 )
 
@@ -23,12 +24,9 @@ func (r *stackRepository) Create(ctx context.Context, s *domain.Stack) error {
 }
 
 func (r *stackRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Stack, error) {
-	s := &domain.Stack{}
-	var status string
-	err := r.db.QueryRow(ctx,
+	s, err := r.scanStack(r.db.QueryRow(ctx,
 		"SELECT id, user_id, name, template, parameters, status, status_reason, created_at, updated_at FROM stacks WHERE id = $1",
-		id).Scan(&s.ID, &s.UserID, &s.Name, &s.Template, &s.Parameters, &status, &s.StatusReason, &s.CreatedAt, &s.UpdatedAt)
-	s.Status = domain.StackStatus(status)
+		id))
 	if err != nil {
 		return nil, err
 	}
@@ -42,16 +40,9 @@ func (r *stackRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.St
 }
 
 func (r *stackRepository) GetByName(ctx context.Context, userID uuid.UUID, name string) (*domain.Stack, error) {
-	s := &domain.Stack{}
-	var status string
-	err := r.db.QueryRow(ctx,
+	return r.scanStack(r.db.QueryRow(ctx,
 		"SELECT id, user_id, name, template, parameters, status, status_reason, created_at, updated_at FROM stacks WHERE user_id = $1 AND name = $2",
-		userID, name).Scan(&s.ID, &s.UserID, &s.Name, &s.Template, &s.Parameters, &status, &s.StatusReason, &s.CreatedAt, &s.UpdatedAt)
-	s.Status = domain.StackStatus(status)
-	if err != nil {
-		return nil, err
-	}
-	return s, nil
+		userID, name))
 }
 
 func (r *stackRepository) ListByUserID(ctx context.Context, userID uuid.UUID) ([]*domain.Stack, error) {
@@ -61,16 +52,28 @@ func (r *stackRepository) ListByUserID(ctx context.Context, userID uuid.UUID) ([
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	return r.scanStacks(rows)
+}
 
+func (r *stackRepository) scanStack(row pgx.Row) (*domain.Stack, error) {
+	s := &domain.Stack{}
+	var status string
+	err := row.Scan(&s.ID, &s.UserID, &s.Name, &s.Template, &s.Parameters, &status, &s.StatusReason, &s.CreatedAt, &s.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+	s.Status = domain.StackStatus(status)
+	return s, nil
+}
+
+func (r *stackRepository) scanStacks(rows pgx.Rows) ([]*domain.Stack, error) {
+	defer rows.Close()
 	var stacks []*domain.Stack
 	for rows.Next() {
-		s := &domain.Stack{}
-		var status string
-		if err := rows.Scan(&s.ID, &s.UserID, &s.Name, &s.Template, &s.Parameters, &status, &s.StatusReason, &s.CreatedAt, &s.UpdatedAt); err != nil {
+		s, err := r.scanStack(rows)
+		if err != nil {
 			return nil, err
 		}
-		s.Status = domain.StackStatus(status)
 		stacks = append(stacks, s)
 	}
 	return stacks, nil
@@ -102,12 +105,24 @@ func (r *stackRepository) ListResources(ctx context.Context, stackID uuid.UUID) 
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	return r.scanStackResources(rows)
+}
 
+func (r *stackRepository) scanStackResource(row pgx.Row) (domain.StackResource, error) {
+	res := domain.StackResource{}
+	err := row.Scan(&res.ID, &res.StackID, &res.LogicalID, &res.PhysicalID, &res.ResourceType, &res.Status, &res.CreatedAt)
+	if err != nil {
+		return domain.StackResource{}, err
+	}
+	return res, nil
+}
+
+func (r *stackRepository) scanStackResources(rows pgx.Rows) ([]domain.StackResource, error) {
+	defer rows.Close()
 	var resources []domain.StackResource
 	for rows.Next() {
-		res := domain.StackResource{}
-		if err := rows.Scan(&res.ID, &res.StackID, &res.LogicalID, &res.PhysicalID, &res.ResourceType, &res.Status, &res.CreatedAt); err != nil {
+		res, err := r.scanStackResource(rows)
+		if err != nil {
 			return nil, err
 		}
 		resources = append(resources, res)

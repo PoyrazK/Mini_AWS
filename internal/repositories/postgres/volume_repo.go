@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/errors"
@@ -27,27 +28,13 @@ func (r *VolumeRepository) Create(ctx context.Context, v *domain.Volume) error {
 func (r *VolumeRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Volume, error) {
 	userID := appcontext.UserIDFromContext(ctx)
 	query := `SELECT id, user_id, name, size_gb, status, instance_id, backend_path, mount_path, created_at, updated_at FROM volumes WHERE id = $1 AND user_id = $2`
-	v := &domain.Volume{}
-	var status string
-	err := r.db.QueryRow(ctx, query, id, userID).Scan(&v.ID, &v.UserID, &v.Name, &v.SizeGB, &status, &v.InstanceID, &v.BackendPath, &v.MountPath, &v.CreatedAt, &v.UpdatedAt)
-	if err != nil {
-		return nil, err
-	}
-	v.Status = domain.VolumeStatus(status)
-	return v, nil
+	return r.scanVolume(r.db.QueryRow(ctx, query, id, userID))
 }
 
 func (r *VolumeRepository) GetByName(ctx context.Context, name string) (*domain.Volume, error) {
 	userID := appcontext.UserIDFromContext(ctx)
 	query := `SELECT id, user_id, name, size_gb, status, instance_id, backend_path, mount_path, created_at, updated_at FROM volumes WHERE name = $1 AND user_id = $2`
-	v := &domain.Volume{}
-	var status string
-	err := r.db.QueryRow(ctx, query, name, userID).Scan(&v.ID, &v.UserID, &v.Name, &v.SizeGB, &status, &v.InstanceID, &v.BackendPath, &v.MountPath, &v.CreatedAt, &v.UpdatedAt)
-	if err != nil {
-		return nil, err
-	}
-	v.Status = domain.VolumeStatus(status)
-	return v, nil
+	return r.scanVolume(r.db.QueryRow(ctx, query, name, userID))
 }
 
 func (r *VolumeRepository) List(ctx context.Context) ([]*domain.Volume, error) {
@@ -57,19 +44,7 @@ func (r *VolumeRepository) List(ctx context.Context) ([]*domain.Volume, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-
-	var volumes []*domain.Volume
-	for rows.Next() {
-		v := &domain.Volume{}
-		var status string
-		if err := rows.Scan(&v.ID, &v.UserID, &v.Name, &v.SizeGB, &status, &v.InstanceID, &v.BackendPath, &v.MountPath, &v.CreatedAt, &v.UpdatedAt); err != nil {
-			return nil, err
-		}
-		v.Status = domain.VolumeStatus(status)
-		volumes = append(volumes, v)
-	}
-	return volumes, nil
+	return r.scanVolumes(rows)
 }
 
 func (r *VolumeRepository) ListByInstanceID(ctx context.Context, instanceID uuid.UUID) ([]*domain.Volume, error) {
@@ -79,16 +54,28 @@ func (r *VolumeRepository) ListByInstanceID(ctx context.Context, instanceID uuid
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	return r.scanVolumes(rows)
+}
 
+func (r *VolumeRepository) scanVolume(row pgx.Row) (*domain.Volume, error) {
+	v := &domain.Volume{}
+	var status string
+	err := row.Scan(&v.ID, &v.UserID, &v.Name, &v.SizeGB, &status, &v.InstanceID, &v.BackendPath, &v.MountPath, &v.CreatedAt, &v.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+	v.Status = domain.VolumeStatus(status)
+	return v, nil
+}
+
+func (r *VolumeRepository) scanVolumes(rows pgx.Rows) ([]*domain.Volume, error) {
+	defer rows.Close()
 	var volumes []*domain.Volume
 	for rows.Next() {
-		v := &domain.Volume{}
-		var status string
-		if err := rows.Scan(&v.ID, &v.UserID, &v.Name, &v.SizeGB, &status, &v.InstanceID, &v.BackendPath, &v.MountPath, &v.CreatedAt, &v.UpdatedAt); err != nil {
+		v, err := r.scanVolume(rows)
+		if err != nil {
 			return nil, err
 		}
-		v.Status = domain.VolumeStatus(status)
 		volumes = append(volumes, v)
 	}
 	return volumes, nil

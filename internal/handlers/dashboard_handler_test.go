@@ -45,7 +45,7 @@ func (m *dashboardServiceMock) GetStats(ctx context.Context) (*domain.DashboardS
 	return args.Get(0).(*domain.DashboardStats), args.Error(1)
 }
 
-func setupDashboardHandlerTest(t *testing.T) (*dashboardServiceMock, *DashboardHandler, *gin.Engine) {
+func setupDashboardHandlerTest(_ *testing.T) (*dashboardServiceMock, *DashboardHandler, *gin.Engine) {
 	gin.SetMode(gin.TestMode)
 	mockSvc := new(dashboardServiceMock)
 	handler := NewDashboardHandler(mockSvc)

@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/errors"
 )
@@ -43,19 +44,30 @@ func (r *AuditRepository) ListByUserID(ctx context.Context, userID uuid.UUID, li
 	if err != nil {
 		return nil, errors.Wrap(errors.Internal, "failed to list audit logs", err)
 	}
-	defer rows.Close()
+	return r.scanAuditLogs(rows)
+}
 
+func (r *AuditRepository) scanAuditLog(row pgx.Row) (*domain.AuditLog, error) {
+	var log domain.AuditLog
+	err := row.Scan(
+		&log.ID, &log.UserID, &log.Action, &log.ResourceType, &log.ResourceID,
+		&log.Details, &log.IPAddress, &log.UserAgent, &log.CreatedAt,
+	)
+	if err != nil {
+		return nil, errors.Wrap(errors.Internal, "failed to scan audit log", err)
+	}
+	return &log, nil
+}
+
+func (r *AuditRepository) scanAuditLogs(rows pgx.Rows) ([]*domain.AuditLog, error) {
+	defer rows.Close()
 	var logs []*domain.AuditLog
 	for rows.Next() {
-		var log domain.AuditLog
-		err := rows.Scan(
-			&log.ID, &log.UserID, &log.Action, &log.ResourceType, &log.ResourceID,
-			&log.Details, &log.IPAddress, &log.UserAgent, &log.CreatedAt,
-		)
+		log, err := r.scanAuditLog(rows)
 		if err != nil {
-			return nil, errors.Wrap(errors.Internal, "failed to scan audit log", err)
+			return nil, err
 		}
-		logs = append(logs, &log)
+		logs = append(logs, log)
 	}
 	return logs, nil
 }

@@ -79,7 +79,7 @@ func (m *mockAutoScalingService) SetDesiredCapacity(ctx context.Context, groupID
 	return args.Error(0)
 }
 
-func setupAutoScalingHandlerTest(t *testing.T) (*mockAutoScalingService, *AutoScalingHandler, *gin.Engine) {
+func setupAutoScalingHandlerTest(_ *testing.T) (*mockAutoScalingService, *AutoScalingHandler, *gin.Engine) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockAutoScalingService)
 	handler := NewAutoScalingHandler(svc)

@@ -71,7 +71,7 @@ func (m *mockStorageService) GetObject(ctx context.Context, bucket, key string) 
 	return args.Get(0).(*domain.Object), args.Error(1)
 }
 
-func setupStorageHandlerTest(t *testing.T) (*mockStorageService, *StorageHandler, *gin.Engine) {
+func setupStorageHandlerTest(_ *testing.T) (*mockStorageService, *StorageHandler, *gin.Engine) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockStorageService)
 	handler := NewStorageHandler(svc)

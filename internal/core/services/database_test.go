@@ -15,12 +15,16 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+const (
+	testDBName    = "test-db"
+	dbContainerID = "cont-123"
+)
+
 // MockDatabaseRepo
 type MockDatabaseRepo struct{ mock.Mock }
 
 func (m *MockDatabaseRepo) Create(ctx context.Context, db *domain.Database) error {
-	args := m.Called(ctx, db)
-	return args.Error(0)
+	return m.Called(ctx, db).Error(0)
 }
 func (m *MockDatabaseRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.Database, error) {
 	args := m.Called(ctx, id)
@@ -37,15 +41,14 @@ func (m *MockDatabaseRepo) List(ctx context.Context) ([]*domain.Database, error)
 	return args.Get(0).([]*domain.Database), args.Error(1)
 }
 func (m *MockDatabaseRepo) Update(ctx context.Context, db *domain.Database) error {
-	args := m.Called(ctx, db)
-	return args.Error(0)
+	return m.Called(ctx, db).Error(0)
 }
 func (m *MockDatabaseRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	args := m.Called(ctx, id)
 	return args.Error(0)
 }
 
-func setupDatabaseServiceTest(t *testing.T) (*MockDatabaseRepo, *MockComputeBackend, *MockVpcRepo, *MockEventService, *MockAuditService, ports.DatabaseService) {
+func setupDatabaseServiceTest(_ *testing.T) (*MockDatabaseRepo, *MockComputeBackend, *MockVpcRepo, *MockEventService, *MockAuditService, ports.DatabaseService) {
 	repo := new(MockDatabaseRepo)
 	docker := new(MockComputeBackend)
 	vpcRepo := new(MockVpcRepo)
@@ -57,7 +60,7 @@ func setupDatabaseServiceTest(t *testing.T) (*MockDatabaseRepo, *MockComputeBack
 	return repo, docker, vpcRepo, eventSvc, auditSvc, svc
 }
 
-func TestCreateDatabase_Success(t *testing.T) {
+func TestCreateDatabaseSuccess(t *testing.T) {
 	repo, docker, _, eventSvc, auditSvc, svc := setupDatabaseServiceTest(t)
 	defer repo.AssertExpectations(t)
 	defer docker.AssertExpectations(t)
@@ -65,14 +68,16 @@ func TestCreateDatabase_Success(t *testing.T) {
 	defer auditSvc.AssertExpectations(t)
 
 	ctx := context.Background()
-	name := "test-db"
+	name := testDBName
 	engine := "postgres"
 	version := "16"
 
-	docker.On("CreateInstance", ctx, mock.MatchedBy(func(name string) bool {
-		return strings.HasPrefix(name, "cloud-db-")
-	}), "postgres:16-alpine", []string{"0:5432"}, "", []string(nil), mock.Anything, []string(nil)).Return("cont-123", nil)
-	docker.On("GetInstancePort", ctx, "cont-123", "5432").Return(54321, nil)
+	docker.On("CreateInstance", ctx, mock.MatchedBy(func(opts ports.CreateInstanceOptions) bool {
+		return strings.HasPrefix(opts.Name, "cloud-db-") &&
+			opts.ImageName == "postgres:16-alpine" &&
+			len(opts.Ports) == 1 && opts.Ports[0] == "0:5432"
+	})).Return(dbContainerID, nil)
+	docker.On("GetInstancePort", ctx, dbContainerID, "5432").Return(54321, nil)
 	repo.On("Create", ctx, mock.AnythingOfType("*domain.Database")).Return(nil)
 	eventSvc.On("RecordEvent", ctx, "DATABASE_CREATE", mock.Anything, "DATABASE", mock.Anything).Return(nil)
 	auditSvc.On("Log", ctx, mock.Anything, "database.create", "database", mock.Anything, mock.Anything).Return(nil)
@@ -84,10 +89,10 @@ func TestCreateDatabase_Success(t *testing.T) {
 	assert.Equal(t, name, db.Name)
 	assert.Equal(t, domain.EnginePostgres, db.Engine)
 	assert.Equal(t, 54321, db.Port)
-	assert.Equal(t, "cont-123", db.ContainerID)
+	assert.Equal(t, dbContainerID, db.ContainerID)
 }
 
-func TestDeleteDatabase_Success(t *testing.T) {
+func TestDeleteDatabaseSuccess(t *testing.T) {
 	repo, docker, _, eventSvc, auditSvc, svc := setupDatabaseServiceTest(t)
 	defer repo.AssertExpectations(t)
 	defer docker.AssertExpectations(t)
@@ -98,16 +103,16 @@ func TestDeleteDatabase_Success(t *testing.T) {
 	dbID := uuid.New()
 	db := &domain.Database{
 		ID:          dbID,
-		Name:        "test-db",
-		ContainerID: "cont-123",
+		Name:        testDBName,
+		ContainerID: dbContainerID,
 	}
 
 	repo.On("GetByID", ctx, dbID).Return(db, nil)
-	docker.On("DeleteInstance", ctx, "cont-123").Return(nil)
+	docker.On("DeleteInstance", ctx, dbContainerID).Return(nil)
 	repo.On("Delete", ctx, dbID).Return(nil)
 	eventSvc.On("RecordEvent", ctx, "DATABASE_DELETE", dbID.String(), "DATABASE", mock.Anything).Return(nil)
 	auditSvc.On("Log", ctx, mock.Anything, "database.delete", "database", dbID.String(), mock.MatchedBy(func(details map[string]interface{}) bool {
-		return details["name"] == "test-db"
+		return details["name"] == testDBName
 	})).Return(nil)
 
 	err := svc.DeleteDatabase(ctx, dbID)
@@ -115,7 +120,7 @@ func TestDeleteDatabase_Success(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestGetDatabase_ByID(t *testing.T) {
+func TestGetDatabaseByID(t *testing.T) {
 	repo, _, _, _, _, svc := setupDatabaseServiceTest(t)
 	defer repo.AssertExpectations(t)
 

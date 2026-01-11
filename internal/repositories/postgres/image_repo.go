@@ -41,19 +41,7 @@ func (r *imageRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Im
 		SELECT id, name, description, os, version, size_gb, file_path, format, is_public, user_id, status, created_at, updated_at
 		FROM images WHERE id = $1
 	`
-	var img domain.Image
-	err := r.db.QueryRow(ctx, query, id).Scan(
-		&img.ID, &img.Name, &img.Description, &img.OS, &img.Version,
-		&img.SizeGB, &img.FilePath, &img.Format, &img.IsPublic, &img.UserID,
-		&img.Status, &img.CreatedAt, &img.UpdatedAt,
-	)
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			return nil, errors.New(errors.NotFound, "image not found")
-		}
-		return nil, fmt.Errorf("failed to get image: %w", err)
-	}
-	return &img, nil
+	return r.scanImage(r.db.QueryRow(ctx, query, id))
 }
 
 func (r *imageRepository) List(ctx context.Context, userID uuid.UUID, includePublic bool) ([]*domain.Image, error) {
@@ -67,20 +55,34 @@ func (r *imageRepository) List(ctx context.Context, userID uuid.UUID, includePub
 	if err != nil {
 		return nil, fmt.Errorf("failed to list images: %w", err)
 	}
-	defer rows.Close()
+	return r.scanImages(rows)
+}
 
+func (r *imageRepository) scanImage(row pgx.Row) (*domain.Image, error) {
+	var img domain.Image
+	err := row.Scan(
+		&img.ID, &img.Name, &img.Description, &img.OS, &img.Version,
+		&img.SizeGB, &img.FilePath, &img.Format, &img.IsPublic, &img.UserID,
+		&img.Status, &img.CreatedAt, &img.UpdatedAt,
+	)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, errors.New(errors.NotFound, "image not found")
+		}
+		return nil, fmt.Errorf("failed to scan image: %w", err)
+	}
+	return &img, nil
+}
+
+func (r *imageRepository) scanImages(rows pgx.Rows) ([]*domain.Image, error) {
+	defer rows.Close()
 	var images []*domain.Image
 	for rows.Next() {
-		var img domain.Image
-		err := rows.Scan(
-			&img.ID, &img.Name, &img.Description, &img.OS, &img.Version,
-			&img.SizeGB, &img.FilePath, &img.Format, &img.IsPublic, &img.UserID,
-			&img.Status, &img.CreatedAt, &img.UpdatedAt,
-		)
+		img, err := r.scanImage(rows)
 		if err != nil {
-			return nil, fmt.Errorf("failed to scan image: %w", err)
+			return nil, err
 		}
-		images = append(images, &img)
+		images = append(images, img)
 	}
 	return images, nil
 }

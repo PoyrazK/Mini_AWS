@@ -63,7 +63,7 @@ func (m *mockCronService) DeleteJob(ctx context.Context, id uuid.UUID) error {
 	return res.Error(0)
 }
 
-func setupCronHandlerTest(t *testing.T) (*mockCronService, *CronHandler, *gin.Engine) {
+func setupCronHandlerTest(_ *testing.T) (*mockCronService, *CronHandler, *gin.Engine) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockCronService)
 	handler := NewCronHandler(svc)

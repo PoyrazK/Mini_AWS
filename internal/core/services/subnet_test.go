@@ -17,7 +17,7 @@ import (
 
 const subnetTestCIDR = "10.0.0.0/16"
 
-func setupSubnetServiceTest(t *testing.T) (*MockSubnetRepo, *MockVpcRepo, *MockAuditService, ports.SubnetService) {
+func setupSubnetServiceTest(_ *testing.T) (*MockSubnetRepo, *MockVpcRepo, *MockAuditService, ports.SubnetService) {
 	repo := new(MockSubnetRepo)
 	vpcRepo := new(MockVpcRepo)
 	auditSvc := new(MockAuditService)
