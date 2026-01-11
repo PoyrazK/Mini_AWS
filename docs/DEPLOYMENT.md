@@ -155,6 +155,20 @@ All services have health checks:
 | `SECRETS_ENCRYPTION_KEY` | Yes | 32-byte hex for secret encryption |
 | `REDIS_URL` | No | Redis connection (if using cache) |
 | `LOG_LEVEL` | No | `debug`, `info`, `warn`, `error` |
+| `COMPUTE_BACKEND` | No | `docker` (default) or `libvirt` |
+| `STORAGE_BACKEND` | No | `noop` (default) or `lvm` |
+| `NETWORK_BACKEND` | No | `ovs` (default) or `noop` |
+
+### Bare Metal Requirements (Libvirt/LVM)
+If deploying with `COMPUTE_BACKEND=libvirt` and `STORAGE_BACKEND=lvm`, the host must have:
+1. **KVM Support**: `/dev/kvm` accessible.
+2. **Libvirt**: `libvirtd` running and socket mounted at `/var/run/libvirt/libvirt-sock`.
+3. **LVM**: A volume group named `thecloud-vg` pre-created on the host.
+   ```bash
+   # Example setup on host
+   pvcreate /dev/sdb
+   vgcreate thecloud-vg /dev/sdb
+   ```
 
 ### Secrets Management
 

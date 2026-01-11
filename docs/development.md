@@ -36,6 +36,15 @@ Welcome to the **The Cloud** operational manual. This guide will help you set up
     echo "DATABASE_URL=postgres://cloud:password@localhost:5432/thecloud" > .env
     ```
 
+    **Optional**: Configure Backends (Defaults shown)
+    ```bash
+    # Compute: 'docker' (simulated) or 'libvirt' (real VMs)
+    echo "COMPUTE_BACKEND=docker" >> .env
+    
+    # Storage: 'noop' (simulated) or 'lvm' (requires LVM volume group)
+    echo "STORAGE_BACKEND=noop" >> .env
+    ```
+
 ### 3. Running the Project
 The `Makefile` works natively on macOS.
 
