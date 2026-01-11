@@ -1,40 +1,40 @@
-# golangci-lint v2 configuration
-
-version: "2"
+# golangci-lint configuration
 
 run:
   timeout: 5m
 
 linters:
-  default: none
+  disable-all: true
   enable:
     - errcheck
     - govet
     - staticcheck
     - unused
     - ineffassign
-  exclusions:
-    paths:
-      - cmd/thecloud
-      - pkg/sdk
-      - internal/handlers/ws
-  settings:
-    errcheck:
-      exclude-functions:
-        # CLI output functions - stdout rarely fails
-        - fmt.Fprintln
-        - fmt.Fprintf
-        - fmt.Printf
-        - fmt.Println
-        # Tablewriter - output wrappers
-        - (*github.com/olekukonko/tablewriter.Table).Append
-        - (*github.com/olekukonko/tablewriter.Table).Render
-        - (*text/tabwriter.Writer).Flush
-        # HTTP response writes - error is returned via other mechanisms
-        - (net/http.ResponseWriter).Write
-        # Cobra flag marking - panics on error anyway
-        - (*github.com/spf13/cobra.Command).MarkFlagRequired
-    staticcheck:
-      checks:
-        - all
-        - -QF1008
+
+issues:
+  exclude-rules:
+    - path: cmd/thecloud
+      linters:
+        - errcheck
+    - path: pkg/sdk
+      linters:
+        - errcheck
+    - path: internal/handlers/ws
+      linters:
+        - errcheck
+
+linters-settings:
+  errcheck:
+    exclude-functions:
+      - fmt.Fprintln
+      - fmt.Fprintf
+      - fmt.Printf
+      - fmt.Println
+      - (*github.com/olekukonko/tablewriter.Table).Append
+      - (*github.com/olekukonko/tablewriter.Table).Render
+      - (*text/tabwriter.Writer).Flush
+      - (net/http.ResponseWriter).Write
+      - (*github.com/spf13/cobra.Command).MarkFlagRequired
+  staticcheck:
+    checks: ["all", "-QF1008"]
