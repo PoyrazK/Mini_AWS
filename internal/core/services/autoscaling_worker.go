@@ -186,7 +186,6 @@ func (w *AutoScalingWorker) evaluatePolicies(ctx context.Context, group *domain.
 		return
 	}
 
-	// We only support 'cpu' metric type for now
 	avgCPU, err := w.repo.GetAverageCPU(ctx, instanceIDs, w.clock.Now().Add(-1*time.Minute))
 	if err != nil {
 		log.Printf("AutoScaling: failed to get metrics for group %s: %v", group.ID, err)
@@ -194,48 +193,64 @@ func (w *AutoScalingWorker) evaluatePolicies(ctx context.Context, group *domain.
 	}
 
 	for _, policy := range policies {
-		// Cooldown check
-		if policy.LastScaledAt != nil {
-			if w.clock.Now().Sub(*policy.LastScaledAt) < time.Duration(policy.CooldownSec)*time.Second {
-				continue
-			}
+		if w.shouldSkipPolicy(policy) {
+			continue
 		}
 
 		if policy.MetricType == "cpu" {
-			if avgCPU > policy.TargetValue {
-				// Scale Out
-				if group.CurrentCount < group.MaxInstances {
-					log.Printf("AutoScaling: Policy %s triggered Scale Out (CPU %.2f > %.2f)", policy.Name, avgCPU, policy.TargetValue)
-					// Calculate new desired
-					newDesired := group.CurrentCount + policy.ScaleOutStep
-					if newDesired > group.MaxInstances {
-						newDesired = group.MaxInstances
-					}
-					group.DesiredCount = newDesired
-					_ = w.repo.UpdateGroup(ctx, group)
-					// Next tick will reconcile
-
-					// Update policy last scaled
-					_ = w.repo.UpdatePolicyLastScaled(ctx, policy.ID, w.clock.Now())
-					return // Only trigger one policy per tick per group to avoid conflicts
-				}
-			} else if avgCPU < (policy.TargetValue - 10.0) { // arbitrary 10% buffer for scale in
-				// Scale In
-				if group.CurrentCount > group.MinInstances {
-					log.Printf("AutoScaling: Policy %s triggered Scale In (CPU %.2f < %.2f)", policy.Name, avgCPU, policy.TargetValue-10.0)
-					newDesired := group.CurrentCount - policy.ScaleInStep
-					if newDesired < group.MinInstances {
-						newDesired = group.MinInstances
-					}
-					group.DesiredCount = newDesired
-					_ = w.repo.UpdateGroup(ctx, group)
-
-					_ = w.repo.UpdatePolicyLastScaled(ctx, policy.ID, w.clock.Now())
-					return
-				}
+			if w.evaluateCPUPolicy(ctx, group, policy, avgCPU) {
+				return // Only trigger one policy per tick
 			}
 		}
 	}
+}
+
+func (w *AutoScalingWorker) shouldSkipPolicy(policy *domain.ScalingPolicy) bool {
+	if policy.LastScaledAt == nil {
+		return false
+	}
+	return w.clock.Now().Sub(*policy.LastScaledAt) < time.Duration(policy.CooldownSec)*time.Second
+}
+
+func (w *AutoScalingWorker) evaluateCPUPolicy(ctx context.Context, group *domain.ScalingGroup, policy *domain.ScalingPolicy, avgCPU float64) bool {
+	if avgCPU > policy.TargetValue {
+		return w.triggerScaleOut(ctx, group, policy, avgCPU)
+	} else if avgCPU < (policy.TargetValue - 10.0) {
+		return w.triggerScaleIn(ctx, group, policy, avgCPU)
+	}
+	return false
+}
+
+func (w *AutoScalingWorker) triggerScaleOut(ctx context.Context, group *domain.ScalingGroup, policy *domain.ScalingPolicy, avgCPU float64) bool {
+	if group.CurrentCount >= group.MaxInstances {
+		return false
+	}
+
+	log.Printf("AutoScaling: Policy %s triggered Scale Out (CPU %.2f > %.2f)", policy.Name, avgCPU, policy.TargetValue)
+	newDesired := group.CurrentCount + policy.ScaleOutStep
+	if newDesired > group.MaxInstances {
+		newDesired = group.MaxInstances
+	}
+	group.DesiredCount = newDesired
+	_ = w.repo.UpdateGroup(ctx, group)
+	_ = w.repo.UpdatePolicyLastScaled(ctx, policy.ID, w.clock.Now())
+	return true
+}
+
+func (w *AutoScalingWorker) triggerScaleIn(ctx context.Context, group *domain.ScalingGroup, policy *domain.ScalingPolicy, avgCPU float64) bool {
+	if group.CurrentCount <= group.MinInstances {
+		return false
+	}
+
+	log.Printf("AutoScaling: Policy %s triggered Scale In (CPU %.2f < %.2f)", policy.Name, avgCPU, policy.TargetValue-10.0)
+	newDesired := group.CurrentCount - policy.ScaleInStep
+	if newDesired < group.MinInstances {
+		newDesired = group.MinInstances
+	}
+	group.DesiredCount = newDesired
+	_ = w.repo.UpdateGroup(ctx, group)
+	_ = w.repo.UpdatePolicyLastScaled(ctx, policy.ID, w.clock.Now())
+	return true
 }
 
 func (w *AutoScalingWorker) scaleOut(ctx context.Context, group *domain.ScalingGroup, policy *domain.ScalingPolicy) error {

@@ -94,57 +94,61 @@ func (s *stackService) processStack(stack *domain.Stack) {
 	// A real implementation would build a dependency graph
 
 	// Pass 1: VPCs
-	for logicalID, res := range t.Resources {
-		if res.Type == "VPC" {
-			id, err := s.createVPC(ctx, stack.ID, logicalID, res.Properties)
-			if err != nil {
-				s.logger.Error("VPC creation failed, rolling back", "error", err)
-				s.startRollback(ctx, stack, fmt.Sprintf("Failed to create VPC %s: %v", logicalID, err))
-				return
-			}
-			logicalToPhysical[logicalID] = id
-		}
+	if err := s.createResourcePass(ctx, stack, t, "VPC", logicalToPhysical); err != nil {
+		return
 	}
 
 	// Pass 2: Volumes
-	for logicalID, res := range t.Resources {
-		if res.Type == "Volume" {
-			id, err := s.createVolume(ctx, stack.ID, logicalID, res.Properties)
-			if err != nil {
-				s.logger.Error("Volume creation failed, rolling back", "error", err)
-				s.startRollback(ctx, stack, fmt.Sprintf("Failed to create Volume %s: %v", logicalID, err))
-				return
-			}
-			logicalToPhysical[logicalID] = id
-		}
+	if err := s.createResourcePass(ctx, stack, t, "Volume", logicalToPhysical); err != nil {
+		return
 	}
 
 	// Pass 3: Instances
-	for logicalID, res := range t.Resources {
-		if res.Type == "Instance" {
-			id, err := s.createInstance(ctx, stack.ID, logicalID, s.resolveRefs(res.Properties, logicalToPhysical))
-			if err != nil {
-				s.logger.Error("Instance creation failed, rolling back", "error", err)
-				s.startRollback(ctx, stack, fmt.Sprintf("Failed to create Instance %s: %v", logicalID, err))
-				return
-			}
-			logicalToPhysical[logicalID] = id
-		}
+	if err := s.createResourcePass(ctx, stack, t, "Instance", logicalToPhysical); err != nil {
+		return
 	}
 
 	// Pass 4: Snapshots
-	for logicalID, res := range t.Resources {
-		if res.Type == "Snapshot" {
-			_, err := s.createSnapshot(ctx, stack.ID, logicalID, s.resolveRefs(res.Properties, logicalToPhysical))
-			if err != nil {
-				s.logger.Error("Snapshot creation failed, rolling back", "error", err)
-				s.startRollback(ctx, stack, fmt.Sprintf("Failed to create Snapshot %s: %v", logicalID, err))
-				return
-			}
-		}
+	if err := s.createResourcePass(ctx, stack, t, "Snapshot", logicalToPhysical); err != nil {
+		return
 	}
 
 	s.updateStackStatus(ctx, stack, domain.StackStatusCreateComplete, "")
+}
+
+func (s *stackService) createResourcePass(ctx context.Context, stack *domain.Stack, t Template, resourceType string, logicalToPhysical map[string]uuid.UUID) error {
+	for logicalID, res := range t.Resources {
+		if res.Type != resourceType {
+			continue
+		}
+
+		var id uuid.UUID
+		var err error
+
+		props := res.Properties
+		if resourceType == "Instance" || resourceType == "Snapshot" {
+			props = s.resolveRefs(res.Properties, logicalToPhysical)
+		}
+
+		switch resourceType {
+		case "VPC":
+			id, err = s.createVPC(ctx, stack.ID, logicalID, props)
+		case "Volume":
+			id, err = s.createVolume(ctx, stack.ID, logicalID, props)
+		case "Instance":
+			id, err = s.createInstance(ctx, stack.ID, logicalID, props)
+		case "Snapshot":
+			id, err = s.createSnapshot(ctx, stack.ID, logicalID, props)
+		}
+
+		if err != nil {
+			s.logger.Error(fmt.Sprintf("%s creation failed, rolling back", resourceType), "error", err)
+			s.startRollback(ctx, stack, fmt.Sprintf("Failed to create %s %s: %v", resourceType, logicalID, err))
+			return err
+		}
+		logicalToPhysical[logicalID] = id
+	}
+	return nil
 }
 
 func (s *stackService) startRollback(ctx context.Context, stack *domain.Stack, reason string) {
