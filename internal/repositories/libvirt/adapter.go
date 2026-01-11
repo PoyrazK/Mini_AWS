@@ -663,6 +663,12 @@ func (a *LibvirtAdapter) RestoreVolumeSnapshot(ctx context.Context, volumeID str
 func (a *LibvirtAdapter) generateCloudInitISO(_ context.Context, name string, env []string, cmd []string) (string, error) {
 	safeName := a.sanitizeDomainName(name)
 
+	// Additional security: ensure the sanitized name doesn't contain path separators
+	safeName = filepath.Base(safeName)
+	if safeName == "." || safeName == ".." {
+		safeName = fmt.Sprintf("cloudinit-%d", time.Now().UnixNano())
+	}
+
 	tmpDir, err := os.MkdirTemp("", prefixCloudInit+safeName)
 	if err != nil {
 		return "", err
@@ -673,7 +679,8 @@ func (a *LibvirtAdapter) generateCloudInitISO(_ context.Context, name string, en
 		return "", err
 	}
 
-	isoPath := filepath.Join(os.TempDir(), prefixCloudInit+safeName+".iso")
+	// Use filepath.Join to safely construct the ISO path
+	isoPath := filepath.Join(os.TempDir(), filepath.Clean(prefixCloudInit+safeName+".iso"))
 	return isoPath, a.runIsoCommand(isoPath, tmpDir)
 }
 
