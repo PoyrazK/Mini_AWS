@@ -126,9 +126,8 @@ See [CHANGELOG.md](CHANGELOG.md) for detailed changes.
 | Doc | Description |
 |-----|-------------|
 | [Development Guide](docs/development.md) | Setup on Windows, Mac, or Linux |
-| [Roadmap](docs/roadmap.md) | Project phases and progress |
-| [Future Plans & Contributing](docs/future-plans.md) | How to contribute + feature backlog |
-| [Future Vision](docs/vision.md) | Long-term strategy and goals |
+| [Roadmap](docs/ROADMAP.md) | Project roadmap and feature status |
+| [Vision](docs/vision.md) | Long-term strategy and goals |
 
 ### Architecture & Services
 | Doc | Description |
