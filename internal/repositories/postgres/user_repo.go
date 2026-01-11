@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 )
 
@@ -43,20 +44,7 @@ func (r *UserRepo) GetByEmail(ctx context.Context, email string) (*domain.User, 
 		FROM users
 		WHERE email = $1
 	`
-	user := &domain.User{}
-	err := r.db.QueryRow(ctx, query, email).Scan(
-		&user.ID,
-		&user.Email,
-		&user.PasswordHash,
-		&user.Name,
-		&user.Role,
-		&user.CreatedAt,
-		&user.UpdatedAt,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get user by email: %w", err)
-	}
-	return user, nil
+	return r.scanUser(r.db.QueryRow(ctx, query, email))
 }
 
 func (r *UserRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.User, error) {
@@ -65,20 +53,7 @@ func (r *UserRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.User, err
 		FROM users
 		WHERE id = $1
 	`
-	user := &domain.User{}
-	err := r.db.QueryRow(ctx, query, id).Scan(
-		&user.ID,
-		&user.Email,
-		&user.PasswordHash,
-		&user.Name,
-		&user.Role,
-		&user.CreatedAt,
-		&user.UpdatedAt,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get user by ID: %w", err)
-	}
-	return user, nil
+	return r.scanUser(r.db.QueryRow(ctx, query, id))
 }
 
 func (r *UserRepo) Update(ctx context.Context, user *domain.User) error {
@@ -111,22 +86,33 @@ func (r *UserRepo) List(ctx context.Context) ([]*domain.User, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to list users: %w", err)
 	}
-	defer rows.Close()
+	return r.scanUsers(rows)
+}
 
+func (r *UserRepo) scanUser(row pgx.Row) (*domain.User, error) {
+	user := &domain.User{}
+	err := row.Scan(
+		&user.ID,
+		&user.Email,
+		&user.PasswordHash,
+		&user.Name,
+		&user.Role,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to scan user: %w", err)
+	}
+	return user, nil
+}
+
+func (r *UserRepo) scanUsers(rows pgx.Rows) ([]*domain.User, error) {
+	defer rows.Close()
 	var users []*domain.User
 	for rows.Next() {
-		user := &domain.User{}
-		err := rows.Scan(
-			&user.ID,
-			&user.Email,
-			&user.PasswordHash,
-			&user.Name,
-			&user.Role,
-			&user.CreatedAt,
-			&user.UpdatedAt,
-		)
+		user, err := r.scanUser(rows)
 		if err != nil {
-			return nil, fmt.Errorf("failed to scan user: %w", err)
+			return nil, err
 		}
 		users = append(users, user)
 	}

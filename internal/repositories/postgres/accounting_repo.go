@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
@@ -75,26 +76,37 @@ func (r *accountingRepository) ListRecords(ctx context.Context, userID uuid.UUID
 	if err != nil {
 		return nil, fmt.Errorf("failed to list usage records: %w", err)
 	}
-	defer rows.Close()
+	return r.scanUsageRecords(rows)
+}
 
+func (r *accountingRepository) scanUsageRecord(row pgx.Row) (domain.UsageRecord, error) {
+	var rec domain.UsageRecord
+	var resType string
+	err := row.Scan(
+		&rec.ID,
+		&rec.UserID,
+		&rec.ResourceID,
+		&resType,
+		&rec.Quantity,
+		&rec.Unit,
+		&rec.StartTime,
+		&rec.EndTime,
+	)
+	if err != nil {
+		return domain.UsageRecord{}, err
+	}
+	rec.ResourceType = domain.ResourceType(resType)
+	return rec, nil
+}
+
+func (r *accountingRepository) scanUsageRecords(rows pgx.Rows) ([]domain.UsageRecord, error) {
+	defer rows.Close()
 	var records []domain.UsageRecord
 	for rows.Next() {
-		var rec domain.UsageRecord
-		var resType string
-		err := rows.Scan(
-			&rec.ID,
-			&rec.UserID,
-			&rec.ResourceID,
-			&resType,
-			&rec.Quantity,
-			&rec.Unit,
-			&rec.StartTime,
-			&rec.EndTime,
-		)
+		rec, err := r.scanUsageRecord(rows)
 		if err != nil {
 			return nil, err
 		}
-		rec.ResourceType = domain.ResourceType(resType)
 		records = append(records, rec)
 	}
 	return records, nil

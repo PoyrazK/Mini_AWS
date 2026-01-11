@@ -196,36 +196,40 @@ func (s *InstanceService) parseAndValidatePorts(ports string) ([]string, error) 
 	}
 
 	for _, p := range portList {
-		idx := strings.Index(p, ":")
-		if idx == -1 {
-			return nil, errors.New(errors.InvalidPortFormat, "port format must be host:container")
-		}
-		// Ensure only one colon
-		if strings.Contains(p[idx+1:], ":") {
-			return nil, errors.New(errors.InvalidPortFormat, "port format must be host:container")
-		}
-
-		hostPart := p[:idx]
-		containerPart := p[idx+1:]
-
-		hostPort, err := parsePort(hostPart)
-		if err != nil {
-			return nil, errors.New(errors.InvalidPortFormat, fmt.Sprintf("invalid host port: %s", hostPart))
-		}
-		containerPort, err := parsePort(containerPart)
-		if err != nil {
-			return nil, errors.New(errors.InvalidPortFormat, fmt.Sprintf("invalid container port: %s", containerPart))
-		}
-
-		if hostPort < domain.MinPort || hostPort > domain.MaxPort {
-			return nil, errors.New(errors.InvalidPortFormat, fmt.Sprintf("host port %d out of range (%d-%d)", hostPort, domain.MinPort, domain.MaxPort))
-		}
-		if containerPort < domain.MinPort || containerPort > domain.MaxPort {
-			return nil, errors.New(errors.InvalidPortFormat, fmt.Sprintf("container port %d out of range (%d-%d)", containerPort, domain.MinPort, domain.MaxPort))
+		if err := validatePortMapping(p); err != nil {
+			return nil, err
 		}
 	}
 
 	return portList, nil
+}
+
+func validatePortMapping(p string) error {
+	idx := strings.Index(p, ":")
+	if idx == -1 || strings.Contains(p[idx+1:], ":") {
+		return errors.New(errors.InvalidPortFormat, "port format must be host:container")
+	}
+
+	hostPart := p[:idx]
+	containerPart := p[idx+1:]
+
+	hostPort, err := parsePort(hostPart)
+	if err != nil {
+		return errors.New(errors.InvalidPortFormat, fmt.Sprintf("invalid host port: %s", hostPart))
+	}
+	containerPort, err := parsePort(containerPart)
+	if err != nil {
+		return errors.New(errors.InvalidPortFormat, fmt.Sprintf("invalid container port: %s", containerPart))
+	}
+
+	if hostPort < domain.MinPort || hostPort > domain.MaxPort {
+		return errors.New(errors.InvalidPortFormat, fmt.Sprintf("host port %d out of range (%d-%d)", hostPort, domain.MinPort, domain.MaxPort))
+	}
+	if containerPort < domain.MinPort || containerPort > domain.MaxPort {
+		return errors.New(errors.InvalidPortFormat, fmt.Sprintf("container port %d out of range (%d-%d)", containerPort, domain.MinPort, domain.MaxPort))
+	}
+
+	return nil
 }
 
 func parsePort(s string) (int, error) {

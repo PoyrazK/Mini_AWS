@@ -108,23 +108,44 @@ func (h *InstanceHandler) Launch(c *gin.Context) {
 		return
 	}
 
-	// Custom validation
 	if err := validateLaunchRequest(&req); err != nil {
 		httputil.Error(c, err)
 		return
 	}
 
-	var vpcUUID *uuid.UUID
+	vpcUUID, subnetUUID, volumes, err := h.mapLaunchRequest(req)
+	if err != nil {
+		httputil.Error(c, errors.New(errors.InvalidInput, err.Error()))
+		return
+	}
+
+	inst, err := h.svc.LaunchInstance(c.Request.Context(), req.Name, req.Image, req.Ports, vpcUUID, subnetUUID, volumes)
+	if err != nil {
+		httputil.Error(c, err)
+		return
+	}
+
+	httputil.Success(c, http.StatusAccepted, inst)
+}
+
+func (h *InstanceHandler) mapLaunchRequest(req LaunchRequest) (*uuid.UUID, *uuid.UUID, []domain.VolumeAttachment, error) {
+	var vpcUUID, subnetUUID *uuid.UUID
+
 	if req.VpcID != "" {
 		id, err := uuid.Parse(req.VpcID)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid vpc_id format"})
-			return
+			return nil, nil, nil, errors.New(errors.InvalidInput, "invalid vpc_id format")
 		}
 		vpcUUID = &id
 	}
 
-	// Convert volume attachments
+	if req.SubnetID != "" {
+		id, err := uuid.Parse(req.SubnetID)
+		if err == nil {
+			subnetUUID = &id
+		}
+	}
+
 	var volumes []domain.VolumeAttachment
 	for _, v := range req.Volumes {
 		volumes = append(volumes, domain.VolumeAttachment{
@@ -133,26 +154,7 @@ func (h *InstanceHandler) Launch(c *gin.Context) {
 		})
 	}
 
-	var subnetUUID *uuid.UUID
-	if req.SubnetID != "" {
-		id, err := uuid.Parse(req.SubnetID)
-		if err == nil {
-			subnetUUID = &id
-		}
-	}
-
-	inst, err := h.svc.LaunchInstance(c.Request.Context(), req.Name, req.Image, req.Ports, vpcUUID, subnetUUID, volumes)
-	if err != nil {
-		if errors.Is(err, errors.ResourceLimitExceeded) {
-			// Specific handling for resource limits if needed
-			httputil.Error(c, err)
-			return
-		}
-		httputil.Error(c, err)
-		return
-	}
-
-	httputil.Success(c, http.StatusAccepted, inst)
+	return vpcUUID, subnetUUID, volumes, nil
 }
 
 // List returns all instances
