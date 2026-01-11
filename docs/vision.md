@@ -196,30 +196,6 @@ Becoming a global platform:
 - **Educational** - Learn by running real infrastructure
 - **Production-ready** - Use it for real workloads
 
----
-
-## 🌍 Impact Goals
-
-### 2026 Goals
-- **10,000+ GitHub stars** - Community recognition
-- **1,000+ production deployments** - Real-world usage
-- **100+ contributors** - Active community
-- **99.99% uptime** - Production reliability
-
-### 2027 Goals
-- **50,000+ GitHub stars** - Major open-source project
-- **10,000+ production deployments** - Widespread adoption
-- **500+ contributors** - Thriving community
-- **SOC 2 certified** - Enterprise trust
-
-### 2028 Goals
-- **#1 open-source cloud platform** - Industry leadership
-- **100,000+ deployments** - Global scale
-- **1,000+ contributors** - Massive community
-- **Sustainable business** - Long-term viability
-
----
-
 ## 🎓 Educational Mission
 
 **The Cloud** is a **Living Textbook** for cloud engineering:
@@ -247,7 +223,6 @@ Becoming a global platform:
 
 ### Open Governance
 - Public roadmap
-- Community voting on features
 - Transparent decision-making
 - Open development process
 
@@ -261,17 +236,12 @@ Becoming a global platform:
 ### Recognition
 - Contributor hall of fame
 - Swag for contributors
-- Conference speaking opportunities
-- Job opportunities
-
----
 
 ## 💼 Business Model
 
 ### Open Core Strategy
 - **Community Edition** - 100% free, open-source
 - **Enterprise Edition** - Additional features for large deployments
-  - Advanced RBAC
   - Priority support
   - SLA guarantees
   - Professional services
@@ -306,15 +276,12 @@ Becoming a global platform:
 - Automated security
 - Cost prediction AI
 
----
-
 ## 📊 Success Metrics
 
 ### Technical Excellence
 - Code coverage >80%
 - API latency <100ms (p95)
 - System uptime 99.99%
-- Zero critical vulnerabilities
 
 ### Community Health
 - Active contributors
@@ -351,7 +318,6 @@ We're building the future of cloud infrastructure, and we want you to be part of
 **Get Involved:**
 - ⭐ Star us on GitHub
 - 📖 Read the documentation
-- 💬 Join our Discord
 - 🐛 Report bugs
 - 💻 Contribute code
 - 📢 Spread the word
