@@ -815,6 +815,13 @@ func (m *MockInstanceRepo) List(ctx context.Context) ([]*domain.Instance, error)
 	}
 	return args.Get(0).([]*domain.Instance), args.Error(1)
 }
+func (m *MockInstanceRepo) ListAll(ctx context.Context) ([]*domain.Instance, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Instance), args.Error(1)
+}
 func (m *MockInstanceRepo) ListBySubnet(ctx context.Context, subnetID uuid.UUID) ([]*domain.Instance, error) {
 	args := m.Called(ctx, subnetID)
 	if args.Get(0) == nil {

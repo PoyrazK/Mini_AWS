@@ -201,7 +201,7 @@ func (s *InstanceService) parseAndValidatePorts(ports string) ([]string, error) 
 			return nil, errors.New(errors.InvalidPortFormat, "port format must be host:container")
 		}
 		// Ensure only one colon
-		if strings.Index(p[idx+1:], ":") != -1 {
+		if strings.Contains(p[idx+1:], ":") {
 			return nil, errors.New(errors.InvalidPortFormat, "port format must be host:container")
 		}
 

@@ -22,6 +22,9 @@ func (r *NoopInstanceRepository) GetByName(ctx context.Context, name string) (*d
 func (r *NoopInstanceRepository) List(ctx context.Context) ([]*domain.Instance, error) {
 	return []*domain.Instance{}, nil
 }
+func (r *NoopInstanceRepository) ListAll(ctx context.Context) ([]*domain.Instance, error) {
+	return []*domain.Instance{}, nil
+}
 func (r *NoopInstanceRepository) Update(ctx context.Context, i *domain.Instance) error { return nil }
 func (r *NoopInstanceRepository) Delete(ctx context.Context, id uuid.UUID) error       { return nil }
 func (r *NoopInstanceRepository) ListBySubnet(ctx context.Context, subnetID uuid.UUID) ([]*domain.Instance, error) {

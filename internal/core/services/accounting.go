@@ -67,7 +67,7 @@ func (s *accountingService) ProcessHourlyBilling(ctx context.Context) error {
 	now := time.Now()
 	startTime := now.Add(-1 * time.Hour)
 
-	instances, err := s.instanceRepo.List(ctx)
+	instances, err := s.instanceRepo.ListAll(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to list instances for billing: %w", err)
 	}
