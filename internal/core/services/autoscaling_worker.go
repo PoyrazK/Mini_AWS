@@ -138,9 +138,8 @@ func (w *AutoScalingWorker) cleanupGroup(ctx context.Context, group *domain.Scal
 func (w *AutoScalingWorker) reconcileInstances(ctx context.Context, group *domain.ScalingGroup, instanceIDs []uuid.UUID) {
 	current := len(instanceIDs)
 
-	if w.adjustDesiredBounds(ctx, group) {
-		// If adjusted, reload might be needed in real world, but for now just use updated fields
-	}
+	// Adjust desired count if out of bounds
+	_ = w.adjustDesiredBounds(ctx, group)
 
 	if current < group.DesiredCount {
 		w.reconcileScaleOut(ctx, group, current)
