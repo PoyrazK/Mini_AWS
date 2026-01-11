@@ -16,6 +16,7 @@ This document outlines our roadmap to becoming a real cloud system and how you c
 - [x] Libvirt/KVM virtualization
 - [x] Runtime backend switching
 - [x] Cloud-Init integration
+- [x] VNC Console Access
 
 **Core Infrastructure:**
 - [x] S3-compatible object storage

@@ -43,9 +43,12 @@ Transform The Cloud from an educational platform into a **production-grade, self
 - ✅ **SDK** - Go client library
 - ✅ **CI/CD** - Multi-backend testing pipeline
 
-### 🎉 Recent Achievements (v0.3.0)
+### 🎉 Recent Achievements (v0.3.0+)
 - Multi-backend architecture with runtime switching
-- Full KVM/QEMU virtualization support
+- **Full Virtualization Stack:**
+  - Libvirt/KVM for production VMs
+  - **VNC Console Access via Websockets**
+  - **LVM Block Storage Backend** (Raw performance + Snapshots)
 - **Complete RBAC management system (API + CLI)**
 - **Full Prometheus & Grafana Integration**
 - **Test Coverage: 52.4%** (Unit + Integration Tests)
