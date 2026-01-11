@@ -57,8 +57,8 @@ func TestWebSocket_Lifecycle(t *testing.T) {
 	hub := NewHub(logger)
 	go hub.Run()
 
-	mockId := new(mockIdentityService)
-	handler := NewHandler(hub, mockId, logger)
+	mockID := new(mockIdentityService)
+	handler := NewHandler(hub, mockID, logger)
 
 	r := gin.New()
 	r.GET("/ws", handler.ServeWS)
@@ -67,7 +67,7 @@ func TestWebSocket_Lifecycle(t *testing.T) {
 	defer server.Close()
 
 	wsURL := "ws" + strings.TrimPrefix(server.URL, "http") + "/ws?api_key=valid-key"
-	mockId.On("ValidateAPIKey", mock.Anything, "valid-key").Return(&domain.APIKey{Key: "valid-key", UserID: uuid.New()}, nil)
+	mockID.On("ValidateAPIKey", mock.Anything, "valid-key").Return(&domain.APIKey{Key: "valid-key", UserID: uuid.New()}, nil)
 
 	dialer := websocket.Dialer{}
 	conn, _, err := dialer.Dial(wsURL, nil)
@@ -93,8 +93,8 @@ func TestWebSocket_AuthFailure(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	hub := NewHub(logger)
-	mockId := new(mockIdentityService)
-	handler := NewHandler(hub, mockId, logger)
+	mockID := new(mockIdentityService)
+	handler := NewHandler(hub, mockID, logger)
 
 	r := gin.New()
 	r.GET("/ws", handler.ServeWS)
@@ -112,7 +112,7 @@ func TestWebSocket_AuthFailure(t *testing.T) {
 
 	t.Run("Invalid API Key", func(t *testing.T) {
 		wsURL := "ws" + strings.TrimPrefix(server.URL, "http") + "/ws?api_key=invalid"
-		mockId.On("ValidateAPIKey", mock.Anything, "invalid").Return(nil, errors.New(errors.Unauthorized, "invalid key"))
+		mockID.On("ValidateAPIKey", mock.Anything, "invalid").Return(nil, errors.New(errors.Unauthorized, "invalid key"))
 		dialer := websocket.Dialer{}
 		_, resp, err := dialer.Dial(wsURL, nil)
 		assert.Error(t, err)
