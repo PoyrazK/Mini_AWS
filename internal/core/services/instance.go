@@ -19,9 +19,12 @@ import (
 	"github.com/poyrazk/thecloud/internal/platform"
 )
 
-// InstanceService manages the lifecycle of compute instances,
-// coordinating between database persistence, compute backends (Docker/Libvirt),
-// and network backends (OVS).
+// InstanceService manages compute instance lifecycle (containers or VMs).
+//
+// Supports multiple backends (Docker, Libvirt) and networking modes (bridge, VPC).
+// Handles instance CRUD, port mapping, volume attachment, and resource monitoring.
+//
+// All methods are safe for concurrent use and return domain errors.
 type InstanceService struct {
 	repo       ports.InstanceRepository
 	vpcRepo    ports.VpcRepository
@@ -35,7 +38,8 @@ type InstanceService struct {
 	logger     *slog.Logger
 }
 
-// InstanceServiceParams holds dependencies for creating an InstanceService
+// InstanceServiceParams holds dependencies for InstanceService creation.
+// Uses parameter object pattern for cleaner dependency injection.
 type InstanceServiceParams struct {
 	Repo       ports.InstanceRepository
 	VpcRepo    ports.VpcRepository
@@ -45,11 +49,11 @@ type InstanceServiceParams struct {
 	Network    ports.NetworkBackend
 	EventSvc   ports.EventService
 	AuditSvc   ports.AuditService
-	TaskQueue  ports.TaskQueue
+	TaskQueue  ports.TaskQueue // Optional
 	Logger     *slog.Logger
 }
 
-// NewInstanceService initializes a new InstanceService with required dependencies.
+// NewInstanceService creates a new InstanceService with the given dependencies.
 func NewInstanceService(params InstanceServiceParams) *InstanceService {
 	return &InstanceService{
 		repo:       params.Repo,

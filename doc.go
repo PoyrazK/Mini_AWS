@@ -78,4 +78,4 @@
 // API server is running.
 //
 // For more information, see the documentation in the docs/ directory.
-package main
+package thecloud
