@@ -275,3 +275,20 @@ func (r *NoopIdentityRepository) ListAPIKeysByUserID(ctx context.Context, userID
 	return []*domain.APIKey{}, nil
 }
 func (r *NoopIdentityRepository) DeleteAPIKey(ctx context.Context, id uuid.UUID) error { return nil }
+
+type NoopStorageBackend struct{}
+
+func (b *NoopStorageBackend) CreateVolume(ctx context.Context, name string, sizeGB int) (string, error) {
+	return "/tmp/" + name, nil
+}
+func (b *NoopStorageBackend) DeleteVolume(ctx context.Context, name string) error { return nil }
+func (b *NoopStorageBackend) AttachVolume(ctx context.Context, vol, inst string) error {
+	return nil
+}
+func (b *NoopStorageBackend) DetachVolume(ctx context.Context, vol, inst string) error {
+	return nil
+}
+func (b *NoopStorageBackend) CreateSnapshot(ctx context.Context, vol, snap string) error { return nil }
+func (b *NoopStorageBackend) DeleteSnapshot(ctx context.Context, snap string) error      { return nil }
+func (b *NoopStorageBackend) Ping(ctx context.Context) error                            { return nil }
+func (b *NoopStorageBackend) Type() string                                              { return "noop" }
