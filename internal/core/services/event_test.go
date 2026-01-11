@@ -35,7 +35,7 @@ func (m *MockEventRepo) List(ctx context.Context, limit int) ([]*domain.Event, e
 func setupEventServiceTest(t *testing.T) (*MockEventRepo, ports.EventService) {
 	repo := new(MockEventRepo)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	svc := services.NewEventService(repo, logger)
+	svc := services.NewEventService(repo, nil, logger)
 	return repo, svc
 }
 
