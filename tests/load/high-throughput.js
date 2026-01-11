@@ -12,7 +12,7 @@ export const options = {
 
 const BASE_URL = __ENV.BASE_URL || 'http://cloud-api';
 
-export default function () {
+export default function loadTest() {
     const id = uuidv4().substring(0, 8);
     const email = `u-${id}@test.io`;
     const headers = { 'Content-Type': 'application/json' };
