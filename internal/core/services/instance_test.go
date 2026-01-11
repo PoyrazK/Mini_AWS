@@ -16,6 +16,11 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+const (
+	testPorts      = "8080:80"
+	testVPCNetwork = "br-vpc-123"
+)
+
 func setupInstanceServiceTest(t *testing.T) (*MockInstanceRepo, *MockVpcRepo, *MockSubnetRepo, *MockVolumeRepo, *MockComputeBackend, *MockNetworkBackend, *MockEventService, *MockAuditService, *services.TaskQueueStub, ports.InstanceService) {
 	repo := new(MockInstanceRepo)
 	vpcRepo := new(MockVpcRepo)
@@ -43,14 +48,14 @@ func setupInstanceServiceTest(t *testing.T) (*MockInstanceRepo, *MockVpcRepo, *M
 	return repo, vpcRepo, subnetRepo, volumeRepo, compute, network, eventSvc, auditSvc, taskQueue, svc
 }
 
-func TestLaunchInstance_Success(t *testing.T) {
+func TestLaunchInstanceSuccess(t *testing.T) {
 	repo, _, _, _, _, _, _, _, _, svc := setupInstanceServiceTest(t)
 	defer repo.AssertExpectations(t)
 
 	ctx := context.Background()
 	name := "test-inst"
 	image := "alpine"
-	ports := "8080:80"
+	ports := testPorts
 
 	repo.On("Create", ctx, mock.AnythingOfType("*domain.Instance")).Return(nil)
 
@@ -62,7 +67,7 @@ func TestLaunchInstance_Success(t *testing.T) {
 	assert.Equal(t, domain.StatusStarting, inst.Status)
 }
 
-func TestLaunchInstance_PropagatesUserID(t *testing.T) {
+func TestLaunchInstancePropagatesUserID(t *testing.T) {
 	repo, _, _, _, _, _, _, _, _, svc := setupInstanceServiceTest(t)
 	defer repo.AssertExpectations(t)
 
@@ -82,7 +87,7 @@ func TestLaunchInstance_PropagatesUserID(t *testing.T) {
 	assert.Equal(t, expectedUserID, inst.UserID)
 }
 
-func TestTerminateInstance_Success(t *testing.T) {
+func TestTerminateInstanceSuccess(t *testing.T) {
 	repo, _, _, volumeRepo, compute, _, eventSvc, auditSvc, _, svc := setupInstanceServiceTest(t)
 	defer repo.AssertExpectations(t)
 	defer volumeRepo.AssertExpectations(t)
@@ -122,7 +127,7 @@ func TestTerminateInstance_Success(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestTerminateInstance_RemoveContainerFails_DoesNotReleaseVolumes(t *testing.T) {
+func TestTerminateInstanceRemoveContainerFailsDoesNotReleaseVolumes(t *testing.T) {
 	repo, _, _, volumeRepo, compute, _, eventSvc, _, _, svc := setupInstanceServiceTest(t)
 	defer repo.AssertExpectations(t)
 	defer compute.AssertExpectations(t)
@@ -142,7 +147,7 @@ func TestTerminateInstance_RemoveContainerFails_DoesNotReleaseVolumes(t *testing
 	eventSvc.AssertNotCalled(t, "RecordEvent", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 }
 
-func TestGetInstance_ByID(t *testing.T) {
+func TestGetInstanceByID(t *testing.T) {
 	repo, _, _, _, _, _, _, _, _, svc := setupInstanceServiceTest(t)
 	defer repo.AssertExpectations(t)
 
@@ -158,7 +163,7 @@ func TestGetInstance_ByID(t *testing.T) {
 	assert.Equal(t, instID, result.ID)
 }
 
-func TestGetInstance_ByName(t *testing.T) {
+func TestGetInstanceByName(t *testing.T) {
 	repo, _, _, _, _, _, _, _, _, svc := setupInstanceServiceTest(t)
 	defer repo.AssertExpectations(t)
 
@@ -207,7 +212,7 @@ func TestGetInstanceLogs(t *testing.T) {
 	assert.Contains(t, logs, "log line 1")
 }
 
-func TestStopInstance_Success(t *testing.T) {
+func TestStopInstanceSuccess(t *testing.T) {
 	repo, _, _, _, compute, _, _, auditSvc, _, svc := setupInstanceServiceTest(t)
 	defer repo.AssertExpectations(t)
 	defer compute.AssertExpectations(t)
@@ -230,7 +235,7 @@ func TestStopInstance_Success(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestLaunchInstance_WithSubnetAndNetworking(t *testing.T) {
+func TestLaunchInstanceWithSubnetAndNetworking(t *testing.T) {
 	repo, vpcRepo, subnetRepo, _, _, _, _, _, _, svc := setupInstanceServiceTest(t)
 	defer repo.AssertExpectations(t)
 	defer vpcRepo.AssertExpectations(t)
@@ -251,7 +256,7 @@ func TestLaunchInstance_WithSubnetAndNetworking(t *testing.T) {
 	assert.Equal(t, domain.StatusStarting, inst.Status)
 }
 
-func TestProvision_Success(t *testing.T) {
+func TestProvisionSuccess(t *testing.T) {
 	repo, vpcRepo, subnetRepo, _, compute, network, eventSvc, auditSvc, _, svc := setupInstanceServiceTest(t)
 	defer repo.AssertExpectations(t)
 	defer vpcRepo.AssertExpectations(t)
@@ -273,10 +278,10 @@ func TestProvision_Success(t *testing.T) {
 		Image:    image,
 		VpcID:    &vpcID,
 		SubnetID: &subnetID,
-		Ports:    "8080:80",
+		Ports:    testPorts,
 	}
 
-	vpc := &domain.VPC{ID: vpcID, NetworkID: "br-vpc-123"}
+	vpc := &domain.VPC{ID: vpcID, NetworkID: testVPCNetwork}
 	subnet := &domain.Subnet{
 		ID:        subnetID,
 		VPCID:     vpcID,
@@ -289,11 +294,15 @@ func TestProvision_Success(t *testing.T) {
 	subnetRepo.On("GetByID", mock.Anything, subnetID).Return(subnet, nil)
 	repo.On("ListBySubnet", mock.Anything, subnetID).Return([]*domain.Instance{}, nil)
 
-	compute.On("CreateInstance", mock.Anything, mock.Anything, image, []string{"8080:80"}, "br-vpc-123", mock.Anything, mock.Anything, mock.Anything).Return("c-123", nil)
+	compute.On("CreateInstance", mock.Anything, mock.MatchedBy(func(opts ports.CreateInstanceOptions) bool {
+		return opts.ImageName == image &&
+			len(opts.Ports) == 1 && opts.Ports[0] == testPorts &&
+			opts.NetworkID == testVPCNetwork
+	})).Return("c-123", nil)
 	compute.On("Type").Return("docker")
 
 	network.On("CreateVethPair", mock.Anything, mock.Anything, mock.Anything).Return(nil)
-	network.On("AttachVethToBridge", mock.Anything, "br-vpc-123", mock.Anything).Return(nil)
+	network.On("AttachVethToBridge", mock.Anything, testVPCNetwork, mock.Anything).Return(nil)
 	network.On("SetVethIP", mock.Anything, mock.Anything, "10.0.1.2", "24").Return(nil)
 
 	repo.On("Update", mock.Anything, mock.MatchedBy(func(i *domain.Instance) bool {
@@ -309,7 +318,7 @@ func TestProvision_Success(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestInstanceService_GetInstanceStats(t *testing.T) {
+func TestInstanceServiceGetInstanceStats(t *testing.T) {
 	repo, _, _, _, compute, _, _, _, _, svc := setupInstanceServiceTest(t)
 	defer repo.AssertExpectations(t)
 	defer compute.AssertExpectations(t)
@@ -326,7 +335,7 @@ func TestInstanceService_GetInstanceStats(t *testing.T) {
 	assert.NotNil(t, stats)
 }
 
-func TestInstanceService_GetInstanceStats_Error(t *testing.T) {
+func TestInstanceServiceGetInstanceStatsError(t *testing.T) {
 	repo, _, _, _, compute, _, _, _, _, svc := setupInstanceServiceTest(t)
 	ctx := context.Background()
 	instID := uuid.New()
@@ -346,7 +355,7 @@ func TestInstanceService_GetInstanceStats_Error(t *testing.T) {
 	})
 }
 
-func TestInstanceService_Launch_InvalidPorts(t *testing.T) {
+func TestInstanceServiceLaunchInvalidPorts(t *testing.T) {
 	_, _, _, _, _, _, _, _, _, svc := setupInstanceServiceTest(t)
 	ctx := context.Background()
 
@@ -354,7 +363,7 @@ func TestInstanceService_Launch_InvalidPorts(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestInstanceService_Stop_Error(t *testing.T) {
+func TestInstanceServiceStopError(t *testing.T) {
 	repo, _, _, _, compute, _, _, _, _, svc := setupInstanceServiceTest(t)
 	ctx := context.Background()
 	instID := uuid.New()
@@ -367,7 +376,7 @@ func TestInstanceService_Stop_Error(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestInstanceService_GetInstanceLogs_Error(t *testing.T) {
+func TestInstanceServiceGetInstanceLogsError(t *testing.T) {
 	repo, _, _, _, compute, _, _, _, _, svc := setupInstanceServiceTest(t)
 	ctx := context.Background()
 	instID := uuid.New()
@@ -380,7 +389,7 @@ func TestInstanceService_GetInstanceLogs_Error(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestInstanceService_Launch_WithVolumes(t *testing.T) {
+func TestInstanceServiceLaunchWithVolumes(t *testing.T) {
 	repo, _, _, volumeRepo, _, _, _, _, _, svc := setupInstanceServiceTest(t)
 	ctx := context.Background()
 	volID := uuid.New()
@@ -395,7 +404,7 @@ func TestInstanceService_Launch_WithVolumes(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestInstanceService_GetVolumeByIDOrName(t *testing.T) {
+func TestInstanceServiceGetVolumeByIDOrName(t *testing.T) {
 	_, _, _, volumeRepo, _, _, _, _, _, _ := setupInstanceServiceTest(t)
 	ctx := context.Background()
 	volID := uuid.New()

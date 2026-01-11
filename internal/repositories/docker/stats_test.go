@@ -8,17 +8,23 @@ import (
 	"io"
 	"testing"
 
+	"github.com/poyrazk/thecloud/internal/core/ports"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestDockerAdapter_GetContainerStats(t *testing.T) {
+func TestDockerAdapterGetContainerStats(t *testing.T) {
 	ctx := context.Background()
 	adapter, err := NewDockerAdapter()
 	require.NoError(t, err)
 
 	// 1. Create a dummy container
-	containerID, err := adapter.CreateInstance(ctx, "stats-test", "alpine", []string{}, "", []string{}, []string{}, []string{"sleep", "10"})
+	containerID, err := adapter.CreateInstance(ctx, ports.CreateInstanceOptions{
+		Name:      "stats-test",
+		ImageName: "alpine",
+		Cmd:       []string{"sleep", "10"},
+	})
 	require.NoError(t, err)
 	defer adapter.DeleteInstance(ctx, containerID)
 

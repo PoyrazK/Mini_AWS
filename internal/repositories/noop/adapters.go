@@ -100,7 +100,7 @@ func NewNoopComputeBackend() ports.ComputeBackend {
 
 type NoopComputeBackend struct{}
 
-func (c *NoopComputeBackend) CreateInstance(ctx context.Context, name, image string, ports []string, networkID string, volumeBinds []string, env []string, cmd []string) (string, error) {
+func (c *NoopComputeBackend) CreateInstance(ctx context.Context, opts ports.CreateInstanceOptions) (string, error) {
 	return "noop-id", nil
 }
 func (c *NoopComputeBackend) StopInstance(ctx context.Context, id string) error   { return nil }

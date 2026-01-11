@@ -54,12 +54,12 @@ func (a *DockerAdapter) Type() string {
 	return "docker"
 }
 
-func (a *DockerAdapter) CreateInstance(ctx context.Context, name, imageName string, ports []string, networkID string, volumeBinds []string, env []string, cmd []string) (string, error) {
+func (a *DockerAdapter) CreateInstance(ctx context.Context, opts ports.CreateInstanceOptions) (string, error) {
 	// 1. Ensure image exists (pull if not) - with timeout
 	pullCtx, pullCancel := context.WithTimeout(ctx, ImagePullTimeout)
 	defer pullCancel()
 
-	reader, err := a.cli.ImagePull(pullCtx, imageName, image.PullOptions{})
+	reader, err := a.cli.ImagePull(pullCtx, opts.ImageName, image.PullOptions{})
 	if err != nil {
 		return "", fmt.Errorf("failed to pull image: %w", err)
 	}
@@ -68,24 +68,24 @@ func (a *DockerAdapter) CreateInstance(ctx context.Context, name, imageName stri
 
 	// 2. Configure container
 	config := &container.Config{
-		Image:        imageName,
-		Env:          env,
-		Cmd:          cmd,
+		Image:        opts.ImageName,
+		Env:          opts.Env,
+		Cmd:          opts.Cmd,
 		ExposedPorts: make(nat.PortSet),
 	}
 	hostConfig := &container.HostConfig{
 		PortBindings: make(nat.PortMap),
-		Binds:        volumeBinds,
+		Binds:        opts.VolumeBinds,
 	}
 	networkingConfig := &network.NetworkingConfig{}
 
-	if networkID != "" {
+	if opts.NetworkID != "" {
 		networkingConfig.EndpointsConfig = map[string]*network.EndpointSettings{
-			networkID: {},
+			opts.NetworkID: {},
 		}
 	}
 
-	for _, p := range ports {
+	for _, p := range opts.Ports {
 		parts := strings.Split(p, ":")
 		if len(parts) == 2 {
 			hostPort := parts[0]
@@ -104,7 +104,7 @@ func (a *DockerAdapter) CreateInstance(ctx context.Context, name, imageName stri
 	}
 
 	// 3. Create container
-	resp, err := a.cli.ContainerCreate(ctx, config, hostConfig, networkingConfig, nil, name)
+	resp, err := a.cli.ContainerCreate(ctx, config, hostConfig, networkingConfig, nil, opts.Name)
 	if err != nil {
 		return "", fmt.Errorf("failed to create container: %w", err)
 	}

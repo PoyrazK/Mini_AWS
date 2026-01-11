@@ -8,7 +8,7 @@ import (
 // ComputeBackend abstracts the underlying infrastructure provider (Docker, Libvirt, etc.)
 type ComputeBackend interface {
 	// Instance Lifecycle
-	CreateInstance(ctx context.Context, name, imageName string, ports []string, networkID string, volumeBinds []string, env []string, cmd []string) (string, error)
+	CreateInstance(ctx context.Context, opts CreateInstanceOptions) (string, error)
 	StopInstance(ctx context.Context, id string) error
 	DeleteInstance(ctx context.Context, id string) error
 	GetInstanceLogs(ctx context.Context, id string) (io.ReadCloser, error)

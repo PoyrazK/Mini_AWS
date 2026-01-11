@@ -134,7 +134,15 @@ func (s *InstanceService) Provision(ctx context.Context, instanceID uuid.UUID, v
 	// 3. Create Instance
 	dockerName := s.formatContainerName(inst.ID)
 	portList, _ := s.parseAndValidatePorts(inst.Ports)
-	containerID, err := s.compute.CreateInstance(ctx, dockerName, inst.Image, portList, networkID, volumeBinds, nil, nil)
+	containerID, err := s.compute.CreateInstance(ctx, ports.CreateInstanceOptions{
+		Name:        dockerName,
+		ImageName:   inst.Image,
+		Ports:       portList,
+		NetworkID:   networkID,
+		VolumeBinds: volumeBinds,
+		Env:         nil,
+		Cmd:         nil,
+	})
 	if err != nil {
 		platform.InstanceOperationsTotal.WithLabelValues("launch", "failure").Inc()
 		s.updateStatus(ctx, inst, domain.StatusError)

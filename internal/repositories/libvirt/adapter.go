@@ -29,9 +29,9 @@ const (
 	userDataFileName  = "user-data"
 	metaDataFileName  = "meta-data"
 	errGetVolumePath  = "failed to get volume path: %w"
-	errDomainNotFound = errDomainNotFound
-	errPoolNotFound   = errPoolNotFound
-	prefixCloudInit   = prefixCloudInit
+	errDomainNotFound = "domain not found: %w"
+	errPoolNotFound   = "storage pool not found: %w"
+	prefixCloudInit   = "cloud-init-"
 )
 
 type LibvirtAdapter struct {
@@ -86,17 +86,18 @@ func (a *LibvirtAdapter) Type() string {
 	return "libvirt"
 }
 
-func (a *LibvirtAdapter) CreateInstance(ctx context.Context, name, imageName string, ports []string, networkID string, volumeBinds []string, env []string, cmd []string) (string, error) {
-	name = a.sanitizeDomainName(name)
+func (a *LibvirtAdapter) CreateInstance(ctx context.Context, opts ports.CreateInstanceOptions) (string, error) {
+	name := a.sanitizeDomainName(opts.Name)
 
 	diskPath, vol, err := a.prepareRootVolume(name)
 	if err != nil {
 		return "", err
 	}
 
-	isoPath := a.prepareCloudInit(ctx, name, env, cmd)
-	additionalDisks := a.resolveBinds(volumeBinds)
+	isoPath := a.prepareCloudInit(ctx, name, opts.Env, opts.Cmd)
+	additionalDisks := a.resolveBinds(opts.VolumeBinds)
 
+	networkID := opts.NetworkID
 	if networkID == "" {
 		networkID = "default"
 	}
@@ -114,8 +115,8 @@ func (a *LibvirtAdapter) CreateInstance(ctx context.Context, name, imageName str
 		return "", fmt.Errorf("failed to start domain: %w", err)
 	}
 
-	if len(ports) > 0 {
-		go a.setupPortForwarding(name, ports)
+	if len(opts.Ports) > 0 {
+		go a.setupPortForwarding(name, opts.Ports)
 	}
 
 	return name, nil
@@ -892,38 +893,42 @@ func (a *LibvirtAdapter) resolveBinds(volumeBinds []string) []string {
 		return additionalDisks
 	}
 
-	pool, err := a.conn.StoragePoolLookupByName(defaultPoolName)
-	// We don't return early if pool lookup fails because we might have LVM volumes
+	pool, poolErr := a.conn.StoragePoolLookupByName(defaultPoolName)
 
 	for _, bind := range volumeBinds {
 		// Format is name:mountPath
 		parts := strings.Split(bind, ":")
 		volName := parts[0]
 
-		// 1. Check if it's an LVM path
-		if strings.HasPrefix(volName, "/dev/") {
-			additionalDisks = append(additionalDisks, volName)
-			continue
-		}
-
-		// 2. Try libvirt pool lookup (legacy/file-based)
-		if err == nil {
-			v, err := a.conn.StorageVolLookupByName(pool, volName)
-			if err == nil {
-				path, err := a.conn.StorageVolGetPath(v)
-				if err == nil {
-					additionalDisks = append(additionalDisks, path)
-					continue
-				}
-			}
-		}
-
-		// 3. Fallback: Check if it's a direct file path
-		if strings.HasPrefix(volName, "/") {
-			if _, statErr := os.Stat(volName); statErr == nil {
-				additionalDisks = append(additionalDisks, volName)
-			}
+		if path := a.resolveVolumePath(volName, pool, poolErr); path != "" {
+			additionalDisks = append(additionalDisks, path)
 		}
 	}
 	return additionalDisks
+}
+
+func (a *LibvirtAdapter) resolveVolumePath(volName string, pool libvirt.StoragePool, poolErr error) string {
+	// 1. Check if it's an LVM path
+	if strings.HasPrefix(volName, "/dev/") {
+		return volName
+	}
+
+	// 2. Try libvirt pool lookup (legacy/file-based)
+	if poolErr == nil {
+		v, err := a.conn.StorageVolLookupByName(pool, volName)
+		if err == nil {
+			path, err := a.conn.StorageVolGetPath(v)
+			if err == nil {
+				return path
+			}
+		}
+	}
+
+	// 3. Fallback: Check if it's a direct file path
+	if strings.HasPrefix(volName, "/") {
+		if _, statErr := os.Stat(volName); statErr == nil {
+			return volName
+		}
+	}
+	return ""
 }

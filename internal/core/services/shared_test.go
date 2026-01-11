@@ -111,7 +111,11 @@ func (m *MockAutoScalingRepo) ListGroups(ctx context.Context) ([]*domain.Scaling
 	return args.Get(0).([]*domain.ScalingGroup), args.Error(1)
 }
 func (m *MockAutoScalingRepo) ListAllGroups(ctx context.Context) ([]*domain.ScalingGroup, error) {
-	return m.ListGroups(ctx)
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.ScalingGroup), args.Error(1)
 }
 func (m *MockAutoScalingRepo) CountGroupsByVPC(ctx context.Context, vpcID uuid.UUID) (int, error) {
 	args := m.Called(ctx, vpcID)
@@ -764,8 +768,7 @@ func (m *MockAuditService) ListLogs(ctx context.Context, userID uuid.UUID, limit
 type MockInstanceRepo struct{ mock.Mock }
 
 func (m *MockInstanceRepo) Create(ctx context.Context, inst *domain.Instance) error {
-	args := m.Called(ctx, inst)
-	return args.Error(0)
+	return m.Called(ctx, inst).Error(0)
 }
 func (m *MockInstanceRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.Instance, error) {
 	args := m.Called(ctx, id)
@@ -799,8 +802,7 @@ func (m *MockInstanceRepo) ListBySubnet(ctx context.Context, subnetID uuid.UUID)
 	return args.Get(0).([]*domain.Instance), args.Error(1)
 }
 func (m *MockInstanceRepo) Update(ctx context.Context, inst *domain.Instance) error {
-	args := m.Called(ctx, inst)
-	return args.Error(0)
+	return m.Called(ctx, inst).Error(0)
 }
 func (m *MockInstanceRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	return m.Called(ctx, id).Error(0)
@@ -816,15 +818,15 @@ func (m *MockInstanceRepo) ListByVPC(ctx context.Context, vpcID uuid.UUID) ([]*d
 // MockDockerClient
 type MockComputeBackend struct{ mock.Mock }
 
-func (m *MockComputeBackend) CreateInstance(ctx context.Context, name, image string, ports []string, networkID string, volumeBinds []string, env []string, cmd []string) (string, error) {
-	args := m.Called(ctx, name, image, ports, networkID, volumeBinds, env, cmd)
+func (m *MockComputeBackend) CreateInstance(ctx context.Context, opts ports.CreateInstanceOptions) (string, error) {
+	args := m.Called(ctx, opts)
 	return args.String(0), args.Error(1)
 }
 func (m *MockComputeBackend) StopInstance(ctx context.Context, id string) error {
 	return m.Called(ctx, id).Error(0)
 }
 func (m *MockComputeBackend) DeleteInstance(ctx context.Context, id string) error {
-	return m.StopInstance(ctx, id)
+	return m.Called(ctx, id).Error(0)
 }
 func (m *MockComputeBackend) GetInstanceLogs(ctx context.Context, id string) (io.ReadCloser, error) {
 	args := m.Called(ctx, id)
@@ -834,7 +836,11 @@ func (m *MockComputeBackend) GetInstanceLogs(ctx context.Context, id string) (io
 	return args.Get(0).(io.ReadCloser), args.Error(1)
 }
 func (m *MockComputeBackend) GetInstanceStats(ctx context.Context, id string) (io.ReadCloser, error) {
-	return m.GetInstanceLogs(ctx, id)
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(io.ReadCloser), args.Error(1)
 }
 func (m *MockComputeBackend) GetInstancePort(ctx context.Context, id string, port string) (int, error) {
 	args := m.Called(ctx, id, port)
@@ -1065,7 +1071,7 @@ func (m *MockRoleRepo) AddPermissionToRole(ctx context.Context, roleID uuid.UUID
 	return m.Called(ctx, roleID, permission).Error(0)
 }
 func (m *MockRoleRepo) RemovePermissionFromRole(ctx context.Context, roleID uuid.UUID, permission domain.Permission) error {
-	return m.AddPermissionToRole(ctx, roleID, permission)
+	return m.Called(ctx, roleID, permission).Error(0)
 }
 func (m *MockRoleRepo) GetPermissionsForRole(ctx context.Context, roleID uuid.UUID) ([]domain.Permission, error) {
 	args := m.Called(ctx, roleID)
@@ -1583,14 +1589,16 @@ func (m *MockStorageBackend) AttachVolume(ctx context.Context, volumeName, insta
 	return args.Error(0)
 }
 func (m *MockStorageBackend) DetachVolume(ctx context.Context, volumeName, instanceID string) error {
-	return m.AttachVolume(ctx, volumeName, instanceID)
+	args := m.Called(ctx, volumeName, instanceID)
+	return args.Error(0)
 }
 func (m *MockStorageBackend) CreateSnapshot(ctx context.Context, volumeName, snapshotName string) error {
 	args := m.Called(ctx, volumeName, snapshotName)
 	return args.Error(0)
 }
 func (m *MockStorageBackend) RestoreSnapshot(ctx context.Context, volumeName, snapshotName string) error {
-	return m.CreateSnapshot(ctx, volumeName, snapshotName)
+	args := m.Called(ctx, volumeName, snapshotName)
+	return args.Error(0)
 }
 func (m *MockStorageBackend) DeleteSnapshot(ctx context.Context, snapshotName string) error {
 	args := m.Called(ctx, snapshotName)

@@ -9,9 +9,11 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/poyrazk/thecloud/internal/core/ports"
 )
 
-func TestDockerAdapter_Integration(t *testing.T) {
+func TestDockerAdapterIntegration(t *testing.T) {
 	adapter, err := NewDockerAdapter()
 	require.NoError(t, err)
 	ctx := context.Background()
@@ -22,8 +24,12 @@ func TestDockerAdapter_Integration(t *testing.T) {
 
 		// 1. Create
 		// Using a minimal sleep command so it stays running but exits eventually
-		// Signature: CreateInstance(ctx, name, imageName, ports, networkID, volumeBinds, env, cmd)
-		id, err := adapter.CreateInstance(ctx, name, image, []string{}, "", []string{}, []string{}, []string{"sleep", "10"})
+		// Signature: CreateInstance(ctx, opts)
+		id, err := adapter.CreateInstance(ctx, ports.CreateInstanceOptions{
+			Name:      name,
+			ImageName: image,
+			Cmd:       []string{"sleep", "10"},
+		})
 		require.NoError(t, err)
 		assert.NotEmpty(t, id)
 

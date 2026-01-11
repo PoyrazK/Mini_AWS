@@ -51,7 +51,7 @@ func (m *mockIdentityService) RotateKey(ctx context.Context, userID, id uuid.UUI
 	return args.Get(0).(*domain.APIKey), args.Error(1)
 }
 
-func TestWebSocket_Lifecycle(t *testing.T) {
+func TestWebSocketLifecycle(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	hub := NewHub(logger)
@@ -89,7 +89,7 @@ func TestWebSocket_Lifecycle(t *testing.T) {
 	assert.Equal(t, 0, hub.ClientCount())
 }
 
-func TestWebSocket_AuthFailure(t *testing.T) {
+func TestWebSocketAuthFailure(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	hub := NewHub(logger)
