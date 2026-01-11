@@ -122,25 +122,7 @@ func (s *stackService) createResourcePass(ctx context.Context, stack *domain.Sta
 			continue
 		}
 
-		var id uuid.UUID
-		var err error
-
-		props := res.Properties
-		if resourceType == "Instance" || resourceType == "Snapshot" {
-			props = s.resolveRefs(res.Properties, logicalToPhysical)
-		}
-
-		switch resourceType {
-		case "VPC":
-			id, err = s.createVPC(ctx, stack.ID, logicalID, props)
-		case "Volume":
-			id, err = s.createVolume(ctx, stack.ID, logicalID, props)
-		case "Instance":
-			id, err = s.createInstance(ctx, stack.ID, logicalID, props)
-		case "Snapshot":
-			id, err = s.createSnapshot(ctx, stack.ID, logicalID, props)
-		}
-
+		id, err := s.createSingleResource(ctx, stack.ID, logicalID, res, resourceType, logicalToPhysical)
 		if err != nil {
 			s.logger.Error(fmt.Sprintf("%s creation failed, rolling back", resourceType), "error", err)
 			s.startRollback(ctx, stack, fmt.Sprintf("Failed to create %s %s: %v", resourceType, logicalID, err))
@@ -149,6 +131,26 @@ func (s *stackService) createResourcePass(ctx context.Context, stack *domain.Sta
 		logicalToPhysical[logicalID] = id
 	}
 	return nil
+}
+
+func (s *stackService) createSingleResource(ctx context.Context, stackID uuid.UUID, logicalID string, res ResourceDefinition, resourceType string, refs map[string]uuid.UUID) (uuid.UUID, error) {
+	props := res.Properties
+	if resourceType == "Instance" || resourceType == "Snapshot" {
+		props = s.resolveRefs(res.Properties, refs)
+	}
+
+	switch resourceType {
+	case "VPC":
+		return s.createVPC(ctx, stackID, logicalID, props)
+	case "Volume":
+		return s.createVolume(ctx, stackID, logicalID, props)
+	case "Instance":
+		return s.createInstance(ctx, stackID, logicalID, props)
+	case "Snapshot":
+		return s.createSnapshot(ctx, stackID, logicalID, props)
+	default:
+		return uuid.Nil, fmt.Errorf("unknown resource type: %s", resourceType)
+	}
 }
 
 func (s *stackService) startRollback(ctx context.Context, stack *domain.Stack, reason string) {
