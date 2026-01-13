@@ -114,3 +114,36 @@ func TestStorageHandlerDownload(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, "hello", w.Body.String())
 }
+
+func TestStorageHandlerList(t *testing.T) {
+	svc, handler, r := setupStorageHandlerTest(t)
+	defer svc.AssertExpectations(t)
+
+	r.GET("/storage/:bucket", handler.List)
+
+	objects := []*domain.Object{{Key: testFileName, SizeBytes: 10}}
+	svc.On("ListObjects", mock.Anything, "b1").Return(objects, nil)
+
+	w := httptest.NewRecorder()
+	req, err := http.NewRequest("GET", "/storage/b1", nil)
+	assert.NoError(t, err)
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestStorageHandlerDelete(t *testing.T) {
+	svc, handler, r := setupStorageHandlerTest(t)
+	defer svc.AssertExpectations(t)
+
+	r.DELETE("/storage/:bucket/:key", handler.Delete)
+
+	svc.On("DeleteObject", mock.Anything, "b1", testFileName).Return(nil)
+
+	w := httptest.NewRecorder()
+	req, err := http.NewRequest("DELETE", "/storage/b1/"+testFileName, nil)
+	assert.NoError(t, err)
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusNoContent, w.Code)
+}

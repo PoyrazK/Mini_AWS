@@ -141,7 +141,7 @@ func (h *ImageHandler) GetImage(c *gin.Context) {
 // @Description Delete an image and its associated file
 // @Tags Images
 // @Param id path string true "Image ID"
-// @Success 204 "No Content"
+// @Success 200 {object} map[string]string "message: image deleted"
 // @Router /api/v1/images/{id} [delete]
 func (h *ImageHandler) DeleteImage(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
@@ -155,5 +155,5 @@ func (h *ImageHandler) DeleteImage(c *gin.Context) {
 		return
 	}
 
-	c.Status(http.StatusNoContent)
+	httputil.Success(c, http.StatusOK, gin.H{"message": "image deleted"})
 }

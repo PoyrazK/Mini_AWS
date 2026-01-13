@@ -198,3 +198,47 @@ func TestAuthHandlerLoginInvalidCredentials(t *testing.T) {
 
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
+
+func TestAuthHandlerForgotPassword(t *testing.T) {
+	_, pwdSvc, handler, r := setupAuthHandlerTest(t)
+	defer pwdSvc.AssertExpectations(t)
+
+	r.POST("/auth/forgot-password", handler.ForgotPassword)
+
+	pwdSvc.On("RequestReset", mock.Anything, testEmail).Return(nil)
+
+	body, _ := json.Marshal(map[string]string{
+		"email": testEmail,
+	})
+	
+	req := httptest.NewRequest("POST", "/auth/forgot-password", bytes.NewBuffer(body))
+    req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestAuthHandlerResetPassword(t *testing.T) {
+	_, pwdSvc, handler, r := setupAuthHandlerTest(t)
+	defer pwdSvc.AssertExpectations(t)
+
+	r.POST("/auth/reset-password", handler.ResetPassword)
+    
+	token := "reset-token"
+	newPwd := "newpass123"
+
+	pwdSvc.On("ResetPassword", mock.Anything, token, newPwd).Return(nil)
+
+	body, _ := json.Marshal(map[string]string{
+		"token": token,
+		"new_password": newPwd,
+	})
+	
+	req := httptest.NewRequest("POST", "/auth/reset-password", bytes.NewBuffer(body))
+    req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+}

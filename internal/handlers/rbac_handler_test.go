@@ -248,3 +248,63 @@ func TestRBACHandlerBindRole(t *testing.T) {
 
 	assert.Equal(t, http.StatusNoContent, w.Code)
 }
+
+func TestRBACHandlerUpdateRole(t *testing.T) {
+	svc, handler, r := setupRBACHandlerTest(t)
+	defer svc.AssertExpectations(t)
+
+	r.PUT(rolesPath+"/:id", handler.UpdateRole)
+
+	roleID := uuid.New()
+	req := CreateRoleRequest{
+		Name:        "Updated Role",
+		Description: "Updated desc",
+		Permissions: []domain.Permission{domain.PermissionInstanceRead},
+	}
+	body, _ := json.Marshal(req)
+
+	svc.On("UpdateRole", mock.Anything, mock.MatchedBy(func(r *domain.Role) bool {
+		return r.ID == roleID && r.Name == req.Name
+	})).Return(nil)
+
+	w := httptest.NewRecorder()
+	httpReq, _ := http.NewRequest("PUT", rolesPath+"/"+roleID.String(), bytes.NewBuffer(body))
+	httpReq.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, httpReq)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestRBACHandlerRemovePermission(t *testing.T) {
+	svc, handler, r := setupRBACHandlerTest(t)
+	defer svc.AssertExpectations(t)
+
+	r.DELETE(rolesPath+"/:id/permissions/:permission", handler.RemovePermission)
+
+	roleID := uuid.New()
+	perm := domain.PermissionInstanceRead
+
+	svc.On("RemovePermissionFromRole", mock.Anything, roleID, perm).Return(nil)
+
+	w := httptest.NewRecorder()
+	httpReq, _ := http.NewRequest("DELETE", rolesPath+"/"+roleID.String()+"/permissions/"+string(perm), nil)
+	r.ServeHTTP(w, httpReq)
+
+	assert.Equal(t, http.StatusNoContent, w.Code)
+}
+
+func TestRBACHandlerListRoleBindings(t *testing.T) {
+	svc, handler, r := setupRBACHandlerTest(t)
+	defer svc.AssertExpectations(t)
+
+	r.GET(bindPath, handler.ListRoleBindings)
+
+	bindings := []*domain.User{} 
+	svc.On("ListRoleBindings", mock.Anything).Return(bindings, nil)
+
+	w := httptest.NewRecorder()
+	httpReq, _ := http.NewRequest("GET", bindPath, nil)
+	r.ServeHTTP(w, httpReq)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+}

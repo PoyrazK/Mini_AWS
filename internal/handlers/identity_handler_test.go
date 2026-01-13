@@ -149,3 +149,23 @@ func TestIdentityHandlerRotateKey(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), "new_key")
 }
+
+func TestIdentityHandlerRegenerateKey(t *testing.T) {
+	userID := uuid.New()
+	svc, handler, r := setupIdentityHandlerTest(t, userID)
+	defer svc.AssertExpectations(t)
+
+	keyID := uuid.New()
+	r.POST(authKeysPath+"/:id/regenerate", handler.RegenerateKey)
+
+	newKey := &domain.APIKey{ID: uuid.New(), Key: "new_key_gen", Name: "Regenerated"}
+	svc.On("RotateKey", mock.Anything, userID, keyID).Return(newKey, nil)
+
+	w := httptest.NewRecorder()
+	req, err := http.NewRequest("POST", authKeysPath+"/"+keyID.String()+"/regenerate", nil)
+	assert.NoError(t, err)
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "new_key_gen")
+}
