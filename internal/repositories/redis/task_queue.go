@@ -29,6 +29,9 @@ func (q *redisTaskQueue) Dequeue(ctx context.Context, queueName string) (string,
 	// BRPop blocks until a message is available
 	res, err := q.client.BRPop(ctx, 5*time.Second, queueName).Result()
 	if err != nil {
+		if err == redis.Nil {
+			return "", nil
+		}
 		return "", err
 	}
 	// res[0] is the key, res[1] is the value
