@@ -92,4 +92,32 @@ func TestImageService(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, domain.ImageStatusActive, img.Status)
 	})
+
+	t.Run("GetImage", func(t *testing.T) {
+		id := uuid.New()
+		expected := &domain.Image{ID: id}
+		repo.On("GetByID", mock.Anything, id).Return(expected, nil)
+		
+		img, err := svc.GetImage(ctx, id)
+		assert.NoError(t, err)
+		assert.Equal(t, id, img.ID)
+	})
+
+	t.Run("ListImages", func(t *testing.T) {
+		repo.On("List", mock.Anything, userID, true).Return([]*domain.Image{{ID: uuid.New()}}, nil)
+		imgs, err := svc.ListImages(ctx, userID, true)
+		assert.NoError(t, err)
+		assert.Len(t, imgs, 1)
+	})
+
+	t.Run("DeleteImage", func(t *testing.T) {
+		id := uuid.New()
+		img := &domain.Image{ID: id, UserID: userID, FilePath: "key1"}
+		repo.On("GetByID", mock.Anything, id).Return(img, nil)
+		store.On("Delete", mock.Anything, "images", "key1").Return(nil)
+		repo.On("Delete", mock.Anything, id).Return(nil)
+
+		err := svc.DeleteImage(ctx, id)
+		assert.NoError(t, err)
+	})
 }
