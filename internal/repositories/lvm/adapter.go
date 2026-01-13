@@ -9,27 +9,52 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
 
+// execer abstracts command execution for testing
+type execer interface {
+	Run(name string, args ...string) ([]byte, error)
+}
+
+// realExecer implements execer using os/exec
+type realExecer struct {
+	ctx context.Context
+}
+
+func (r *realExecer) Run(name string, args ...string) ([]byte, error) {
+	cmd := exec.CommandContext(r.ctx, name, args...)
+	return cmd.CombinedOutput()
+}
+
 type LvmAdapter struct {
 	vgName string
+	execer execer
 }
 
 func NewLvmAdapter(vgName string) *LvmAdapter {
-	return &LvmAdapter{vgName: vgName}
+	return &LvmAdapter{
+		vgName: vgName,
+		execer: nil, // Will be set at runtime
+	}
 }
 
 func (a *LvmAdapter) CreateVolume(ctx context.Context, name string, sizeGB int) (string, error) {
-	// lvcreate -L 10G -n vol_name vg_name
-	cmd := exec.CommandContext(ctx, "lvcreate", "-L", fmt.Sprintf("%dG", sizeGB), "-n", name, a.vgName)
-	if out, err := cmd.CombinedOutput(); err != nil {
+	if a.execer == nil {
+		a.execer = &realExecer{ctx: ctx}
+	}
+	
+	out, err := a.execer.Run("lvcreate", "-L", fmt.Sprintf("%dG", sizeGB), "-n", name, a.vgName)
+	if err != nil {
 		return "", fmt.Errorf("failed to create logical volume: %v, output: %s", err, string(out))
 	}
 	return fmt.Sprintf("/dev/%s/%s", a.vgName, name), nil
 }
 
 func (a *LvmAdapter) DeleteVolume(ctx context.Context, name string) error {
-	// lvremove -f vg_name/vol_name
-	cmd := exec.CommandContext(ctx, "lvremove", "-f", fmt.Sprintf("%s/%s", a.vgName, name))
-	if out, err := cmd.CombinedOutput(); err != nil {
+	if a.execer == nil {
+		a.execer = &realExecer{ctx: ctx}
+	}
+	
+	out, err := a.execer.Run("lvremove", "-f", fmt.Sprintf("%s/%s", a.vgName, name))
+	if err != nil {
 		return fmt.Errorf("failed to remove logical volume: %v, output: %s", err, string(out))
 	}
 	return nil
@@ -48,38 +73,48 @@ func (a *LvmAdapter) DetachVolume(ctx context.Context, volumeName, instanceID st
 }
 
 func (a *LvmAdapter) CreateSnapshot(ctx context.Context, volumeName, snapshotName string) error {
-	// lvcreate -s -n snapshot_name -L 1G /dev/vg_name/volume_name
-	// Note: LVM snapshots need space. For simplicity, we use a fixed size or same as original.
-	cmd := exec.CommandContext(ctx, "lvcreate", "-s", "-n", snapshotName, "-L", "1G", fmt.Sprintf("/dev/%s/%s", a.vgName, volumeName))
-	if out, err := cmd.CombinedOutput(); err != nil {
+	if a.execer == nil {
+		a.execer = &realExecer{ctx: ctx}
+	}
+	
+	out, err := a.execer.Run("lvcreate", "-s", "-n", snapshotName, "-L", "1G", fmt.Sprintf("/dev/%s/%s", a.vgName, volumeName))
+	if err != nil {
 		return fmt.Errorf("failed to create lvm snapshot: %v, output: %s", err, string(out))
 	}
 	return nil
 }
 
 func (a *LvmAdapter) RestoreSnapshot(ctx context.Context, volumeName, snapshotName string) error {
-	// Restoring LVM snapshot usually involves:
-	// 1. lvconvert --merge vg_name/snapshot_name
-	// Note: The snapshot must not be open.
-	cmd := exec.CommandContext(ctx, "lvconvert", "--merge", fmt.Sprintf("%s/%s", a.vgName, snapshotName))
-	if out, err := cmd.CombinedOutput(); err != nil {
+	if a.execer == nil {
+		a.execer = &realExecer{ctx: ctx}
+	}
+	
+	out, err := a.execer.Run("lvconvert", "--merge", fmt.Sprintf("%s/%s", a.vgName, snapshotName))
+	if err != nil {
 		return fmt.Errorf("failed to restore lvm snapshot: %v, output: %s", err, string(out))
 	}
 	return nil
 }
 
 func (a *LvmAdapter) DeleteSnapshot(ctx context.Context, snapshotName string) error {
-	cmd := exec.CommandContext(ctx, "lvremove", "-f", fmt.Sprintf("%s/%s", a.vgName, snapshotName))
-	if out, err := cmd.CombinedOutput(); err != nil {
+	if a.execer == nil {
+		a.execer = &realExecer{ctx: ctx}
+	}
+	
+	out, err := a.execer.Run("lvremove", "-f", fmt.Sprintf("%s/%s", a.vgName, snapshotName))
+	if err != nil {
 		return fmt.Errorf("failed to remove lvm snapshot: %v, output: %s", err, string(out))
 	}
 	return nil
 }
 
 func (a *LvmAdapter) Ping(ctx context.Context) error {
-	// Check if vgs command works and vg exists
-	cmd := exec.CommandContext(ctx, "vgs", a.vgName)
-	return cmd.Run()
+	if a.execer == nil {
+		a.execer = &realExecer{ctx: ctx}
+	}
+	
+	_, err := a.execer.Run("vgs", a.vgName)
+	return err
 }
 
 func (a *LvmAdapter) Type() string {

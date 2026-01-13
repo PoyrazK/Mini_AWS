@@ -68,23 +68,63 @@ func TestLibvirtAdapter_ResolveBinds(t *testing.T) {
 }
 
 func TestGenerateNginxConfig(t *testing.T) {
-	mockCompute := new(mockComputeBackend)
-	a := NewLBProxyAdapter(mockCompute)
+	t.Run("round-robin with targets", func(t *testing.T) {
+		mockCompute := new(mockComputeBackend)
+		a := NewLBProxyAdapter(mockCompute)
 
-	lb := &domain.LoadBalancer{
-		ID:        uuid.New(),
-		Port:      80,
-		Algorithm: "round-robin",
-	}
-	instanceID := uuid.New()
-	targets := []*domain.LBTarget{
-		{InstanceID: instanceID, Port: 8080, Weight: 1},
-	}
+		lb := &domain.LoadBalancer{
+			ID:        uuid.New(),
+			Port:      80,
+			Algorithm: "round-robin",
+		}
+		instanceID := uuid.New()
+		targets := []*domain.LBTarget{
+			{InstanceID: instanceID, Port: 8080, Weight: 1},
+		}
 
-	mockCompute.On("GetInstanceIP", mock.Anything, instanceID.String()).Return("192.168.122.10", nil)
+		mockCompute.On("GetInstanceIP", mock.Anything, instanceID.String()).Return("192.168.122.10", nil)
 
-	config, err := a.generateNginxConfig(context.Background(), lb, targets)
-	assert.NoError(t, err)
-	assert.Contains(t, config, "listen 80;")
-	assert.Contains(t, config, "server 192.168.122.10:8080 weight=1;")
+		config, err := a.generateNginxConfig(context.Background(), lb, targets)
+		assert.NoError(t, err)
+		assert.Contains(t, config, "listen 80;")
+		assert.Contains(t, config, "server 192.168.122.10:8080 weight=1;")
+		assert.NotContains(t, config, "least_conn;")
+	})
+
+	t.Run("least-conn with targets", func(t *testing.T) {
+		mockCompute := new(mockComputeBackend)
+		a := NewLBProxyAdapter(mockCompute)
+
+		lb := &domain.LoadBalancer{
+			ID:        uuid.New(),
+			Port:      80,
+			Algorithm: "least-conn",
+		}
+		instanceID := uuid.New()
+		targets := []*domain.LBTarget{
+			{InstanceID: instanceID, Port: 8080, Weight: 1},
+		}
+
+		mockCompute.On("GetInstanceIP", mock.Anything, instanceID.String()).Return("192.168.122.10", nil)
+
+		config, err := a.generateNginxConfig(context.Background(), lb, targets)
+		assert.NoError(t, err)
+		assert.Contains(t, config, "least_conn;")
+	})
+
+	t.Run("no targets", func(t *testing.T) {
+		mockCompute := new(mockComputeBackend)
+		a := NewLBProxyAdapter(mockCompute)
+
+		lb := &domain.LoadBalancer{
+			ID:        uuid.New(),
+			Port:      80,
+			Algorithm: "round-robin",
+		}
+
+		config, err := a.generateNginxConfig(context.Background(), lb, nil)
+		assert.NoError(t, err)
+		assert.Contains(t, config, "return 503")
+		assert.NotContains(t, config, "upstream backend")
+	})
 }
