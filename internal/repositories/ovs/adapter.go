@@ -21,15 +21,35 @@ type OvsAdapter struct {
 	ovsPath   string // Path to ovs-vsctl
 	ofctlPath string // Path to ovs-ofctl
 	logger    *slog.Logger
+	exec      execer
+}
+
+type execer interface {
+	LookPath(file string) (string, error)
+	CommandContext(ctx context.Context, name string, args ...string) cmd
+}
+
+type cmd interface {
+	Run() error
+	Output() ([]byte, error)
+}
+
+type osExecer struct{}
+
+func (osExecer) LookPath(file string) (string, error) { return exec.LookPath(file) }
+
+func (osExecer) CommandContext(ctx context.Context, name string, args ...string) cmd {
+	return exec.CommandContext(ctx, name, args...)
 }
 
 func NewOvsAdapter(logger *slog.Logger) (*OvsAdapter, error) {
-	ovsctl, err := exec.LookPath("ovs-vsctl")
+	ex := osExecer{}
+	ovsctl, err := ex.LookPath("ovs-vsctl")
 	if err != nil {
 		return nil, fmt.Errorf("ovs-vsctl not found: %w", err)
 	}
 
-	ofctl, err := exec.LookPath("ovs-ofctl")
+	ofctl, err := ex.LookPath("ovs-ofctl")
 	if err != nil {
 		return nil, fmt.Errorf("ovs-ofctl not found: %w", err)
 	}
@@ -38,11 +58,12 @@ func NewOvsAdapter(logger *slog.Logger) (*OvsAdapter, error) {
 		ovsPath:   ovsctl,
 		ofctlPath: ofctl,
 		logger:    logger,
+		exec:      ex,
 	}, nil
 }
 
 func (a *OvsAdapter) Ping(ctx context.Context) error {
-	cmd := exec.CommandContext(ctx, a.ovsPath, "show")
+	cmd := a.exec.CommandContext(ctx, a.ovsPath, "show")
 	return cmd.Run()
 }
 
@@ -55,7 +76,7 @@ func (a *OvsAdapter) CreateBridge(ctx context.Context, name string, vxlanID int)
 		return errors.New(errors.InvalidInput, "invalid bridge name")
 	}
 
-	cmd := exec.CommandContext(ctx, a.ovsPath, "add-br", name)
+	cmd := a.exec.CommandContext(ctx, a.ovsPath, "add-br", name)
 	if err := cmd.Run(); err != nil {
 		return errors.Wrap(errors.Internal, "failed to add bridge", err)
 	}
@@ -68,7 +89,7 @@ func (a *OvsAdapter) DeleteBridge(ctx context.Context, name string) error {
 		return errors.New(errors.InvalidInput, "invalid bridge name")
 	}
 
-	cmd := exec.CommandContext(ctx, a.ovsPath, "del-br", name)
+	cmd := a.exec.CommandContext(ctx, a.ovsPath, "del-br", name)
 	if err := cmd.Run(); err != nil {
 		return errors.Wrap(errors.Internal, "failed to delete bridge", err)
 	}
@@ -77,7 +98,7 @@ func (a *OvsAdapter) DeleteBridge(ctx context.Context, name string) error {
 }
 
 func (a *OvsAdapter) ListBridges(ctx context.Context) ([]string, error) {
-	cmd := exec.CommandContext(ctx, a.ovsPath, "list-br")
+	cmd := a.exec.CommandContext(ctx, a.ovsPath, "list-br")
 	output, err := cmd.Output()
 	if err != nil {
 		return nil, errors.Wrap(errors.Internal, "failed to list bridges", err)
@@ -95,7 +116,7 @@ func (a *OvsAdapter) AddPort(ctx context.Context, bridge, portName string) error
 		return errors.New(errors.InvalidInput, "invalid bridge or port name")
 	}
 
-	cmd := exec.CommandContext(ctx, a.ovsPath, "add-port", bridge, portName)
+	cmd := a.exec.CommandContext(ctx, a.ovsPath, "add-port", bridge, portName)
 	if err := cmd.Run(); err != nil {
 		return errors.Wrap(errors.Internal, "failed to add port", err)
 	}
@@ -108,7 +129,7 @@ func (a *OvsAdapter) DeletePort(ctx context.Context, bridge, portName string) er
 		return errors.New(errors.InvalidInput, "invalid bridge or port name")
 	}
 
-	cmd := exec.CommandContext(ctx, a.ovsPath, "del-port", bridge, portName)
+	cmd := a.exec.CommandContext(ctx, a.ovsPath, "del-port", bridge, portName)
 	if err := cmd.Run(); err != nil {
 		return errors.Wrap(errors.Internal, "failed to delete port", err)
 	}
@@ -122,7 +143,7 @@ func (a *OvsAdapter) CreateVXLANTunnel(ctx context.Context, bridge string, vni i
 	}
 
 	tunnelName := fmt.Sprintf("vxlan-%s", strings.ReplaceAll(remoteIP, ".", "-"))
-	cmd := exec.CommandContext(ctx, a.ovsPath,
+	cmd := a.exec.CommandContext(ctx, a.ovsPath,
 		"add-port", bridge, tunnelName,
 		"--", "set", "interface", tunnelName,
 		"type=vxlan",
@@ -149,7 +170,7 @@ func (a *OvsAdapter) AddFlowRule(ctx context.Context, bridge string, rule ports.
 
 	// ovs-ofctl add-flow <bridge> priority=<p>,<match>,actions=<actions>
 	flowSpec := fmt.Sprintf("priority=%d,%s,actions=%s", rule.Priority, rule.Match, rule.Actions)
-	cmd := exec.CommandContext(ctx, a.ofctlPath, "add-flow", bridge, flowSpec)
+	cmd := a.exec.CommandContext(ctx, a.ofctlPath, "add-flow", bridge, flowSpec)
 	if err := cmd.Run(); err != nil {
 		return errors.Wrap(errors.Internal, "failed to add flow rule", err)
 	}
@@ -162,7 +183,7 @@ func (a *OvsAdapter) DeleteFlowRule(ctx context.Context, bridge string, match st
 		return errors.New(errors.InvalidInput, "invalid bridge name")
 	}
 
-	cmd := exec.CommandContext(ctx, a.ofctlPath, "del-flows", bridge, match)
+	cmd := a.exec.CommandContext(ctx, a.ofctlPath, "del-flows", bridge, match)
 	if err := cmd.Run(); err != nil {
 		return errors.Wrap(errors.Internal, "failed to delete flow rule", err)
 	}
@@ -176,7 +197,7 @@ func (a *OvsAdapter) ListFlowRules(_ context.Context, _ string) ([]ports.FlowRul
 }
 
 func (a *OvsAdapter) CreateVethPair(ctx context.Context, hostEnd, containerEnd string) error {
-	cmd := exec.CommandContext(ctx, "ip", "link", "add", hostEnd, "type", "veth", "peer", "name", containerEnd)
+	cmd := a.exec.CommandContext(ctx, "ip", "link", "add", hostEnd, "type", "veth", "peer", "name", containerEnd)
 	if err := cmd.Run(); err != nil {
 		return errors.Wrap(errors.Internal, "failed to create veth pair", err)
 	}
@@ -188,7 +209,7 @@ func (a *OvsAdapter) AttachVethToBridge(ctx context.Context, bridge, vethEnd str
 		return err
 	}
 
-	cmd := exec.CommandContext(ctx, "ip", "link", "set", vethEnd, "up")
+	cmd := a.exec.CommandContext(ctx, "ip", "link", "set", vethEnd, "up")
 	if err := cmd.Run(); err != nil {
 		return errors.Wrap(errors.Internal, "failed to set veth up", err)
 	}
@@ -197,7 +218,7 @@ func (a *OvsAdapter) AttachVethToBridge(ctx context.Context, bridge, vethEnd str
 }
 
 func (a *OvsAdapter) DeleteVethPair(ctx context.Context, hostEnd string) error {
-	cmd := exec.CommandContext(ctx, "ip", "link", "del", hostEnd)
+	cmd := a.exec.CommandContext(ctx, "ip", "link", "del", hostEnd)
 	if err := cmd.Run(); err != nil {
 		return errors.Wrap(errors.Internal, "failed to delete veth pair", err)
 	}
@@ -205,12 +226,12 @@ func (a *OvsAdapter) DeleteVethPair(ctx context.Context, hostEnd string) error {
 }
 
 func (a *OvsAdapter) SetVethIP(ctx context.Context, vethEnd, ip, cidr string) error {
-	cmd := exec.CommandContext(ctx, "ip", "addr", "add", fmt.Sprintf("%s/%s", ip, cidr), "dev", vethEnd)
+	cmd := a.exec.CommandContext(ctx, "ip", "addr", "add", fmt.Sprintf("%s/%s", ip, cidr), "dev", vethEnd)
 	if err := cmd.Run(); err != nil {
 		return errors.Wrap(errors.Internal, "failed to set veth ip", err)
 	}
 
-	cmdUp := exec.CommandContext(ctx, "ip", "link", "set", vethEnd, "up")
+	cmdUp := a.exec.CommandContext(ctx, "ip", "link", "set", vethEnd, "up")
 	if err := cmdUp.Run(); err != nil {
 		return errors.Wrap(errors.Internal, "failed to bring veth up", err)
 	}
