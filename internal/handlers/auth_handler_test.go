@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -96,6 +97,46 @@ func TestAuthHandlerRegister(t *testing.T) {
 	assert.Equal(t, http.StatusCreated, w.Code)
 }
 
+func TestAuthHandlerRegisterInvalidJSON(t *testing.T) {
+	svc, _, handler, r := setupAuthHandlerTest(t)
+	defer svc.AssertExpectations(t)
+
+	r.POST(registerPath, handler.Register)
+
+	req := httptest.NewRequest(http.MethodPost, registerPath, bytes.NewBufferString("{bad"))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	svc.AssertNotCalled(t, "Register", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+}
+
+func TestAuthHandlerRegisterInvalidInputFromService(t *testing.T) {
+	svc, _, handler, r := setupAuthHandlerTest(t)
+	defer svc.AssertExpectations(t)
+
+	r.POST(registerPath, handler.Register)
+
+	body, err := json.Marshal(map[string]string{
+		"email":    testEmail,
+		"password": testPassword,
+		"name":     "Test User",
+	})
+	assert.NoError(t, err)
+
+	svc.On("Register", mock.Anything, testEmail, testPassword, "Test User").Return(nil, errors.New(errors.InvalidInput, "duplicate"))
+
+	req := httptest.NewRequest(http.MethodPost, registerPath, bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
 func TestAuthHandlerLogin(t *testing.T) {
 	svc, _, handler, r := setupAuthHandlerTest(t)
 	defer svc.AssertExpectations(t)
@@ -117,4 +158,43 @@ func TestAuthHandlerLogin(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), "key123")
+}
+
+func TestAuthHandlerLoginInvalidJSON(t *testing.T) {
+	svc, _, handler, r := setupAuthHandlerTest(t)
+	defer svc.AssertExpectations(t)
+
+	r.POST(loginPath, handler.Login)
+
+	req := httptest.NewRequest(http.MethodPost, loginPath, bytes.NewBufferString("{oops"))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	svc.AssertNotCalled(t, "Login", mock.Anything, mock.Anything, mock.Anything)
+}
+
+func TestAuthHandlerLoginInvalidCredentials(t *testing.T) {
+	svc, _, handler, r := setupAuthHandlerTest(t)
+	defer svc.AssertExpectations(t)
+
+	r.POST(loginPath, handler.Login)
+
+	body, err := json.Marshal(map[string]string{
+		"email":    testEmail,
+		"password": testPassword,
+	})
+	assert.NoError(t, err)
+
+	svc.On("Login", mock.Anything, testEmail, testPassword).Return(nil, "", errors.New(errors.Unauthorized, "invalid credentials"))
+
+	req := httptest.NewRequest(http.MethodPost, loginPath, bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
