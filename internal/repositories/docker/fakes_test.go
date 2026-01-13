@@ -25,6 +25,7 @@ type fakeDockerClient struct {
 	inspect types.ContainerJSON
 
 	removeErr error
+	stopErr   error
 
 	statsErr error
 	statsRC  io.ReadCloser
@@ -36,6 +37,12 @@ type fakeDockerClient struct {
 	execAttachRead io.Reader
 	execInspect    container.ExecInspect
 	execInspectErr error
+
+	waitStatus int64
+	waitErr    error
+
+	networkCreateErr error
+	networkRemoveErr error
 }
 
 func (f *fakeDockerClient) Ping(ctx context.Context) (types.Ping, error) {
@@ -59,7 +66,7 @@ func (f *fakeDockerClient) ContainerStart(ctx context.Context, containerID strin
 }
 
 func (f *fakeDockerClient) ContainerStop(ctx context.Context, containerID string, options container.StopOptions) error {
-	return nil
+	return f.stopErr
 }
 
 func (f *fakeDockerClient) ContainerRemove(ctx context.Context, containerID string, options container.RemoveOptions) error {
@@ -88,11 +95,11 @@ func (f *fakeDockerClient) ContainerInspect(ctx context.Context, containerID str
 }
 
 func (f *fakeDockerClient) NetworkCreate(ctx context.Context, name string, options network.CreateOptions) (network.CreateResponse, error) {
-	return network.CreateResponse{ID: "nid"}, nil
+	return network.CreateResponse{ID: "nid"}, f.networkCreateErr
 }
 
 func (f *fakeDockerClient) NetworkRemove(ctx context.Context, networkID string) error {
-	return nil
+	return f.networkRemoveErr
 }
 
 func (f *fakeDockerClient) VolumeCreate(ctx context.Context, options volume.CreateOptions) (volume.Volume, error) {
@@ -106,9 +113,11 @@ func (f *fakeDockerClient) VolumeRemove(ctx context.Context, volumeID string, fo
 func (f *fakeDockerClient) ContainerWait(ctx context.Context, containerID string, condition container.WaitCondition) (<-chan container.WaitResponse, <-chan error) {
 	statusCh := make(chan container.WaitResponse, 1)
 	errCh := make(chan error, 1)
-	statusCh <- container.WaitResponse{StatusCode: 0}
-	close(statusCh)
-	close(errCh)
+	if f.waitErr != nil {
+		errCh <- f.waitErr
+	} else {
+		statusCh <- container.WaitResponse{StatusCode: f.waitStatus}
+	}
 	return statusCh, errCh
 }
 

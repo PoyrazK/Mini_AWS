@@ -25,7 +25,7 @@ const (
 )
 
 type LBProxyAdapter struct {
-	cli          *client.Client
+	cli          dockerClient
 	instanceRepo ports.InstanceRepository
 	vpcRepo      ports.VpcRepository
 }
