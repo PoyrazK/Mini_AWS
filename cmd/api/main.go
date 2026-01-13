@@ -7,7 +7,6 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
-	"os/signal"
 	"sync"
 	"syscall"
 	"time"
@@ -46,8 +45,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	repos := setup.InitRepositories(db, rdb)
-	svcs, workers, err := setup.InitServices(setup.ServiceConfig{
+	repos := initRepositoriesFunc(db, rdb)
+	svcs, workers, err := initServicesFunc(setup.ServiceConfig{
 		Config: cfg, Repos: repos, Compute: compute, Storage: storage,
 		Network: network, LBProxy: lbProxy, DB: db, RDB: rdb, Logger: logger,
 	})
@@ -56,14 +55,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	handlers := setup.InitHandlers(svcs, logger)
-	r := setup.SetupRouter(cfg, logger, handlers, svcs, network)
+	handlers := initHandlersFunc(svcs, logger)
+	r := setupRouterFunc(cfg, logger, handlers, svcs, network)
 
 	runApplication(cfg, logger, r, workers)
 }
 
 func initInfrastructure(logger *slog.Logger, migrateOnly bool) (*platform.Config, postgres.DB, *redis.Client, error) {
-	cfg, err := setup.LoadConfig(logger)
+	cfg, err := loadConfigFunc(logger)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -71,12 +70,12 @@ func initInfrastructure(logger *slog.Logger, migrateOnly bool) (*platform.Config
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	db, err := setup.InitDatabase(ctx, cfg, logger)
+	db, err := initDatabaseFunc(ctx, cfg, logger)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 
-	if err := setup.RunMigrations(ctx, db, logger); err != nil {
+	if err := runMigrationsFunc(ctx, db, logger); err != nil {
 		logger.Warn("failed to run migrations", "error", err)
 		if migrateOnly {
 			db.Close()
@@ -88,7 +87,7 @@ func initInfrastructure(logger *slog.Logger, migrateOnly bool) (*platform.Config
 		return nil, nil, nil, ErrMigrationDone
 	}
 
-	rdb, err := setup.InitRedis(ctx, cfg, logger)
+	rdb, err := initRedisFunc(ctx, cfg, logger)
 	if err != nil {
 		db.Close()
 		return nil, nil, nil, err
@@ -98,20 +97,20 @@ func initInfrastructure(logger *slog.Logger, migrateOnly bool) (*platform.Config
 }
 
 func initBackends(cfg *platform.Config, logger *slog.Logger, db postgres.DB, rdb *redis.Client) (ports.ComputeBackend, ports.StorageBackend, ports.NetworkBackend, ports.LBProxyAdapter, error) {
-	compute, err := setup.InitComputeBackend(cfg, logger)
+	compute, err := initComputeBackendFunc(cfg, logger)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
 
-	storage, err := setup.InitStorageBackend(cfg, logger)
+	storage, err := initStorageBackendFunc(cfg, logger)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
 
-	network := setup.InitNetworkBackend(cfg, logger)
+	network := initNetworkBackendFunc(cfg, logger)
 
-	tmpRepos := setup.InitRepositories(db, rdb)
-	lbProxy, err := setup.InitLBProxy(cfg, compute, tmpRepos.Instance, tmpRepos.Vpc)
+	tmpRepos := initRepositoriesFunc(db, rdb)
+	lbProxy, err := initLBProxyFunc(cfg, compute, tmpRepos.Instance, tmpRepos.Vpc)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
@@ -132,15 +131,12 @@ func runApplication(cfg *platform.Config, logger *slog.Logger, r *gin.Engine, wo
 		runWorkers(workerCtx, wg, workers)
 	}
 
-	srv := &http.Server{
-		Addr:    ":" + cfg.Port,
-		Handler: r,
-	}
+	srv := newHTTPServer(":"+cfg.Port, r)
 
 	if role == "api" || role == "all" {
 		go func() {
 			logger.Info("starting compute-api", "port", cfg.Port)
-			if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			if err := startHTTPServer(srv); err != nil && err != http.ErrServerClosed {
 				logger.Error("failed to start server", "error", err)
 				os.Exit(1)
 			}
@@ -150,7 +146,7 @@ func runApplication(cfg *platform.Config, logger *slog.Logger, r *gin.Engine, wo
 	}
 
 	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	notifySignals(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
 	logger.Info("shutting down server...")
@@ -158,7 +154,7 @@ func runApplication(cfg *platform.Config, logger *slog.Logger, r *gin.Engine, wo
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	if err := srv.Shutdown(ctx); err != nil {
+	if err := shutdownHTTPServer(ctx, srv); err != nil {
 		logger.Error("server forced to shutdown", "error", err)
 	}
 

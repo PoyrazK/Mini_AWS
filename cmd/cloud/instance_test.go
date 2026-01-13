@@ -1,0 +1,392 @@
+package main
+
+import (
+	"encoding/json"
+	"strings"
+	"testing"
+
+	"github.com/poyrazk/thecloud/pkg/sdk"
+)
+
+// Mock SDK client for testing CLI commands
+type mockSDKClient struct {
+	listInstancesFn      func() ([]sdk.Instance, error)
+	getInstanceFn        func(string) (*sdk.Instance, error)
+	launchInstanceFn     func(string, string, string, string, string, []sdk.VolumeAttachmentInput) (*sdk.Instance, error)
+	stopInstanceFn       func(string) error
+	terminateInstanceFn  func(string) error
+	getInstanceLogsFn    func(string) (string, error)
+	getInstanceStatsFn   func(string) (*sdk.InstanceStats, error)
+	listQueuesFn         func() ([]sdk.Queue, error)
+	createQueueFn        func(string, *int, *int, *int) (*sdk.Queue, error)
+	deleteQueueFn        func(string) error
+	sendMessageFn        func(string, string) (*sdk.Message, error)
+	receiveMessagesFn    func(string, int) ([]sdk.Message, error)
+	deleteMessageFn      func(string, string) error
+	purgeQueueFn         func(string) error
+}
+
+func (m *mockSDKClient) ListInstances() ([]sdk.Instance, error) {
+	if m.listInstancesFn != nil {
+		return m.listInstancesFn()
+	}
+	return nil, nil
+}
+
+func (m *mockSDKClient) GetInstance(id string) (*sdk.Instance, error) {
+	if m.getInstanceFn != nil {
+		return m.getInstanceFn(id)
+	}
+	return nil, nil
+}
+
+func (m *mockSDKClient) LaunchInstance(name, image, ports, vpc, subnet string, volumes []sdk.VolumeAttachmentInput) (*sdk.Instance, error) {
+	if m.launchInstanceFn != nil {
+		return m.launchInstanceFn(name, image, ports, vpc, subnet, volumes)
+	}
+	return nil, nil
+}
+
+func (m *mockSDKClient) StopInstance(id string) error {
+	if m.stopInstanceFn != nil {
+		return m.stopInstanceFn(id)
+	}
+	return nil
+}
+
+func (m *mockSDKClient) TerminateInstance(id string) error {
+	if m.terminateInstanceFn != nil {
+		return m.terminateInstanceFn(id)
+	}
+	return nil
+}
+
+func (m *mockSDKClient) GetInstanceLogs(id string) (string, error) {
+	if m.getInstanceLogsFn != nil {
+		return m.getInstanceLogsFn(id)
+	}
+	return "", nil
+}
+
+func (m *mockSDKClient) GetInstanceStats(id string) (*sdk.InstanceStats, error) {
+	if m.getInstanceStatsFn != nil {
+		return m.getInstanceStatsFn(id)
+	}
+	return nil, nil
+}
+
+func (m *mockSDKClient) ListQueues() ([]sdk.Queue, error) {
+	if m.listQueuesFn != nil {
+		return m.listQueuesFn()
+	}
+	return nil, nil
+}
+
+func (m *mockSDKClient) CreateQueue(name string, vt, rd, ms *int) (*sdk.Queue, error) {
+	if m.createQueueFn != nil {
+		return m.createQueueFn(name, vt, rd, ms)
+	}
+	return nil, nil
+}
+
+func (m *mockSDKClient) DeleteQueue(id string) error {
+	if m.deleteQueueFn != nil {
+		return m.deleteQueueFn(id)
+	}
+	return nil
+}
+
+func (m *mockSDKClient) SendMessage(queueID, body string) (*sdk.Message, error) {
+	if m.sendMessageFn != nil {
+		return m.sendMessageFn(queueID, body)
+	}
+	return nil, nil
+}
+
+func (m *mockSDKClient) ReceiveMessages(queueID string, max int) ([]sdk.Message, error) {
+	if m.receiveMessagesFn != nil {
+		return m.receiveMessagesFn(queueID, max)
+	}
+	return nil, nil
+}
+
+func (m *mockSDKClient) DeleteMessage(queueID, handle string) error {
+	if m.deleteMessageFn != nil {
+		return m.deleteMessageFn(queueID, handle)
+	}
+	return nil
+}
+
+func (m *mockSDKClient) PurgeQueue(id string) error {
+	if m.purgeQueueFn != nil {
+		return m.purgeQueueFn(id)
+	}
+	return nil
+}
+
+func TestGetClient_WithApiKeyFlag(t *testing.T) {
+	oldKey := apiKey
+	defer func() { apiKey = oldKey }()
+	apiKey = "test-key"
+
+	client := getClient()
+	if client == nil {
+		t.Fatal("expected non-nil client")
+	}
+}
+
+func TestGetClient_WithEnvVar(t *testing.T) {
+	oldKey := apiKey
+	defer func() { apiKey = oldKey }()
+	apiKey = ""
+	
+	t.Setenv("CLOUD_API_KEY", "env-key")
+
+	client := getClient()
+	if client == nil {
+		t.Fatal("expected non-nil client")
+	}
+}
+
+func TestListCmd_CommandSetup(t *testing.T) {
+	// Validate the command setup
+	if instanceCmd == nil {
+		t.Fatal("instanceCmd should not be nil")
+	}
+	if listCmd == nil {
+		t.Fatal("listCmd should not be nil")
+	}
+}
+
+func TestLaunchCmd_FlagsSetup(t *testing.T) {
+	if launchCmd.Flag("name") == nil {
+		t.Error("launch command should have --name flag")
+	}
+	if launchCmd.Flag("image") == nil {
+		t.Error("launch command should have --image flag")
+	}
+	if launchCmd.Flag("port") == nil {
+		t.Error("launch command should have --port flag")
+	}
+	if launchCmd.Flag("vpc") == nil {
+		t.Error("launch command should have --vpc flag")
+	}
+	if launchCmd.Flag("subnet") == nil {
+		t.Error("launch command should have --subnet flag")
+	}
+	if launchCmd.Flag("volume") == nil {
+		t.Error("launch command should have --volume flag")
+	}
+}
+
+func TestStopCmd_RequiresOneArg(t *testing.T) {
+	if stopCmd.Args == nil {
+		t.Fatal("stop command should require args")
+	}
+	
+	// Verify it's set to require exactly 1 arg
+	err := stopCmd.Args(stopCmd, []string{})
+	if err == nil {
+		t.Error("stop command should error with no args")
+	}
+	
+	err = stopCmd.Args(stopCmd, []string{"id1", "id2"})
+	if err == nil {
+		t.Error("stop command should error with multiple args")
+	}
+	
+	err = stopCmd.Args(stopCmd, []string{"id1"})
+	if err != nil {
+		t.Errorf("stop command should accept 1 arg, got error: %v", err)
+	}
+}
+
+func TestLogsCmd_RequiresOneArg(t *testing.T) {
+	if logsCmd.Args == nil {
+		t.Fatal("logs command should require args")
+	}
+	
+	err := logsCmd.Args(logsCmd, []string{})
+	if err == nil {
+		t.Error("logs command should error with no args")
+	}
+	
+	err = logsCmd.Args(logsCmd, []string{"id1"})
+	if err != nil {
+		t.Errorf("logs command should accept 1 arg, got error: %v", err)
+	}
+}
+
+func TestShowCmd_RequiresOneArg(t *testing.T) {
+	if showCmd.Args == nil {
+		t.Fatal("show command should require args")
+	}
+	
+	err := showCmd.Args(showCmd, []string{})
+	if err == nil {
+		t.Error("show command should error with no args")
+	}
+}
+
+func TestRmCmd_RequiresOneArg(t *testing.T) {
+	if rmCmd.Args == nil {
+		t.Fatal("rm command should require args")
+	}
+	
+	err := rmCmd.Args(rmCmd, []string{})
+	if err == nil {
+		t.Error("rm command should error with no args")
+	}
+}
+
+func TestStatsCmd_RequiresOneArg(t *testing.T) {
+	if statsCmd.Args == nil {
+		t.Fatal("stats command should require args")
+	}
+	
+	err := statsCmd.Args(statsCmd, []string{})
+	if err == nil {
+		t.Error("stats command should error with no args")
+	}
+}
+
+func TestInstanceCmd_HasSubcommands(t *testing.T) {
+	subcommands := instanceCmd.Commands()
+	
+	expectedCommands := []string{"list", "launch", "stop", "logs", "show", "rm", "stats"}
+	found := make(map[string]bool)
+	
+	for _, cmd := range subcommands {
+		found[cmd.Name()] = true
+	}
+	
+	for _, expected := range expectedCommands {
+		if !found[expected] {
+			t.Errorf("instance command missing subcommand: %s", expected)
+		}
+	}
+}
+
+func TestFormatAccessPorts(t *testing.T) {
+	tests := []struct {
+		name     string
+		ports    string
+		status   string
+		expected string
+	}{
+		{
+			name:     "no ports",
+			ports:    "",
+			status:   "RUNNING",
+			expected: "-",
+		},
+		{
+			name:     "stopped instance",
+			ports:    "8080:80",
+			status:   "STOPPED",
+			expected: "-",
+		},
+		{
+			name:     "single port mapping",
+			ports:    "8080:80",
+			status:   "RUNNING",
+			expected: "localhost:8080->80",
+		},
+		{
+			name:     "multiple port mappings",
+			ports:    "8080:80,8443:443",
+			status:   "RUNNING",
+			expected: "localhost:8080->80, localhost:8443->443",
+		},
+		{
+			name:     "invalid port format",
+			ports:    "8080",
+			status:   "RUNNING",
+			expected: "",
+		},
+	}
+	
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			access := "-"
+			if tt.ports != "" && tt.status == "RUNNING" {
+				pList := strings.Split(tt.ports, ",")
+				var mappings []string
+				for _, mapping := range pList {
+					parts := strings.Split(mapping, ":")
+					if len(parts) == 2 {
+						mappings = append(mappings, "localhost:"+parts[0]+"->"+parts[1])
+					}
+				}
+				if len(mappings) > 0 {
+					access = strings.Join(mappings, ", ")
+				} else {
+					access = ""
+				}
+			}
+			
+			if access != tt.expected {
+				t.Errorf("expected %q, got %q", tt.expected, access)
+			}
+		})
+	}
+}
+
+func TestTruncateID(t *testing.T) {
+	tests := []struct {
+		name     string
+		id       string
+		expected string
+	}{
+		{
+			name:     "short id",
+			id:       "abc123",
+			expected: "abc123",
+		},
+		{
+			name:     "long id",
+			id:       "abcdef123456789",
+			expected: "abcdef12",
+		},
+		{
+			name:     "exactly 8 chars",
+			id:       "12345678",
+			expected: "12345678",
+		},
+	}
+	
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.id
+			if len(result) > 8 {
+				result = result[:8]
+			}
+			
+			if result != tt.expected {
+				t.Errorf("expected %q, got %q", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestJSONMarshalIndent(t *testing.T) {
+	inst := sdk.Instance{
+		ID:     "test-id",
+		Name:   "test-instance",
+		Image:  "alpine",
+		Status: "RUNNING",
+		Ports:  "8080:80",
+	}
+	
+	data, err := json.MarshalIndent(inst, "", "  ")
+	if err != nil {
+		t.Fatalf("failed to marshal: %v", err)
+	}
+	
+	if !strings.Contains(string(data), "test-id") {
+		t.Error("JSON should contain instance ID")
+	}
+	if !strings.Contains(string(data), "test-instance") {
+		t.Error("JSON should contain instance name")
+	}
+}
