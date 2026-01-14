@@ -53,6 +53,7 @@ miniaws-data/
 api/main
 /cloud
 /cloud-api
+thecloud-api
 platform-api
 api_test.log
 .mcp.json
