@@ -35,6 +35,7 @@ func Auth(svc ports.IdentityService) gin.HandlerFunc {
 		c.Next()
 	}
 }
+
 // GetUserID returns the authenticated user ID from the request context.
 func GetUserID(c *gin.Context) uuid.UUID {
 	val, exists := c.Get("userID")
