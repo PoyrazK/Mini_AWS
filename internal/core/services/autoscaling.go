@@ -12,12 +12,14 @@ import (
 	"github.com/poyrazk/thecloud/internal/errors"
 )
 
+// AutoScalingService manages scaling groups and policies.
 type AutoScalingService struct {
 	repo     ports.AutoScalingRepository
 	vpcRepo  ports.VpcRepository
 	auditSvc ports.AuditService
 }
 
+// NewAutoScalingService constructs an AutoScalingService with its dependencies.
 func NewAutoScalingService(repo ports.AutoScalingRepository, vpcRepo ports.VpcRepository, auditSvc ports.AuditService) *AutoScalingService {
 	return &AutoScalingService{
 		repo:     repo,
