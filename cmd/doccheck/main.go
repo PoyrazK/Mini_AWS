@@ -1,3 +1,4 @@
+// Package main provides the doccheck CLI entrypoint.
 package main
 
 import (
