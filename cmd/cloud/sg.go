@@ -15,23 +15,31 @@ var sgCmd = &cobra.Command{
 	Short: "Manage security groups",
 }
 
+const (
+	flagVPCID      = "vpc-id"
+	descVPCID      = "VPC ID"
+	errFmt         = "Error: %v\n"
+	msgRuleRemoved = "[SUCCESS] Rule %s removed successfully.\n"
+	msgSgDetached  = "[SUCCESS] Security Group %s detached from instance %s successfully.\n"
+)
+
 var sgCreateCmd = &cobra.Command{
 	Use:   "create [name]",
 	Short: "Create a new security group",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		vpcID, _ := cmd.Flags().GetString("vpc-id")
+		vpcID, _ := cmd.Flags().GetString(flagVPCID)
 		desc, _ := cmd.Flags().GetString("description")
 
 		if vpcID == "" {
-			fmt.Println("Error: --vpc-id is required")
+			fmt.Printf("Error: --%s is required\n", flagVPCID)
 			return
 		}
 
 		client := getClient()
 		sg, err := client.CreateSecurityGroup(vpcID, args[0], desc)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(errFmt, err)
 			return
 		}
 
@@ -45,16 +53,16 @@ var sgListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List security groups",
 	Run: func(cmd *cobra.Command, args []string) {
-		vpcID, _ := cmd.Flags().GetString("vpc-id")
+		vpcID, _ := cmd.Flags().GetString(flagVPCID)
 		if vpcID == "" {
-			fmt.Println("Error: --vpc-id is required")
+			fmt.Printf("Error: --%s is required\n", flagVPCID)
 			return
 		}
 
 		client := getClient()
 		groups, err := client.ListSecurityGroups(vpcID)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(errFmt, err)
 			return
 		}
 
@@ -65,7 +73,7 @@ var sgListCmd = &cobra.Command{
 		}
 
 		table := tablewriter.NewWriter(os.Stdout)
-		table.Header([]string{"ID", "NAME", "VPC ID", "ARN"})
+		table.Header([]string{"ID", "NAME", descVPCID, "ARN"})
 
 		for _, g := range groups {
 			table.Append([]string{
@@ -103,7 +111,7 @@ var sgAddRuleCmd = &cobra.Command{
 
 		res, err := client.AddSecurityRule(args[0], rule)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(errFmt, err)
 			return
 		}
 
@@ -118,29 +126,12 @@ var sgAttachCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		client := getClient()
 		if err := client.AttachSecurityGroup(args[0], args[1]); err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(errFmt, err)
 			return
 		}
 
 		fmt.Printf("[SUCCESS] Security Group %s attached to instance %s successfully.\n", args[1], args[0])
 	},
-}
-
-func init() {
-	sgCreateCmd.Flags().String("vpc-id", "", "VPC ID")
-	sgCreateCmd.Flags().String("description", "", "Description")
-
-	sgListCmd.Flags().String("vpc-id", "", "VPC ID")
-
-	sgAddRuleCmd.Flags().String("direction", "ingress", "Rule direction (ingress/egress)")
-	sgAddRuleCmd.Flags().String("protocol", "tcp", "Protocol (tcp/udp/icmp/all)")
-	sgAddRuleCmd.Flags().Int("port-min", 0, "Minimum port")
-	sgAddRuleCmd.Flags().Int("port-max", 0, "Maximum port")
-	sgAddRuleCmd.Flags().String("cidr", "0.0.0.0/0", "CIDR block")
-	sgAddRuleCmd.Flags().Int("priority", 100, "Priority")
-
-	sgCmd.AddCommand(sgCreateCmd, sgListCmd, sgAddRuleCmd, sgRemoveRuleCmd, sgAttachCmd, sgDetachCmd)
-	rootCmd.AddCommand(sgCmd)
 }
 
 var sgRemoveRuleCmd = &cobra.Command{
@@ -150,10 +141,10 @@ var sgRemoveRuleCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		client := getClient()
 		if err := client.RemoveSecurityRule(args[0]); err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(errFmt, err)
 			return
 		}
-		fmt.Printf("[SUCCESS] Rule %s removed successfully.\n", args[0])
+		fmt.Printf(msgRuleRemoved, args[0])
 	},
 }
 
@@ -164,9 +155,26 @@ var sgDetachCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		client := getClient()
 		if err := client.DetachSecurityGroup(args[0], args[1]); err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(errFmt, err)
 			return
 		}
-		fmt.Printf("[SUCCESS] Security Group %s detached from instance %s successfully.\n", args[1], args[0])
+		fmt.Printf(msgSgDetached, args[1], args[0])
 	},
+}
+
+func init() {
+	sgCreateCmd.Flags().String(flagVPCID, "", descVPCID)
+	sgCreateCmd.Flags().String("description", "", "Description")
+
+	sgListCmd.Flags().String(flagVPCID, "", descVPCID)
+
+	sgAddRuleCmd.Flags().String("direction", "ingress", "Rule direction (ingress/egress)")
+	sgAddRuleCmd.Flags().String("protocol", "tcp", "Protocol (tcp/udp/icmp/all)")
+	sgAddRuleCmd.Flags().Int("port-min", 0, "Minimum port")
+	sgAddRuleCmd.Flags().Int("port-max", 0, "Maximum port")
+	sgAddRuleCmd.Flags().String("cidr", "0.0.0.0/0", "CIDR block")
+	sgAddRuleCmd.Flags().Int("priority", 100, "Priority")
+
+	sgCmd.AddCommand(sgCreateCmd, sgListCmd, sgAddRuleCmd, sgRemoveRuleCmd, sgAttachCmd, sgDetachCmd)
+	rootCmd.AddCommand(sgCmd)
 }
