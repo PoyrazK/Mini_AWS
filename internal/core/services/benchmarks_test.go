@@ -55,7 +55,7 @@ func BenchmarkVPCServiceGet(b *testing.B) {
 	network := &noop.NoopNetworkAdapter{}
 	auditSvc := &noop.NoopAuditService{}
 	logger := slog.Default()
-	svc := services.NewVpcService(repo, network, auditSvc, logger, "10.0.0.0/16")
+	svc := services.NewVpcService(repo, network, auditSvc, logger, testutil.TestCIDR)
 
 	ctx := context.Background()
 	id := uuid.New()
