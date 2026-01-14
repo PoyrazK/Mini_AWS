@@ -11,13 +11,13 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/pkg/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
 const (
 	testSubnetName    = "test-subnet"
-	testSubnetCIDR    = "10.0.1.0/24"
 	vpcsPathPrefix    = "/vpcs/"
 	subnetsPathPrefix = "/subnets/"
 	subnetsPath       = "/subnets"
@@ -68,14 +68,14 @@ func TestSubnetHandlerCreateSuccess(t *testing.T) {
 		ID:        subnetID,
 		VPCID:     vpcID,
 		Name:      testSubnetName,
-		CIDRBlock: testSubnetCIDR,
+		CIDRBlock: testutil.TestSubnetCIDR,
 	}
 
-	svc.On("CreateSubnet", mock.Anything, vpcID, testSubnetName, testSubnetCIDR, "us-east-1a").Return(expectedSubnet, nil)
+	svc.On("CreateSubnet", mock.Anything, vpcID, testSubnetName, testutil.TestSubnetCIDR, "us-east-1a").Return(expectedSubnet, nil)
 
 	reqBody := map[string]string{
 		"name":              testSubnetName,
-		"cidr_block":        testSubnetCIDR,
+		"cidr_block":        testutil.TestSubnetCIDR,
 		"availability_zone": "us-east-1a",
 	}
 	body, _ := json.Marshal(reqBody)

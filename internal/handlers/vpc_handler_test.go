@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/pkg/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -18,7 +19,6 @@ import (
 const (
 	vpcsPath    = "/vpcs"
 	testVpcName = "test-vpc"
-	testCidr    = "10.0.0.0/16"
 )
 
 type mockVpcService struct {
@@ -69,9 +69,9 @@ func TestVpcHandlerCreate(t *testing.T) {
 	r.POST(vpcsPath, handler.Create)
 
 	vpc := &domain.VPC{ID: uuid.New(), Name: testVpcName}
-	svc.On("CreateVPC", mock.Anything, testVpcName, testCidr).Return(vpc, nil)
+	svc.On("CreateVPC", mock.Anything, testVpcName, testutil.TestCIDR).Return(vpc, nil)
 
-	body, err := json.Marshal(map[string]string{"name": testVpcName, "cidr_block": testCidr})
+	body, err := json.Marshal(map[string]string{"name": testVpcName, "cidr_block": testutil.TestCIDR})
 	assert.NoError(t, err)
 	w := httptest.NewRecorder()
 	req, err := http.NewRequest("POST", vpcsPath, bytes.NewBuffer(body))
