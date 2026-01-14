@@ -99,7 +99,7 @@ func waitForServer() error {
 	for i := 0; i < 30; i++ {
 		resp, err := http.Get(testutil.TestBaseURL + "/health")
 		if err == nil && resp.StatusCode == 200 {
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			return nil
 		}
 		time.Sleep(1 * time.Second)
