@@ -7,6 +7,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 type AuditService struct {
@@ -18,6 +20,14 @@ func NewAuditService(repo ports.AuditRepository) *AuditService {
 }
 
 func (s *AuditService) Log(ctx context.Context, userID uuid.UUID, action, resourceType, resourceID string, details map[string]interface{}) error {
+	ctx, span := otel.Tracer("audit-service").Start(ctx, "Log")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("audit.action", action),
+		attribute.String("audit.resource_type", resourceType),
+		attribute.String("audit.resource_id", resourceID),
+	)
 	log := &domain.AuditLog{
 		ID:           uuid.New(),
 		UserID:       userID,

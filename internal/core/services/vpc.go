@@ -12,6 +12,8 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/errors"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 // VpcService handles the lifecycle of Virtual Private Clouds (VPCs),
@@ -42,6 +44,14 @@ func NewVpcService(repo ports.VpcRepository, network ports.NetworkBackend, audit
 // CreateVPC provisions a new VPC with an associated OVS bridge for network isolation.
 // It generates a unique VXLAN ID and persists the VPC metadata to the database.
 func (s *VpcService) CreateVPC(ctx context.Context, name, cidrBlock string) (*domain.VPC, error) {
+	ctx, span := otel.Tracer("vpc-service").Start(ctx, "CreateVPC")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("vpc.name", name),
+		attribute.String("vpc.cidr", cidrBlock),
+	)
+
 	if cidrBlock == "" {
 		cidrBlock = s.defaultCIDR
 	}

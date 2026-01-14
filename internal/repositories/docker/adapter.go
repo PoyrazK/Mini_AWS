@@ -22,6 +22,8 @@ import (
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/errors"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 const (
@@ -29,6 +31,8 @@ const (
 	ImagePullTimeout = 5 * time.Minute
 	// DefaultOperationTimeout is the default timeout for Docker operations
 	DefaultOperationTimeout = 30 * time.Second
+	// tracerName is the name of the tracer for this package
+	tracerName = "docker-adapter"
 )
 
 type DockerAdapter struct {
@@ -83,11 +87,24 @@ func (a *DockerAdapter) Type() string {
 }
 
 func (a *DockerAdapter) CreateInstance(ctx context.Context, opts ports.CreateInstanceOptions) (string, error) {
+	ctx, span := otel.Tracer(tracerName).Start(ctx, "CreateInstance")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("docker.image", opts.ImageName),
+		attribute.String("docker.name", opts.Name),
+		attribute.Bool("docker.network_disabled", opts.NetworkID == ""),
+	)
+
 	// 1. Ensure image exists (pull if not) - with timeout
 	pullCtx, pullCancel := context.WithTimeout(ctx, ImagePullTimeout)
 	defer pullCancel()
 
+	// Create a sub-span for pulling
+	pullCtx, pullSpan := otel.Tracer(tracerName).Start(pullCtx, "ImagePull")
 	reader, err := a.cli.ImagePull(pullCtx, opts.ImageName, image.PullOptions{})
+	pullSpan.End()
+
 	if err != nil {
 		return "", fmt.Errorf("failed to pull image: %w", err)
 	}
@@ -132,15 +149,20 @@ func (a *DockerAdapter) CreateInstance(ctx context.Context, opts ports.CreateIns
 	}
 
 	// 3. Create container
+	_, createSpan := otel.Tracer(tracerName).Start(ctx, "ContainerCreate")
 	resp, err := a.cli.ContainerCreate(ctx, config, hostConfig, networkingConfig, nil, opts.Name)
+	createSpan.End()
 	if err != nil {
 		return "", fmt.Errorf("failed to create container: %w", err)
 	}
 
 	// 4. Start container
+	_, startSpan := otel.Tracer(tracerName).Start(ctx, "ContainerStart")
 	if err := a.cli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
+		startSpan.End()
 		return "", fmt.Errorf("failed to start container: %w", err)
 	}
+	startSpan.End()
 
 	return resp.ID, nil
 }

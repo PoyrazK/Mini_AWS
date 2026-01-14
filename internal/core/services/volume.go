@@ -11,7 +11,11 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/poyrazk/thecloud/internal/platform"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 )
+
+const tracerName = "volume-service"
 
 type VolumeService struct {
 	repo     ports.VolumeRepository
@@ -32,6 +36,13 @@ func NewVolumeService(repo ports.VolumeRepository, storage ports.StorageBackend,
 }
 
 func (s *VolumeService) CreateVolume(ctx context.Context, name string, sizeGB int) (*domain.Volume, error) {
+	ctx, span := otel.Tracer(tracerName).Start(ctx, "CreateVolume")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("volume.name", name),
+		attribute.Int("volume.size_gb", sizeGB),
+	)
 	// 1. Create domain entity
 	vol := &domain.Volume{
 		ID:        uuid.New(),
@@ -80,6 +91,9 @@ func (s *VolumeService) ListVolumes(ctx context.Context) ([]*domain.Volume, erro
 }
 
 func (s *VolumeService) GetVolume(ctx context.Context, idOrName string) (*domain.Volume, error) {
+	ctx, span := otel.Tracer(tracerName).Start(ctx, "GetVolume")
+	defer span.End()
+	span.SetAttributes(attribute.String("volume.id_or_name", idOrName))
 	id, err := uuid.Parse(idOrName)
 	if err == nil {
 		return s.repo.GetByID(ctx, id)
@@ -88,6 +102,9 @@ func (s *VolumeService) GetVolume(ctx context.Context, idOrName string) (*domain
 }
 
 func (s *VolumeService) DeleteVolume(ctx context.Context, idOrName string) error {
+	ctx, span := otel.Tracer(tracerName).Start(ctx, "DeleteVolume")
+	defer span.End()
+	span.SetAttributes(attribute.String("volume.id_or_name", idOrName))
 	vol, err := s.GetVolume(ctx, idOrName)
 	if err != nil {
 		return err

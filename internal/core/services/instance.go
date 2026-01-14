@@ -17,6 +17,8 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/poyrazk/thecloud/internal/platform"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 // InstanceService manages compute instance lifecycle (containers or VMs).
@@ -72,6 +74,14 @@ func NewInstanceService(params InstanceServiceParams) *InstanceService {
 // LaunchInstance provisions a new instance, sets up its network (if VPC/Subnet provided),
 // and attaches any requested volumes.
 func (s *InstanceService) LaunchInstance(ctx context.Context, name, image, ports string, vpcID, subnetID *uuid.UUID, volumes []domain.VolumeAttachment) (*domain.Instance, error) {
+	ctx, span := otel.Tracer("instance-service").Start(ctx, "LaunchInstance")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("instance.name", name),
+		attribute.String("instance.image", image),
+	)
+
 	// 1. Validate ports if provided
 	_, err := s.parseAndValidatePorts(ports)
 	if err != nil {

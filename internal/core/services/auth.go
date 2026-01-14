@@ -13,6 +13,8 @@ import (
 	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/poyrazk/thecloud/internal/platform"
 	passwordvalidator "github.com/wagslane/go-password-validator"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -41,6 +43,9 @@ func NewAuthService(userRepo ports.UserRepository, apiKeySvc ports.IdentityServi
 }
 
 func (s *AuthService) Register(ctx context.Context, email, password, name string) (*domain.User, error) {
+	ctx, span := otel.Tracer("auth-service").Start(ctx, "Register")
+	defer span.End()
+	span.SetAttributes(attribute.String("user.email", email))
 	// Validate password strength
 	if err := passwordvalidator.Validate(password, 50); err != nil {
 		return nil, errors.New(errors.InvalidInput, "password is too weak: "+err.Error())
@@ -81,6 +86,9 @@ func (s *AuthService) Register(ctx context.Context, email, password, name string
 }
 
 func (s *AuthService) Login(ctx context.Context, email, password string) (*domain.User, string, error) {
+	ctx, span := otel.Tracer("auth-service").Start(ctx, "Login")
+	defer span.End()
+	span.SetAttributes(attribute.String("user.email", email))
 	s.mu.Lock()
 	if lockoutTime, ok := s.lockouts[email]; ok {
 		if time.Now().Before(lockoutTime) {
