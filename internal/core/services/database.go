@@ -15,6 +15,7 @@ import (
 	"github.com/poyrazk/thecloud/pkg/util"
 )
 
+// DatabaseService manages database instances and lifecycle.
 type DatabaseService struct {
 	repo     ports.DatabaseRepository
 	compute  ports.ComputeBackend
@@ -24,6 +25,7 @@ type DatabaseService struct {
 	logger   *slog.Logger
 }
 
+// NewDatabaseService constructs a DatabaseService with its dependencies.
 func NewDatabaseService(
 	repo ports.DatabaseRepository,
 	compute ports.ComputeBackend,

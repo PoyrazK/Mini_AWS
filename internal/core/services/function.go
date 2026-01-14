@@ -19,6 +19,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/errors"
 )
 
+// RuntimeConfig describes how a function runtime is executed.
 type RuntimeConfig struct {
 	Image      string
 	Entrypoint []string
@@ -33,6 +34,7 @@ var runtimes = map[string]RuntimeConfig{
 	"java21":    {Image: "eclipse-temurin:21-alpine", Entrypoint: []string{"java", "-jar"}, Extension: ".jar"},
 }
 
+// FunctionService manages serverless function lifecycle and invocations.
 type FunctionService struct {
 	repo      ports.FunctionRepository
 	compute   ports.ComputeBackend
@@ -41,6 +43,7 @@ type FunctionService struct {
 	logger    *slog.Logger
 }
 
+// NewFunctionService constructs a FunctionService with its dependencies.
 func NewFunctionService(repo ports.FunctionRepository, compute ports.ComputeBackend, fileStore ports.FileStore, auditSvc ports.AuditService, logger *slog.Logger) *FunctionService {
 	return &FunctionService{
 		repo:      repo,
