@@ -11,10 +11,12 @@ import (
 	"github.com/poyrazk/thecloud/pkg/httputil"
 )
 
+// NotifyHandler handles notification HTTP endpoints.
 type NotifyHandler struct {
 	svc ports.NotifyService
 }
 
+// NewNotifyHandler constructs a NotifyHandler.
 func NewNotifyHandler(svc ports.NotifyService) *NotifyHandler {
 	return &NotifyHandler{svc: svc}
 }

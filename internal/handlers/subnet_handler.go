@@ -9,10 +9,12 @@ import (
 	"github.com/poyrazk/thecloud/pkg/httputil"
 )
 
+// SubnetHandler handles subnet HTTP endpoints.
 type SubnetHandler struct {
 	svc ports.SubnetService
 }
 
+// NewSubnetHandler constructs a SubnetHandler.
 func NewSubnetHandler(svc ports.SubnetService) *SubnetHandler {
 	return &SubnetHandler{svc: svc}
 }

@@ -10,10 +10,12 @@ import (
 	"github.com/poyrazk/thecloud/pkg/httputil"
 )
 
+// QueueHandler handles queue HTTP endpoints.
 type QueueHandler struct {
 	svc ports.QueueService
 }
 
+// NewQueueHandler constructs a QueueHandler.
 func NewQueueHandler(svc ports.QueueService) *QueueHandler {
 	return &QueueHandler{
 		svc: svc,
