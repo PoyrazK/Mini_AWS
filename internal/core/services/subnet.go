@@ -14,6 +14,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/errors"
 )
 
+// SubnetService manages subnet lifecycle within VPCs.
 type SubnetService struct {
 	repo     ports.SubnetRepository
 	vpcRepo  ports.VpcRepository
@@ -21,6 +22,7 @@ type SubnetService struct {
 	logger   *slog.Logger
 }
 
+// NewSubnetService constructs a SubnetService with its dependencies.
 func NewSubnetService(repo ports.SubnetRepository, vpcRepo ports.VpcRepository, auditSvc ports.AuditService, logger *slog.Logger) *SubnetService {
 	return &SubnetService{
 		repo:     repo,

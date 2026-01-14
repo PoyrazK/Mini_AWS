@@ -13,12 +13,14 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
 
+// ContainerWorker reconciles container deployments and instances.
 type ContainerWorker struct {
 	repo        ports.ContainerRepository
 	instanceSvc ports.InstanceService
 	eventSvc    ports.EventService
 }
 
+// NewContainerWorker constructs a ContainerWorker with its dependencies.
 func NewContainerWorker(repo ports.ContainerRepository, instanceSvc ports.InstanceService, eventSvc ports.EventService) *ContainerWorker {
 	return &ContainerWorker{
 		repo:        repo,
