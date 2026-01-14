@@ -162,6 +162,65 @@ var sgDetachCmd = &cobra.Command{
 	},
 }
 
+var sgGetCmd = &cobra.Command{
+	Use:   "get [sg-id]",
+	Short: "Get security group details and rules",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		client := getClient()
+		sg, err := client.GetSecurityGroup(args[0])
+		if err != nil {
+			fmt.Printf(errFmt, err)
+			return
+		}
+
+		if outputJSON {
+			data, _ := json.MarshalIndent(sg, "", "  ")
+			fmt.Println(string(data))
+			return
+		}
+
+		fmt.Printf("Security Group: %s (%s)\n", sg.Name, sg.ID)
+		fmt.Printf("VPC: %s\n", sg.VPCID)
+		fmt.Printf("Description: %s\n", sg.Description)
+		fmt.Printf("ARN: %s\n", sg.ARN)
+		fmt.Println("\nRules:")
+
+		table := tablewriter.NewWriter(os.Stdout)
+		table.Header([]string{"Rule ID", "Direction", "Protocol", "Ports", "CIDR", "Priority"})
+
+		for _, r := range sg.Rules {
+			ports := fmt.Sprintf("%d-%d", r.PortMin, r.PortMax)
+			if r.PortMin == r.PortMax {
+				ports = fmt.Sprintf("%d", r.PortMin)
+			}
+			table.Append([]string{
+				r.ID[:8],
+				r.Direction,
+				r.Protocol,
+				ports,
+				r.CIDR,
+				fmt.Sprintf("%d", r.Priority),
+			})
+		}
+		table.Render()
+	},
+}
+
+var sgDeleteCmd = &cobra.Command{
+	Use:   "delete [sg-id]",
+	Short: "Delete a security group",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		client := getClient()
+		if err := client.DeleteSecurityGroup(args[0]); err != nil {
+			fmt.Printf(errFmt, err)
+			return
+		}
+		fmt.Printf("[SUCCESS] Security Group %s deleted successfully.\n", args[0])
+	},
+}
+
 func init() {
 	sgCreateCmd.Flags().String(flagVPCID, "", descVPCID)
 	sgCreateCmd.Flags().String("description", "", "Description")
@@ -175,6 +234,6 @@ func init() {
 	sgAddRuleCmd.Flags().String("cidr", "0.0.0.0/0", "CIDR block")
 	sgAddRuleCmd.Flags().Int("priority", 100, "Priority")
 
-	sgCmd.AddCommand(sgCreateCmd, sgListCmd, sgAddRuleCmd, sgRemoveRuleCmd, sgAttachCmd, sgDetachCmd)
+	sgCmd.AddCommand(sgCreateCmd, sgListCmd, sgGetCmd, sgDeleteCmd, sgAddRuleCmd, sgRemoveRuleCmd, sgAttachCmd, sgDetachCmd)
 	rootCmd.AddCommand(sgCmd)
 }

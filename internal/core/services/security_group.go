@@ -79,6 +79,10 @@ func (s *SecurityGroupService) CreateGroup(ctx context.Context, vpcID uuid.UUID,
 }
 
 func (s *SecurityGroupService) GetGroup(ctx context.Context, idOrName string, vpcID uuid.UUID) (*domain.SecurityGroup, error) {
+	ctx, span := otel.Tracer(securityGroupTracer).Start(ctx, "GetGroup")
+	defer span.End()
+	span.SetAttributes(attribute.String("id_or_name", idOrName))
+
 	id, err := uuid.Parse(idOrName)
 	if err == nil {
 		return s.repo.GetByID(ctx, id)
@@ -87,10 +91,18 @@ func (s *SecurityGroupService) GetGroup(ctx context.Context, idOrName string, vp
 }
 
 func (s *SecurityGroupService) ListGroups(ctx context.Context, vpcID uuid.UUID) ([]*domain.SecurityGroup, error) {
+	ctx, span := otel.Tracer(securityGroupTracer).Start(ctx, "ListGroups")
+	defer span.End()
+	span.SetAttributes(attribute.String("vpc_id", vpcID.String()))
+
 	return s.repo.ListByVPC(ctx, vpcID)
 }
 
 func (s *SecurityGroupService) DeleteGroup(ctx context.Context, id uuid.UUID) error {
+	ctx, span := otel.Tracer(securityGroupTracer).Start(ctx, "DeleteGroup")
+	defer span.End()
+	span.SetAttributes(attribute.String("group_id", id.String()))
+
 	userID := appcontext.UserIDFromContext(ctx)
 
 	// In a real implementation, we should check if any instances are still attached
@@ -205,7 +217,15 @@ func (s *SecurityGroupService) AttachToInstance(ctx context.Context, instanceID,
 	}
 
 	// Update OVS flows
-	return s.syncGroupFlows(ctx, sg)
+	if err := s.syncGroupFlows(ctx, sg); err != nil {
+		return err
+	}
+
+	_ = s.auditSvc.Log(ctx, sg.UserID, "security_group.attach", "instance", instanceID.String(), map[string]interface{}{
+		"group_id": groupID.String(),
+	})
+
+	return nil
 }
 
 func (s *SecurityGroupService) DetachFromInstance(ctx context.Context, instanceID, groupID uuid.UUID) error {
@@ -217,7 +237,16 @@ func (s *SecurityGroupService) DetachFromInstance(ctx context.Context, instanceI
 		attribute.String("group_id", groupID.String()),
 	)
 
-	return s.repo.RemoveInstanceFromGroup(ctx, instanceID, groupID)
+	if err := s.repo.RemoveInstanceFromGroup(ctx, instanceID, groupID); err != nil {
+		return err
+	}
+
+	userID := appcontext.UserIDFromContext(ctx)
+	_ = s.auditSvc.Log(ctx, userID, "security_group.detach", "instance", instanceID.String(), map[string]interface{}{
+		"group_id": groupID.String(),
+	})
+
+	return nil
 }
 
 func (s *SecurityGroupService) syncGroupFlows(ctx context.Context, sg *domain.SecurityGroup) error {
