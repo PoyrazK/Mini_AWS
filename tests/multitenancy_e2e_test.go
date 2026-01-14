@@ -47,8 +47,10 @@ type Instance struct {
 }
 
 func TestMultiTenancyE2E(t *testing.T) {
-	// Ensure server is reachable
-	require.NoError(t, waitForServer(), "Server must be running at "+testutil.TestBaseURL)
+	// Skip if server is not reachable (e.g., in CI without live services)
+	if err := waitForServer(); err != nil {
+		t.Skipf("Skipping E2E test: %v (server at %s not available)", err, testutil.TestBaseURL)
+	}
 
 	client := &http.Client{Timeout: 5 * time.Second}
 
