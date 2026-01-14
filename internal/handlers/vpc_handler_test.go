@@ -81,7 +81,7 @@ func TestVpcHandlerCreate(t *testing.T) {
 	assert.Equal(t, http.StatusCreated, w.Code)
 }
 
-func TestVpcHandlerCreate_Errors(t *testing.T) {
+func TestVpcHandlerCreateErrors(t *testing.T) {
 	svc, handler, r := setupVpcHandlerTest(t)
 	r.POST(vpcsPath, handler.Create)
 
@@ -137,7 +137,7 @@ func TestVpcHandlerGet(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
-func TestVpcHandlerGet_Error(t *testing.T) {
+func TestVpcHandlerGetError(t *testing.T) {
 	svc, handler, r := setupVpcHandlerTest(t)
 	r.GET(vpcsPath+"/:id", handler.Get)
 
@@ -167,7 +167,7 @@ func TestVpcHandlerDelete(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
-func TestVpcHandlerList_Error(t *testing.T) {
+func TestVpcHandlerListError(t *testing.T) {
 	svc, handler, r := setupVpcHandlerTest(t)
 	r.GET(vpcsPath, handler.List)
 
@@ -180,7 +180,7 @@ func TestVpcHandlerList_Error(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
 
-func TestVpcHandlerDelete_Error(t *testing.T) {
+func TestVpcHandlerDeleteError(t *testing.T) {
 	svc, handler, r := setupVpcHandlerTest(t)
 	r.DELETE(vpcsPath+"/:id", handler.Delete)
 
