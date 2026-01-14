@@ -8,20 +8,33 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 )
 
+// GatewayRepository manages the persistence of reverse proxy routes and ingress rules.
 type GatewayRepository interface {
+	// CreateRoute saves a new gateway route configuration.
 	CreateRoute(ctx context.Context, route *domain.GatewayRoute) error
+	// GetRouteByID retrieves a specific route for an authorized user.
 	GetRouteByID(ctx context.Context, id, userID uuid.UUID) (*domain.GatewayRoute, error)
+	// ListRoutes returns all routes defined by a user.
 	ListRoutes(ctx context.Context, userID uuid.UUID) ([]*domain.GatewayRoute, error)
+	// DeleteRoute removes a route definition.
 	DeleteRoute(ctx context.Context, id uuid.UUID) error
 
 	// For the proxy engine
+
+	// GetAllActiveRoutes retrieves every configured route in the system for the load balancer/proxy.
 	GetAllActiveRoutes(ctx context.Context) ([]*domain.GatewayRoute, error)
 }
 
+// GatewayService provides business logic for managing the API gateway and ingress traffic.
 type GatewayService interface {
+	// CreateRoute establishes a new ingress mapping.
 	CreateRoute(ctx context.Context, name, prefix, target string, strip bool, rateLimit int) (*domain.GatewayRoute, error)
+	// ListRoutes returns all ingress rules for the current user.
 	ListRoutes(ctx context.Context) ([]*domain.GatewayRoute, error)
+	// DeleteRoute decommission an existing ingress rule.
 	DeleteRoute(ctx context.Context, id uuid.UUID) error
+	// RefreshRoutes triggers a reload of the proxy's internal routing table from secondary storage.
 	RefreshRoutes(ctx context.Context) error
+	// GetProxy looks up a pre-configured ReverseProxy for a given request path.
 	GetProxy(path string) (*httputil.ReverseProxy, bool)
 }
