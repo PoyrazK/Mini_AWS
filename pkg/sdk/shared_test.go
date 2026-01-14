@@ -1,7 +1,7 @@
 package sdk
 
 const (
-	testApiKey     = "test-api-key"
+	testAPIKey     = "test-api-key"
 	testSgName     = "test-sg"
 	sg123          = "sg-123"
 	sgBasePath     = "/security-groups"

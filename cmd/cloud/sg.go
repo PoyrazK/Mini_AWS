@@ -195,7 +195,7 @@ var sgGetCmd = &cobra.Command{
 				ports = fmt.Sprintf("%d", r.PortMin)
 			}
 			table.Append([]string{
-				r.ID[:8],
+				truncateID(r.ID, 8),
 				r.Direction,
 				r.Protocol,
 				ports,
@@ -236,4 +236,11 @@ func init() {
 
 	sgCmd.AddCommand(sgCreateCmd, sgListCmd, sgGetCmd, sgDeleteCmd, sgAddRuleCmd, sgRemoveRuleCmd, sgAttachCmd, sgDetachCmd)
 	rootCmd.AddCommand(sgCmd)
+}
+
+func truncateID(id string, n int) string {
+	if len(id) <= n {
+		return id
+	}
+	return id[:n]
 }

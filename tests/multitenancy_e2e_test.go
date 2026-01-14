@@ -74,7 +74,7 @@ func TestMultiTenancyE2E(t *testing.T) {
 		req.Header.Set(testutil.TestHeaderAPIKey, tokenB)
 		resp, err := client.Do(req)
 		require.NoError(t, err)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		// Expect 404 (Not Found) or 403 (Forbidden).
 		// Since repo filters by user_id, it likely returns Not Found (like it doesn't exist for them).
@@ -86,7 +86,7 @@ func TestMultiTenancyE2E(t *testing.T) {
 		req.Header.Set(testutil.TestHeaderAPIKey, tokenA)
 		resp, err := client.Do(req)
 		require.NoError(t, err)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 	})
@@ -112,7 +112,7 @@ func registerAndLogin(t *testing.T, client *http.Client, email, name string) str
 	body, _ := json.Marshal(regReq)
 	resp, err := client.Post(testutil.TestBaseURL+"/auth/register", testutil.TestContentTypeAppJSON, bytes.NewBuffer(body))
 	if err == nil {
-		resp.Body.Close()
+		_ = resp.Body.Close()
 	}
 	// Ignore error if already registered, proceed to login
 
@@ -121,7 +121,7 @@ func registerAndLogin(t *testing.T, client *http.Client, email, name string) str
 	body, _ = json.Marshal(loginReq)
 	resp, err = client.Post(testutil.TestBaseURL+"/auth/login", testutil.TestContentTypeAppJSON, bytes.NewBuffer(body))
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("Login failed for %s: status %d", email, resp.StatusCode)
@@ -144,7 +144,7 @@ func createInstance(t *testing.T, client *http.Client, token, name string) Insta
 
 	resp, err := client.Do(req)
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusAccepted {
 		body, _ := io.ReadAll(resp.Body)
@@ -166,7 +166,7 @@ func listInstances(t *testing.T, client *http.Client, token string) []Instance {
 
 	resp, err := client.Do(req)
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -181,5 +181,5 @@ func listInstances(t *testing.T, client *http.Client, token string) []Instance {
 func deleteInstance(t *testing.T, client *http.Client, token, id string) {
 	req, _ := http.NewRequest("DELETE", fmt.Sprintf(instancesPathFmt, testutil.TestBaseURL, id), nil)
 	req.Header.Set(testutil.TestHeaderAPIKey, token)
-	client.Do(req)
+	_, _ = client.Do(req)
 }

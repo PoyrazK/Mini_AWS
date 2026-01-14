@@ -28,7 +28,7 @@ func TestClientListVPCs(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, testApiKey)
+	client := NewClient(server.URL, testAPIKey)
 	vpcs, err := client.ListVPCs()
 
 	assert.NoError(t, err)
@@ -57,7 +57,7 @@ func TestClientCreateVPC(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, testApiKey)
+	client := NewClient(server.URL, testAPIKey)
 	vpc, err := client.CreateVPC(testVpcName, testutil.TestCIDR)
 
 	assert.NoError(t, err)
@@ -74,7 +74,7 @@ func TestClientGetVPC(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, testApiKey)
+	client := NewClient(server.URL, testAPIKey)
 	vpc, err := client.GetVPC("vpc-1")
 
 	assert.NoError(t, err)
@@ -88,7 +88,7 @@ func TestClientDeleteVPC(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, testApiKey)
+	client := NewClient(server.URL, testAPIKey)
 	err := client.DeleteVPC("vpc-1")
 
 	assert.NoError(t, err)

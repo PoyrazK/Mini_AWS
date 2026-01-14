@@ -51,7 +51,7 @@ func TestSubnetRepositoryCreate(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
-	t.Run(testDbError, func(t *testing.T) {
+	t.Run(testDBError, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -62,7 +62,7 @@ func TestSubnetRepositoryCreate(t *testing.T) {
 		}
 
 		mock.ExpectExec("INSERT INTO subnets").
-			WillReturnError(errors.New(testDbError))
+			WillReturnError(errors.New(testDBError))
 
 		err = repo.Create(context.Background(), s)
 		assert.Error(t, err)
@@ -116,7 +116,7 @@ func TestSubnetRepositoryGetByID(t *testing.T) {
 		}
 	})
 
-	t.Run(testDbError, func(t *testing.T) {
+	t.Run(testDBError, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -128,7 +128,7 @@ func TestSubnetRepositoryGetByID(t *testing.T) {
 
 		mock.ExpectQuery(selectSubnet).
 			WithArgs(id, userID).
-			WillReturnError(errors.New(testDbError))
+			WillReturnError(errors.New(testDBError))
 
 		s, err := repo.GetByID(ctx, id)
 		assert.Error(t, err)
@@ -210,7 +210,7 @@ func TestSubnetRepositoryListByVPC(t *testing.T) {
 
 	})
 
-	t.Run(testDbError, func(t *testing.T) {
+	t.Run(testDBError, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -222,7 +222,7 @@ func TestSubnetRepositoryListByVPC(t *testing.T) {
 
 		mock.ExpectQuery(selectSubnet).
 			WithArgs(vpcID, userID).
-			WillReturnError(errors.New(testDbError))
+			WillReturnError(errors.New(testDBError))
 
 		subnets, err := repo.ListByVPC(ctx, vpcID)
 		assert.Error(t, err)
@@ -292,7 +292,7 @@ func TestSubnetRepositoryDelete(t *testing.T) {
 		}
 	})
 
-	t.Run(testDbError, func(t *testing.T) {
+	t.Run(testDBError, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -304,7 +304,7 @@ func TestSubnetRepositoryDelete(t *testing.T) {
 
 		mock.ExpectExec(deleteSubnetQuery).
 			WithArgs(id, userID).
-			WillReturnError(errors.New(testDbError))
+			WillReturnError(errors.New(testDBError))
 
 		err = repo.Delete(ctx, id)
 		assert.Error(t, err)

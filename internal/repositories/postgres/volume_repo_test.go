@@ -48,7 +48,7 @@ func TestVolumeRepositoryCreate(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
-	t.Run(testDbError, func(t *testing.T) {
+	t.Run(testDBError, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -59,7 +59,7 @@ func TestVolumeRepositoryCreate(t *testing.T) {
 		}
 
 		mock.ExpectExec("INSERT INTO volumes").
-			WillReturnError(errors.New(testDbError))
+			WillReturnError(errors.New(testDBError))
 
 		err = repo.Create(context.Background(), vol)
 		assert.Error(t, err)
@@ -183,7 +183,7 @@ func TestVolumeRepositoryList(t *testing.T) {
 		assert.Len(t, vols, 1)
 	})
 
-	t.Run(testDbError, func(t *testing.T) {
+	t.Run(testDBError, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -194,7 +194,7 @@ func TestVolumeRepositoryList(t *testing.T) {
 
 		mock.ExpectQuery(testSelectVolume).
 			WithArgs(userID).
-			WillReturnError(errors.New(testDbError))
+			WillReturnError(errors.New(testDBError))
 
 		vols, err := repo.List(ctx)
 		assert.Error(t, err)
@@ -224,7 +224,7 @@ func TestVolumeRepositoryListByInstanceID(t *testing.T) {
 		assert.Len(t, vols, 1)
 	})
 
-	t.Run(testDbError, func(t *testing.T) {
+	t.Run(testDBError, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -236,7 +236,7 @@ func TestVolumeRepositoryListByInstanceID(t *testing.T) {
 
 		mock.ExpectQuery(testSelectVolume).
 			WithArgs(instanceID, userID).
-			WillReturnError(errors.New(testDbError))
+			WillReturnError(errors.New(testDBError))
 
 		vols, err := repo.ListByInstanceID(ctx, instanceID)
 		assert.Error(t, err)
@@ -266,7 +266,7 @@ func TestVolumeRepositoryUpdate(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
-	t.Run(testDbError, func(t *testing.T) {
+	t.Run(testDBError, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -277,7 +277,7 @@ func TestVolumeRepositoryUpdate(t *testing.T) {
 		}
 
 		mock.ExpectExec("UPDATE volumes").
-			WillReturnError(errors.New(testDbError))
+			WillReturnError(errors.New(testDBError))
 
 		err = repo.Update(context.Background(), vol)
 		assert.Error(t, err)

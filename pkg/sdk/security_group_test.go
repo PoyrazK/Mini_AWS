@@ -37,7 +37,7 @@ func TestClientCreateSecurityGroup(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, testApiKey)
+	client := NewClient(server.URL, testAPIKey)
 	sg, err := client.CreateSecurityGroup(vpcID, testSgName, "test security group")
 
 	assert.NoError(t, err)
@@ -63,7 +63,7 @@ func TestClientListSecurityGroups(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, testApiKey)
+	client := NewClient(server.URL, testAPIKey)
 	sgs, err := client.ListSecurityGroups(vpcID)
 
 	assert.NoError(t, err)
@@ -87,7 +87,7 @@ func TestClientGetSecurityGroup(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, testApiKey)
+	client := NewClient(server.URL, testAPIKey)
 	sg, err := client.GetSecurityGroup(id)
 
 	assert.NoError(t, err)
@@ -106,7 +106,7 @@ func TestClientDeleteSecurityGroup(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, testApiKey)
+	client := NewClient(server.URL, testAPIKey)
 	err := client.DeleteSecurityGroup(id)
 
 	assert.NoError(t, err)
@@ -138,7 +138,7 @@ func TestClientAddSecurityRule(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, testApiKey)
+	client := NewClient(server.URL, testAPIKey)
 	result, err := client.AddSecurityRule(groupID, rule)
 
 	assert.NoError(t, err)
@@ -164,7 +164,7 @@ func TestClientAttachSecurityGroup(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, testApiKey)
+	client := NewClient(server.URL, testAPIKey)
 	err := client.AttachSecurityGroup(instanceID, groupID)
 
 	assert.NoError(t, err)

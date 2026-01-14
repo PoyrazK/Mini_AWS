@@ -128,7 +128,7 @@ func (h *SecurityGroupHandler) Get(c *gin.Context) {
 // @Produce json
 // @Security APIKeyAuth
 // @Param id path string true "Security Group ID"
-// @Success 200 {object} httputil.Response
+// @Success 204
 // @Failure 404 {object} httputil.Response
 // @Failure 500 {object} httputil.Response
 // @Router /security-groups/{id} [delete]
@@ -145,7 +145,7 @@ func (h *SecurityGroupHandler) Delete(c *gin.Context) {
 		return
 	}
 
-	httputil.Success(c, http.StatusOK, gin.H{"message": "security group deleted"})
+	c.Status(http.StatusNoContent)
 }
 
 // AddRule adds a security group rule
@@ -219,7 +219,7 @@ func (h *SecurityGroupHandler) Attach(c *gin.Context) {
 // @Produce json
 // @Security APIKeyAuth
 // @Param rule_id path string true "Rule ID"
-// @Success 200 {object} httputil.Response
+// @Success 204
 // @Failure 404 {object} httputil.Response
 // @Failure 500 {object} httputil.Response
 // @Router /security-groups/rules/{rule_id} [delete]
@@ -236,7 +236,7 @@ func (h *SecurityGroupHandler) RemoveRule(c *gin.Context) {
 		return
 	}
 
-	httputil.Success(c, http.StatusOK, gin.H{"message": "security rule removed"})
+	c.Status(http.StatusNoContent)
 }
 
 // Detach detaches a security group from an instance

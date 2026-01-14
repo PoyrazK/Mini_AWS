@@ -89,7 +89,7 @@ func TestOvsAdapterCreateBridgeInvalidName(t *testing.T) {
 
 	err = adapter.CreateBridge(context.Background(), "invalid name", 1)
 	if err == nil {
-		t.Fatalf(errInvalidBridge)
+		t.Fatal(errInvalidBridge)
 	}
 }
 
@@ -102,7 +102,7 @@ func TestOvsAdapterDeleteBridgeInvalidName(t *testing.T) {
 
 	err = adapter.DeleteBridge(context.Background(), "invalid name")
 	if err == nil {
-		t.Fatalf(errInvalidBridge)
+		t.Fatal(errInvalidBridge)
 	}
 }
 
@@ -115,7 +115,7 @@ func TestOvsAdapterAddPortInvalidName(t *testing.T) {
 
 	err = adapter.AddPort(context.Background(), invalidBridgeName, "port")
 	if err == nil {
-		t.Fatalf(errInvalidBridge)
+		t.Fatal(errInvalidBridge)
 	}
 }
 
@@ -142,7 +142,7 @@ func TestOvsAdapterAddFlowRuleInvalidBridge(t *testing.T) {
 	rule := ports.FlowRule{Priority: 100, Match: "in_port=1", Actions: "output:2"}
 	err = adapter.AddFlowRule(context.Background(), invalidBridgeName, rule)
 	if err == nil {
-		t.Fatalf(errInvalidBridge)
+		t.Fatal(errInvalidBridge)
 	}
 }
 
@@ -155,7 +155,7 @@ func TestOvsAdapterDeleteFlowRuleInvalidBridge(t *testing.T) {
 
 	err = adapter.DeleteFlowRule(context.Background(), invalidBridgeName, "match")
 	if err == nil {
-		t.Fatalf(errInvalidBridge)
+		t.Fatal(errInvalidBridge)
 	}
 }
 

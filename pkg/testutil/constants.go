@@ -1,3 +1,4 @@
+// Package testutil provides shared constants and helpers for testing.
 package testutil
 
 const (

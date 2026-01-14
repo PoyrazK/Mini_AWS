@@ -59,7 +59,7 @@ func TestVpcRepositoryCreate(t *testing.T) {
 		}
 
 		mock.ExpectExec("INSERT INTO vpcs").
-			WillReturnError(errors.New(testDbError))
+			WillReturnError(errors.New(testDBError))
 
 		err = repo.Create(context.Background(), vpc)
 		assert.Error(t, err)
@@ -116,7 +116,7 @@ func TestVpcRepositoryGetByID(t *testing.T) {
 		// So it should be a custom error.
 	})
 
-	t.Run(testDbError, func(t *testing.T) {
+	t.Run(testDBError, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -128,7 +128,7 @@ func TestVpcRepositoryGetByID(t *testing.T) {
 
 		mock.ExpectQuery(selectVpc).
 			WithArgs(id, userID).
-			WillReturnError(errors.New(testDbError))
+			WillReturnError(errors.New(testDBError))
 
 		vpc, err := repo.GetByID(ctx, id)
 		assert.Error(t, err)
@@ -201,7 +201,7 @@ func TestVpcRepositoryList(t *testing.T) {
 		assert.Len(t, vpcs, 1)
 	})
 
-	t.Run(testDbError, func(t *testing.T) {
+	t.Run(testDBError, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -212,7 +212,7 @@ func TestVpcRepositoryList(t *testing.T) {
 
 		mock.ExpectQuery(selectVpc).
 			WithArgs(userID).
-			WillReturnError(errors.New(testDbError))
+			WillReturnError(errors.New(testDBError))
 
 		vpcs, err := repo.List(ctx)
 		assert.Error(t, err)

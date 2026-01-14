@@ -241,6 +241,14 @@ func (s *SecurityGroupService) DetachFromInstance(ctx context.Context, instanceI
 		return err
 	}
 
+	sg, err := s.repo.GetByID(ctx, groupID)
+	if err == nil {
+		// Cleanup OVS flows
+		if err := s.removeGroupFlows(ctx, sg); err != nil {
+			s.logger.Error("failed to remove OVS flows", "group_id", groupID, "error", err)
+		}
+	}
+
 	userID := appcontext.UserIDFromContext(ctx)
 	_ = s.auditSvc.Log(ctx, userID, "security_group.detach", "instance", instanceID.String(), map[string]interface{}{
 		"group_id": groupID.String(),
@@ -260,6 +268,22 @@ func (s *SecurityGroupService) syncGroupFlows(ctx context.Context, sg *domain.Se
 		flow := s.translateToFlow(rule)
 		if err := s.network.AddFlowRule(ctx, vpc.NetworkID, flow); err != nil {
 			return err
+		}
+	}
+
+	return nil
+}
+
+func (s *SecurityGroupService) removeGroupFlows(ctx context.Context, sg *domain.SecurityGroup) error {
+	vpc, err := s.vpcRepo.GetByID(ctx, sg.VPCID)
+	if err != nil {
+		return err
+	}
+
+	for _, rule := range sg.Rules {
+		flow := s.translateToFlow(rule)
+		if err := s.network.DeleteFlowRule(ctx, vpc.NetworkID, flow.Match); err != nil {
+			s.logger.Error("failed to delete flow rule", "rule", rule.ID, "error", err)
 		}
 	}
 

@@ -115,8 +115,14 @@ func (r *SecurityGroupRepository) AddRule(ctx context.Context, rule *domain.Secu
 }
 
 func (r *SecurityGroupRepository) GetRuleByID(ctx context.Context, ruleID uuid.UUID) (*domain.SecurityRule, error) {
-	query := `SELECT id, group_id, direction, protocol, port_min, port_max, cidr, priority, created_at FROM security_rules WHERE id = $1`
-	rule, err := r.scanSecurityRule(r.db.QueryRow(ctx, query, ruleID))
+	userID := appcontext.UserIDFromContext(ctx)
+	query := `
+		SELECT sr.id, sr.group_id, sr.direction, sr.protocol, sr.port_min, sr.port_max, sr.cidr, sr.priority, sr.created_at 
+		FROM security_rules sr
+		JOIN security_groups sg ON sr.group_id = sg.id
+		WHERE sr.id = $1 AND sg.user_id = $2
+	`
+	rule, err := r.scanSecurityRule(r.db.QueryRow(ctx, query, ruleID, userID))
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, errors.New(errors.NotFound, "security rule not found")
@@ -127,9 +133,20 @@ func (r *SecurityGroupRepository) GetRuleByID(ctx context.Context, ruleID uuid.U
 }
 
 func (r *SecurityGroupRepository) DeleteRule(ctx context.Context, ruleID uuid.UUID) error {
-	query := `DELETE FROM security_rules WHERE id = $1`
-	_, err := r.db.Exec(ctx, query, ruleID)
-	return err
+	userID := appcontext.UserIDFromContext(ctx)
+	query := `
+		DELETE FROM security_rules sr
+		USING security_groups sg
+		WHERE sr.group_id = sg.id AND sr.id = $1 AND sg.user_id = $2
+	`
+	res, err := r.db.Exec(ctx, query, ruleID, userID)
+	if err != nil {
+		return err
+	}
+	if res.RowsAffected() == 0 {
+		return errors.New(errors.NotFound, "security rule not found or you do not own it")
+	}
+	return nil
 }
 
 func (r *SecurityGroupRepository) Delete(ctx context.Context, id uuid.UUID) error {

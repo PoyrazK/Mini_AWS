@@ -379,12 +379,28 @@ List all security groups.
 cloud sg list --vpc my-network
 ```
 
+### `sg get [sg-id]`
+
+Get detailed information and rules for a security group.
+
+```bash
+cloud sg get my-sg
+```
+
 ### `sg create`
 
 Create a new security group.
 
 ```bash
 cloud sg create my-sg --vpc my-network --description "Web servers"
+```
+
+### `sg delete [sg-id]`
+
+Delete a security group.
+
+```bash
+cloud sg delete my-sg
 ```
 
 ### `sg add-rule <sg-id>`
@@ -396,6 +412,7 @@ cloud sg add-rule my-sg --protocol tcp --port-min 80 --port-max 80 --cidr 0.0.0.
 ```
 
 **Flags**:
+
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--direction` | `ingress` | Direction (ingress/egress) |

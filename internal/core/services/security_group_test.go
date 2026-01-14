@@ -146,14 +146,20 @@ func TestSecurityGroupServiceAttachToInstance(t *testing.T) {
 }
 
 func TestSecurityGroupServiceDetachFromInstance(t *testing.T) {
-	repo, _, _, auditSvc, svc := setupSecurityGroupServiceTest(t)
+	repo, vpcRepo, _, auditSvc, svc := setupSecurityGroupServiceTest(t)
 	defer repo.AssertExpectations(t)
 
 	ctx := context.Background()
 	instID := uuid.New()
 	sgID := uuid.New()
+	vpcID := uuid.New()
+	sg := &domain.SecurityGroup{ID: sgID, VPCID: vpcID}
+	vpc := &domain.VPC{ID: vpcID, NetworkID: "net1"}
 
 	repo.On("RemoveInstanceFromGroup", mock.Anything, instID, sgID).Return(nil)
+	repo.On("GetByID", mock.Anything, sgID).Return(sg, nil)
+	vpcRepo.On("GetByID", mock.Anything, vpcID).Return(vpc, nil)
+
 	auditSvc.On("Log", mock.Anything, mock.Anything, "security_group.detach", "instance", instID.String(), mock.Anything).Return(nil)
 
 	err := svc.DetachFromInstance(ctx, instID, sgID)

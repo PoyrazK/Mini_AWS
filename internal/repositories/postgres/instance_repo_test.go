@@ -63,7 +63,7 @@ func TestInstanceRepositoryCreate(t *testing.T) {
 		inst := &domain.Instance{ID: uuid.New()}
 
 		mock.ExpectExec("(?s)INSERT INTO instances.*").
-			WillReturnError(errors.New(testDbError))
+			WillReturnError(errors.New(testDBError))
 
 		err = repo.Create(context.Background(), inst)
 		assert.Error(t, err)
@@ -197,7 +197,7 @@ func TestInstanceRepositoryList(t *testing.T) {
 
 		mock.ExpectQuery(selectQuery).
 			WithArgs(userID).
-			WillReturnError(errors.New(testDbError))
+			WillReturnError(errors.New(testDBError))
 
 		list, err := repo.List(ctx)
 		assert.Error(t, err)

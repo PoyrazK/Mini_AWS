@@ -28,7 +28,7 @@ func TestClientListSubnets(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, testApiKey)
+	client := NewClient(server.URL, testAPIKey)
 	subnets, err := client.ListSubnets(vpcID)
 
 	assert.NoError(t, err)
@@ -65,7 +65,7 @@ func TestClientCreateSubnet(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, testApiKey)
+	client := NewClient(server.URL, testAPIKey)
 	subnet, err := client.CreateSubnet(vpcID, testSubnetName, testutil.TestSubnetCIDR, "us-east-1a")
 
 	assert.NoError(t, err)
@@ -85,7 +85,7 @@ func TestClientDeleteSubnet(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, testApiKey)
+	client := NewClient(server.URL, testAPIKey)
 	err := client.DeleteSubnet(id)
 
 	assert.NoError(t, err)
@@ -109,7 +109,7 @@ func TestClientGetSubnet(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, testApiKey)
+	client := NewClient(server.URL, testAPIKey)
 	subnet, err := client.GetSubnet(id)
 
 	assert.NoError(t, err)
