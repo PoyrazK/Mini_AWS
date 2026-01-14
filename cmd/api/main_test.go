@@ -15,7 +15,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/poyrazk/thecloud/internal/api/setup"
+	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/platform"
+	"github.com/poyrazk/thecloud/internal/repositories/noop"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/redis/go-redis/v9"
 )
@@ -74,6 +76,74 @@ func TestInitInfrastructure_ConfigError(t *testing.T) {
 
 	if _, _, _, err := initInfrastructure(logger, false); err == nil {
 		t.Fatalf("expected error when config loading fails")
+	}
+}
+
+func TestInitInfrastructure_RedisErrorClosesDB(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	fakeDB := &stubDB{}
+
+	resetLoadConfig := stubLoadConfig(func(*slog.Logger) (*platform.Config, error) {
+		return &platform.Config{RedisURL: "127.0.0.1:1"}, nil
+	})
+	defer resetLoadConfig()
+
+	resetInitDatabase := stubInitDatabase(func(context.Context, *platform.Config, *slog.Logger) (postgres.DB, error) {
+		return fakeDB, nil
+	})
+	defer resetInitDatabase()
+
+	resetRunMigrations := stubRunMigrations(func(context.Context, postgres.DB, *slog.Logger) error {
+		return nil
+	})
+	defer resetRunMigrations()
+
+	resetInitRedis := stubInitRedis(func(context.Context, *platform.Config, *slog.Logger) (*redis.Client, error) {
+		return nil, errors.New("redis unavailable")
+	})
+	defer resetInitRedis()
+
+	_, _, _, err := initInfrastructure(logger, false)
+	if err == nil {
+		t.Fatalf("expected error when redis init fails")
+	}
+	if !fakeDB.closed {
+		t.Fatalf("expected database to be closed on redis init error")
+	}
+}
+
+func TestInitBackends_LBProxyError(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	cfg := &platform.Config{}
+
+	resetCompute := stubInitComputeBackend(func(*platform.Config, *slog.Logger) (ports.ComputeBackend, error) {
+		return noop.NewNoopComputeBackend(), nil
+	})
+	defer resetCompute()
+
+	resetStorage := stubInitStorageBackend(func(*platform.Config, *slog.Logger) (ports.StorageBackend, error) {
+		return noop.NewNoopStorageBackend(), nil
+	})
+	defer resetStorage()
+
+	resetNetwork := stubInitNetworkBackend(func(*platform.Config, *slog.Logger) ports.NetworkBackend {
+		return noop.NewNoopNetworkAdapter(logger)
+	})
+	defer resetNetwork()
+
+	resetRepos := stubInitRepositories(func(postgres.DB, *redis.Client) *setup.Repositories {
+		return &setup.Repositories{}
+	})
+	defer resetRepos()
+
+	resetLBProxy := stubInitLBProxy(func(*platform.Config, ports.ComputeBackend, ports.InstanceRepository, ports.VpcRepository) (ports.LBProxyAdapter, error) {
+		return nil, errors.New("lb proxy failed")
+	})
+	defer resetLBProxy()
+
+	_, _, _, _, err := initBackends(cfg, logger, &stubDB{}, redis.NewClient(&redis.Options{Addr: "127.0.0.1:1"}))
+	if err == nil {
+		t.Fatalf("expected error when lb proxy init fails")
 	}
 }
 
@@ -153,6 +223,36 @@ func stubInitRedis(fn func(context.Context, *platform.Config, *slog.Logger) (*re
 	prev := initRedisFunc
 	initRedisFunc = fn
 	return func() { initRedisFunc = prev }
+}
+
+func stubInitComputeBackend(fn func(*platform.Config, *slog.Logger) (ports.ComputeBackend, error)) func() {
+	prev := initComputeBackendFunc
+	initComputeBackendFunc = fn
+	return func() { initComputeBackendFunc = prev }
+}
+
+func stubInitStorageBackend(fn func(*platform.Config, *slog.Logger) (ports.StorageBackend, error)) func() {
+	prev := initStorageBackendFunc
+	initStorageBackendFunc = fn
+	return func() { initStorageBackendFunc = prev }
+}
+
+func stubInitNetworkBackend(fn func(*platform.Config, *slog.Logger) ports.NetworkBackend) func() {
+	prev := initNetworkBackendFunc
+	initNetworkBackendFunc = fn
+	return func() { initNetworkBackendFunc = prev }
+}
+
+func stubInitLBProxy(fn func(*platform.Config, ports.ComputeBackend, ports.InstanceRepository, ports.VpcRepository) (ports.LBProxyAdapter, error)) func() {
+	prev := initLBProxyFunc
+	initLBProxyFunc = fn
+	return func() { initLBProxyFunc = prev }
+}
+
+func stubInitRepositories(fn func(postgres.DB, *redis.Client) *setup.Repositories) func() {
+	prev := initRepositoriesFunc
+	initRepositoriesFunc = fn
+	return func() { initRepositoriesFunc = prev }
 }
 
 func stubNewHTTPServer(fn func(string, http.Handler) *http.Server) func() {
