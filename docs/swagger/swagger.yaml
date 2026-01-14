@@ -1110,8 +1110,12 @@ paths:
         required: true
         type: string
       responses:
-        "204":
-          description: No Content
+        "200":
+          description: 'message: image deleted'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
       summary: Delete image
       tags:
       - Images
