@@ -6,12 +6,13 @@ import (
 	"github.com/google/uuid"
 )
 
+// User represents an authenticated entity in the system.
 type User struct {
 	ID           uuid.UUID `json:"id"`
 	Email        string    `json:"email"`
-	PasswordHash string    `json:"-"`
+	PasswordHash string    `json:"-"` // Never serialize password
 	Name         string    `json:"name"`
-	Role         string    `json:"role"`
+	Role         string    `json:"role"` // "admin" or "user"
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }
