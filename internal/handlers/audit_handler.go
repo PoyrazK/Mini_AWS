@@ -9,10 +9,12 @@ import (
 	"github.com/poyrazk/thecloud/pkg/httputil"
 )
 
+// AuditHandler handles audit log HTTP endpoints.
 type AuditHandler struct {
 	svc ports.AuditService
 }
 
+// NewAuditHandler constructs an AuditHandler.
 func NewAuditHandler(svc ports.AuditService) *AuditHandler {
 	return &AuditHandler{svc: svc}
 }

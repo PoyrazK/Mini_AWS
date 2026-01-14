@@ -9,10 +9,12 @@ import (
 	"github.com/poyrazk/thecloud/pkg/httputil"
 )
 
+// AccountingHandler handles billing and usage HTTP endpoints.
 type AccountingHandler struct {
 	svc ports.AccountingService
 }
 
+// NewAccountingHandler constructs an AccountingHandler.
 func NewAccountingHandler(svc ports.AccountingService) *AccountingHandler {
 	return &AccountingHandler{svc: svc}
 }

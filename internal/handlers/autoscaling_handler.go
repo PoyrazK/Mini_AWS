@@ -14,14 +14,17 @@ const (
 	errInvalidGroupID = "invalid group id"
 )
 
+// AutoScalingHandler handles auto-scaling HTTP endpoints.
 type AutoScalingHandler struct {
 	svc ports.AutoScalingService
 }
 
+// NewAutoScalingHandler constructs an AutoScalingHandler.
 func NewAutoScalingHandler(svc ports.AutoScalingService) *AutoScalingHandler {
 	return &AutoScalingHandler{svc: svc}
 }
 
+// CreateGroupRequest is the payload for creating an auto-scaling group.
 type CreateGroupRequest struct {
 	Name           string     `json:"name" binding:"required"`
 	VpcID          uuid.UUID  `json:"vpc_id" binding:"required"`
@@ -143,6 +146,7 @@ func (h *AutoScalingHandler) DeleteGroup(c *gin.Context) {
 	httputil.Success(c, http.StatusNoContent, nil)
 }
 
+// CreateASPolicyRequest is the payload for creating a scaling policy.
 type CreateASPolicyRequest struct {
 	Name        string  `json:"name" binding:"required"`
 	MetricType  string  `json:"metric_type" binding:"required"`
