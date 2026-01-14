@@ -9,32 +9,37 @@ import (
 type WSEventType string
 
 const (
-	// Instance lifecycle events
-	WSEventInstanceCreated    WSEventType = "INSTANCE_CREATED"
-	WSEventInstanceStarted    WSEventType = "INSTANCE_STARTED"
-	WSEventInstanceStopped    WSEventType = "INSTANCE_STOPPED"
+	// WSEventInstanceCreated is triggered when a new compute instance is successfully provisioned.
+	WSEventInstanceCreated WSEventType = "INSTANCE_CREATED"
+	// WSEventInstanceStarted is triggered when an instance enters the running state.
+	WSEventInstanceStarted WSEventType = "INSTANCE_STARTED"
+	// WSEventInstanceStopped is triggered when an instance enters the stopped state.
+	WSEventInstanceStopped WSEventType = "INSTANCE_STOPPED"
+	// WSEventInstanceTerminated is triggered when an instance is permanently removed.
 	WSEventInstanceTerminated WSEventType = "INSTANCE_TERMINATED"
 
-	// Resource events
-	WSEventVolumeCreated  WSEventType = "VOLUME_CREATED"
+	// WSEventVolumeCreated is triggered after a storage volume is provisioned.
+	WSEventVolumeCreated WSEventType = "VOLUME_CREATED"
+	// WSEventVolumeAttached is triggered when a volume is successfully mounted to an instance.
 	WSEventVolumeAttached WSEventType = "VOLUME_ATTACHED"
-	WSEventVPCCreated     WSEventType = "VPC_CREATED"
+	// WSEventVPCCreated is triggered after a Virtual Private Cloud is established.
+	WSEventVPCCreated WSEventType = "VPC_CREATED"
 
-	// Metrics events
+	// WSEventMetricUpdate is triggered when new performance metrics (CPU, RAM) are available.
 	WSEventMetricUpdate WSEventType = "METRIC_UPDATE"
 
-	// Audit events
+	// WSEventAuditLog is triggered whenever a new audit record is generated.
 	WSEventAuditLog WSEventType = "AUDIT_LOG"
 )
 
-// WSEvent represents a single WebSocket message sent to connected clients.
+// WSEvent represents a single WebSocket message broadcasted to authenticated clients for UI updates.
 type WSEvent struct {
-	Type      WSEventType     `json:"type"`
-	Payload   json.RawMessage `json:"payload"`
-	Timestamp time.Time       `json:"timestamp"`
+	Type      WSEventType     `json:"type"`      // The classification of the event
+	Payload   json.RawMessage `json:"payload"`   // Context-specific JSON data (e.g., an Instance or AuditLog object)
+	Timestamp time.Time       `json:"timestamp"` // Actual time when the event was generated
 }
 
-// NewWSEvent creates a new WebSocket event with the current timestamp.
+// NewWSEvent wraps a payload into a WSEvent structure with the current system timestamp.
 func NewWSEvent(eventType WSEventType, payload interface{}) (*WSEvent, error) {
 	data, err := json.Marshal(payload)
 	if err != nil {
