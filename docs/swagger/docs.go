@@ -2836,7 +2836,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "key": {
-                    "description": "Transparently: the actual secret",
+                    "description": "The actual secret key",
                     "type": "string"
                 },
                 "last_used": {
@@ -2854,12 +2854,14 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "action": {
+                    "description": "The action performed (e.g., \"instance:launch\")",
                     "type": "string"
                 },
                 "created_at": {
                     "type": "string"
                 },
                 "details": {
+                    "description": "Additional context about the action",
                     "type": "object",
                     "additionalProperties": true
                 },
@@ -2867,18 +2869,23 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "ip_address": {
+                    "description": "Originating IP of the request",
                     "type": "string"
                 },
                 "resource_id": {
+                    "description": "ID of the affected resource",
                     "type": "string"
                 },
                 "resource_type": {
+                    "description": "Type of affected resource (e.g., \"INSTANCE\")",
                     "type": "string"
                 },
                 "user_agent": {
+                    "description": "Browser or CLI identifier",
                     "type": "string"
                 },
                 "user_id": {
+                    "description": "The user who performed the action",
                     "type": "string"
                 }
             }
@@ -2887,6 +2894,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "currency": {
+                    "description": "ISO 4217 code (e.g. \"USD\")",
                     "type": "string"
                 },
                 "period_end": {
@@ -2914,18 +2922,21 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "cpu_history": {
+                    "description": "Normalized CPU utilization over time",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/domain.MetricPoint"
                     }
                 },
                 "memory_history": {
+                    "description": "Normalized memory utilization over time",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/domain.MetricPoint"
                     }
                 },
                 "recent_events": {
+                    "description": "Latest audit/system events",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/domain.Event"
@@ -2940,7 +2951,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "action": {
-                    "description": "e.g. INSTANCE_LAUNCH",
+                    "description": "High-level action identifier (e.g., \"INSTANCE_LAUNCH\")",
                     "type": "string"
                 },
                 "created_at": {
@@ -2950,14 +2961,14 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "metadata": {
-                    "description": "JSON details"
+                    "description": "Arbitrary event-specific JSON data"
                 },
                 "resource_id": {
-                    "description": "e.g. UUID of instance",
+                    "description": "Uniquely identifies the affected resource",
                     "type": "string"
                 },
                 "resource_type": {
-                    "description": "e.g. INSTANCE, VPC",
+                    "description": "Classification of the resource (e.g., \"INSTANCE\", \"VPC\")",
                     "type": "string"
                 },
                 "user_id": {
@@ -2975,24 +2986,29 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "file_path": {
+                    "description": "Path in object storage/filesystem",
                     "type": "string"
                 },
                 "format": {
+                    "description": "e.g. \"qcow2\", \"iso\"",
                     "type": "string"
                 },
                 "id": {
                     "type": "string"
                 },
                 "is_public": {
+                    "description": "If true, available to all users",
                     "type": "boolean"
                 },
                 "name": {
                     "type": "string"
                 },
                 "os": {
+                    "description": "e.g. \"ubuntu\", \"centos\"",
                     "type": "string"
                 },
                 "size_gb": {
+                    "description": "Minimum disk size required",
                     "type": "integer"
                 },
                 "status": {
@@ -3002,9 +3018,11 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "user_id": {
+                    "description": "Owner (nil for system images if handled)",
                     "type": "string"
                 },
                 "version": {
+                    "description": "e.g. \"22.04\"",
                     "type": "string"
                 }
             }
@@ -3149,6 +3167,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "weight": {
+                    "description": "Traffic share for weighted algorithms",
                     "type": "integer"
                 }
             }
@@ -3173,6 +3192,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "port": {
+                    "description": "Listener port (e.g. 80)",
                     "type": "integer"
                 },
                 "status": {
@@ -3182,6 +3202,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "version": {
+                    "description": "Optimistic locking",
                     "type": "integer"
                 },
                 "vpc_id": {
@@ -3193,12 +3214,14 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "label": {
+                    "description": "Optional category or identifier (e.g., \"avg\", \"max\")",
                     "type": "string"
                 },
                 "timestamp": {
                     "type": "string"
                 },
                 "value": {
+                    "description": "The measured value (e.g., percentage or byte count)",
                     "type": "number"
                 }
             }
@@ -3372,24 +3395,31 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "attached_volumes": {
+                    "description": "Volumes currently mounted to instances",
                     "type": "integer"
                 },
                 "running_instances": {
+                    "description": "Instances currently in a RUNNING state",
                     "type": "integer"
                 },
                 "stopped_instances": {
+                    "description": "Instances currently in a STOPPED state",
                     "type": "integer"
                 },
                 "total_instances": {
+                    "description": "All compute instances regardless of state",
                     "type": "integer"
                 },
                 "total_storage_mb": {
+                    "description": "Aggregate storage allocated across all volumes",
                     "type": "integer"
                 },
                 "total_volumes": {
+                    "description": "Total number of block storage volumes",
                     "type": "integer"
                 },
                 "total_vpcs": {
+                    "description": "Total number of virtual private clouds",
                     "type": "integer"
                 }
             }
@@ -3434,39 +3464,48 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "current_count": {
+                    "description": "Actual number of instances",
                     "type": "integer"
                 },
                 "desired_count": {
+                    "description": "Target number of instances",
                     "type": "integer"
                 },
                 "failure_count": {
+                    "description": "Consecutive failure tracker",
                     "type": "integer"
                 },
                 "id": {
                     "type": "string"
                 },
                 "idempotency_key": {
+                    "description": "For safe retries",
                     "type": "string"
                 },
                 "image": {
+                    "description": "Instance image (e.g. \"nginx\")",
                     "type": "string"
                 },
                 "last_failure_at": {
                     "type": "string"
                 },
                 "load_balancer_id": {
+                    "description": "Optional LB integration",
                     "type": "string"
                 },
                 "max_instances": {
+                    "description": "Ceiling for scaling",
                     "type": "integer"
                 },
                 "min_instances": {
+                    "description": "Floor for scaling",
                     "type": "integer"
                 },
                 "name": {
                     "type": "string"
                 },
                 "ports": {
+                    "description": "Ports exposed by instances",
                     "type": "string"
                 },
                 "status": {
@@ -3479,6 +3518,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "version": {
+                    "description": "Optimistic locking",
                     "type": "integer"
                 },
                 "vpc_id": {
@@ -3505,6 +3545,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "cooldown_sec": {
+                    "description": "Wait time after scaling",
                     "type": "integer"
                 },
                 "id": {
@@ -3521,15 +3562,18 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "scale_in_step": {
+                    "description": "Instances to remove",
                     "type": "integer"
                 },
                 "scale_out_step": {
+                    "description": "Instances to add",
                     "type": "integer"
                 },
                 "scaling_group_id": {
                     "type": "string"
                 },
                 "target_value": {
+                    "description": "Threshold (e.g. 80.0 for 80%)",
                     "type": "number"
                 }
             }
@@ -3547,6 +3591,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "size_gb": {
+                    "description": "Size at snapshot time",
                     "type": "integer"
                 },
                 "status": {
@@ -3556,9 +3601,11 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "volume_id": {
+                    "description": "Source volume ID",
                     "type": "string"
                 },
                 "volume_name": {
+                    "description": "Source volume name (snapshot time)",
                     "type": "string"
                 }
             }
@@ -3627,15 +3674,15 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "logical_id": {
-                    "description": "ID in template",
+                    "description": "ID in template (e.g. \"MyDatabase\")",
                     "type": "string"
                 },
                 "physical_id": {
-                    "description": "ID in The Cloud (UUID)",
+                    "description": "Real ID in system (e.g. UUID)",
                     "type": "string"
                 },
                 "resource_type": {
-                    "description": "e.g. \"Instance\", \"VPC\"",
+                    "description": "e.g. \"AWS::EC2::Instance\" or internal type",
                     "type": "string"
                 },
                 "stack_id": {
@@ -3681,6 +3728,7 @@ const docTemplate = `{
                     }
                 },
                 "parameters": {
+                    "description": "Derived parameters needed",
                     "type": "array",
                     "items": {
                         "type": "string"
@@ -3701,7 +3749,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "quantity": {
-                    "description": "e.g., minutes, GB-hours",
+                    "description": "Amount consumed (e.g. 60)",
                     "type": "number"
                 },
                 "resource_id": {
@@ -3714,7 +3762,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "unit": {
-                    "description": "e.g., \"minute\", \"gb-hour\"",
+                    "description": "Unit of measure (e.g. \"minutes\")",
                     "type": "string"
                 },
                 "user_id": {
@@ -3738,6 +3786,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "role": {
+                    "description": "\"admin\" or \"user\"",
                     "type": "string"
                 },
                 "updated_at": {
@@ -3749,9 +3798,11 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "arn": {
+                    "description": "Amazon Resource Name compatible ID",
                     "type": "string"
                 },
                 "cidr_block": {
+                    "description": "IPv4 range (e.g. \"10.0.0.0/16\")",
                     "type": "string"
                 },
                 "created_at": {
@@ -3764,16 +3815,18 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "network_id": {
-                    "description": "OVS bridge name",
+                    "description": "OVS bridge name or backend ID",
                     "type": "string"
                 },
                 "status": {
+                    "description": "e.g. \"ACTIVE\"",
                     "type": "string"
                 },
                 "user_id": {
                     "type": "string"
                 },
                 "vxlan_id": {
+                    "description": "Tunnel ID for isolation",
                     "type": "integer"
                 }
             }
@@ -3782,6 +3835,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "backend_path": {
+                    "description": "Physical path on host/storage",
                     "type": "string"
                 },
                 "created_at": {
@@ -3791,9 +3845,11 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "instance_id": {
+                    "description": "Attached instance",
                     "type": "string"
                 },
                 "mount_path": {
+                    "description": "Internal mount point",
                     "type": "string"
                 },
                 "name": {
