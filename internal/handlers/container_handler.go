@@ -10,10 +10,12 @@ import (
 	"github.com/poyrazk/thecloud/pkg/httputil"
 )
 
+// ContainerHandler handles deployment and container HTTP endpoints.
 type ContainerHandler struct {
 	svc ports.ContainerService
 }
 
+// NewContainerHandler constructs a ContainerHandler.
 func NewContainerHandler(svc ports.ContainerService) *ContainerHandler {
 	return &ContainerHandler{svc: svc}
 }
