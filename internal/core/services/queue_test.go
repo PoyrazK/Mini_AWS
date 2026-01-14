@@ -196,3 +196,43 @@ func TestQueueService_ListQueues(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, queues, 1)
 }
+
+func TestQueueService_DeleteMessage(t *testing.T) {
+	repo := new(mockQueueRepository)
+	eventSvc := new(mockEventService)
+	auditSvc := new(mockAuditService)
+	svc := NewQueueService(repo, eventSvc, auditSvc)
+
+	userID := uuid.New()
+	ctx := appcontext.WithUserID(context.Background(), userID)
+	qID := uuid.New()
+	receipt := "receipt-1"
+
+	queue := &domain.Queue{ID: qID, UserID: userID}
+	repo.On("GetByID", mock.Anything, qID, userID).Return(queue, nil).Once()
+	repo.On("DeleteMessage", mock.Anything, qID, receipt).Return(nil).Once()
+	eventSvc.On("RecordEvent", mock.Anything, "MESSAGE_DELETED", receipt, "MESSAGE", mock.Anything).Return(nil).Once()
+
+	err := svc.DeleteMessage(ctx, qID, receipt)
+	assert.NoError(t, err)
+}
+
+func TestQueueService_PurgeQueue(t *testing.T) {
+	repo := new(mockQueueRepository)
+	eventSvc := new(mockEventService)
+	auditSvc := new(mockAuditService)
+	svc := NewQueueService(repo, eventSvc, auditSvc)
+
+	userID := uuid.New()
+	ctx := appcontext.WithUserID(context.Background(), userID)
+	qID := uuid.New()
+
+	queue := &domain.Queue{ID: qID, UserID: userID}
+	repo.On("GetByID", mock.Anything, qID, userID).Return(queue, nil).Once()
+	repo.On("PurgeMessages", mock.Anything, qID).Return(int64(2), nil).Once()
+	eventSvc.On("RecordEvent", mock.Anything, "QUEUE_PURGED", qID.String(), "QUEUE", mock.Anything).Return(nil).Once()
+	auditSvc.On("Log", mock.Anything, userID, "queue.purge", "queue", qID.String(), mock.Anything).Return(nil).Once()
+
+	err := svc.PurgeQueue(ctx, qID)
+	assert.NoError(t, err)
+}

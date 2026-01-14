@@ -228,6 +228,40 @@ func TestStopInstanceSuccess(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestGetConsoleURLUsesContainerID(t *testing.T) {
+	repo, _, _, _, compute, _, _, _, _, svc := setupInstanceServiceTest(t)
+	defer repo.AssertExpectations(t)
+	defer compute.AssertExpectations(t)
+
+	instID := uuid.New()
+	inst := &domain.Instance{ID: instID, ContainerID: "c123"}
+
+	repo.On("GetByID", mock.Anything, instID).Return(inst, nil)
+	compute.On("GetInstanceIP", mock.Anything, "c123").Return("vnc://localhost:5900", nil)
+
+	url, err := svc.GetConsoleURL(context.Background(), instID.String())
+
+	assert.NoError(t, err)
+	assert.Equal(t, "vnc://localhost:5900", url)
+}
+
+func TestGetConsoleURLUsesInstanceIDFallback(t *testing.T) {
+	repo, _, _, _, compute, _, _, _, _, svc := setupInstanceServiceTest(t)
+	defer repo.AssertExpectations(t)
+	defer compute.AssertExpectations(t)
+
+	instID := uuid.New()
+	inst := &domain.Instance{ID: instID}
+
+	repo.On("GetByID", mock.Anything, instID).Return(inst, nil)
+	compute.On("GetInstanceIP", mock.Anything, instID.String()).Return("vnc://localhost:5901", nil)
+
+	url, err := svc.GetConsoleURL(context.Background(), instID.String())
+
+	assert.NoError(t, err)
+	assert.Equal(t, "vnc://localhost:5901", url)
+}
+
 func TestLaunchInstanceWithSubnetAndNetworking(t *testing.T) {
 	repo, vpcRepo, subnetRepo, _, _, _, _, _, _, svc := setupInstanceServiceTest(t)
 	defer repo.AssertExpectations(t)
