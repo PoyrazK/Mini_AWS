@@ -1,3 +1,4 @@
+// Package setup wires API dependencies and routes.
 package setup
 
 import (
