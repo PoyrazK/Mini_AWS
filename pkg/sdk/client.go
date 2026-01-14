@@ -40,6 +40,7 @@ type ErrorResponse struct {
 	Message string `json:"message"`
 }
 
+// get performs a GET request against the API.
 func (c *Client) get(path string, result interface{}) error {
 	resp, err := c.resty.R().
 		SetResult(result).

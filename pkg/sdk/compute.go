@@ -22,6 +22,7 @@ type Instance struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
+// ListInstances returns all instances visible to the API key.
 func (c *Client) ListInstances() ([]Instance, error) {
 	var res Response[[]Instance]
 	if err := c.get("/instances", &res); err != nil {
