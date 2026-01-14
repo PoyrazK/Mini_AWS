@@ -1,6 +1,6 @@
 # The Cloud
 
-To build the world's best open-source cloud platform that anyone can run, modify, and own.
+An open-source cloud platform that anyone can run, modify, and own.
 
 ## Features
 - **Compute**: Multi-backend instance management (Docker or Libvirt/KVM)

@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/containerd/errdefs"
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
 	"github.com/google/uuid"
@@ -31,8 +30,8 @@ func TestDockerAdapterDeleteInstanceNotFoundIsNil(t *testing.T) {
 }
 
 func TestDockerAdapterGetInstancePortNoBinding(t *testing.T) {
-	inspect := types.ContainerJSON{}
-	inspect.NetworkSettings = &types.NetworkSettings{}
+	inspect := container.InspectResponse{}
+	inspect.NetworkSettings = &container.NetworkSettings{}
 
 	a := &DockerAdapter{cli: &fakeDockerClient{inspect: inspect}}
 	_, err := a.GetInstancePort(context.Background(), "cid", "8080")
@@ -43,8 +42,8 @@ func TestDockerAdapterGetInstancePortNoBinding(t *testing.T) {
 // types for NetworkSettings/Ports are tricky to construct across versions.
 
 func TestDockerAdapterGetInstanceIPNoNetworks(t *testing.T) {
-	inspect := types.ContainerJSON{}
-	inspect.NetworkSettings = &types.NetworkSettings{Networks: map[string]*network.EndpointSettings{}}
+	inspect := container.InspectResponse{}
+	inspect.NetworkSettings = &container.NetworkSettings{Networks: map[string]*network.EndpointSettings{}}
 
 	a := &DockerAdapter{cli: &fakeDockerClient{inspect: inspect}}
 	_, err := a.GetInstanceIP(context.Background(), "cid")
@@ -52,8 +51,8 @@ func TestDockerAdapterGetInstanceIPNoNetworks(t *testing.T) {
 }
 
 func TestDockerAdapterGetInstanceIPFirstIP(t *testing.T) {
-	inspect := types.ContainerJSON{}
-	inspect.NetworkSettings = &types.NetworkSettings{
+	inspect := container.InspectResponse{}
+	inspect.NetworkSettings = &container.NetworkSettings{
 		Networks: map[string]*network.EndpointSettings{
 			"n1": {IPAddress: "10.0.0.2"},
 		},

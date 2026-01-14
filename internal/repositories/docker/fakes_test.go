@@ -22,7 +22,7 @@ type fakeDockerClient struct {
 	pullErr    error
 	inspectErr error
 
-	inspect types.ContainerJSON
+	inspect container.InspectResponse
 
 	removeErr error
 	stopErr   error
@@ -87,9 +87,9 @@ func (f *fakeDockerClient) ContainerStats(ctx context.Context, containerID strin
 	return container.StatsResponseReader{Body: f.statsRC}, nil
 }
 
-func (f *fakeDockerClient) ContainerInspect(ctx context.Context, containerID string) (types.ContainerJSON, error) {
+func (f *fakeDockerClient) ContainerInspect(ctx context.Context, containerID string) (container.InspectResponse, error) {
 	if f.inspectErr != nil {
-		return types.ContainerJSON{}, f.inspectErr
+		return container.InspectResponse{}, f.inspectErr
 	}
 	return f.inspect, nil
 }
