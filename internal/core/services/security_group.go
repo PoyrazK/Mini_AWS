@@ -16,6 +16,8 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 )
 
+const securityGroupTracer = "security-group-service"
+
 type SecurityGroupService struct {
 	repo     ports.SecurityGroupRepository
 	vpcRepo  ports.VpcRepository
@@ -41,7 +43,7 @@ func NewSecurityGroupService(
 }
 
 func (s *SecurityGroupService) CreateGroup(ctx context.Context, vpcID uuid.UUID, name, description string) (*domain.SecurityGroup, error) {
-	ctx, span := otel.Tracer("security-group-service").Start(ctx, "CreateGroup")
+	ctx, span := otel.Tracer(securityGroupTracer).Start(ctx, "CreateGroup")
 	defer span.End()
 
 	span.SetAttributes(
@@ -103,7 +105,7 @@ func (s *SecurityGroupService) DeleteGroup(ctx context.Context, id uuid.UUID) er
 }
 
 func (s *SecurityGroupService) AddRule(ctx context.Context, groupID uuid.UUID, rule domain.SecurityRule) (*domain.SecurityRule, error) {
-	ctx, span := otel.Tracer("security-group-service").Start(ctx, "AddRule")
+	ctx, span := otel.Tracer(securityGroupTracer).Start(ctx, "AddRule")
 	defer span.End()
 
 	span.SetAttributes(
@@ -140,7 +142,7 @@ func (s *SecurityGroupService) AddRule(ctx context.Context, groupID uuid.UUID, r
 }
 
 func (s *SecurityGroupService) RemoveRule(ctx context.Context, ruleID uuid.UUID) error {
-	ctx, span := otel.Tracer("security-group-service").Start(ctx, "RemoveRule")
+	ctx, span := otel.Tracer(securityGroupTracer).Start(ctx, "RemoveRule")
 	defer span.End()
 
 	span.SetAttributes(attribute.String("rule_id", ruleID.String()))
@@ -185,7 +187,7 @@ func (s *SecurityGroupService) RemoveRule(ctx context.Context, ruleID uuid.UUID)
 }
 
 func (s *SecurityGroupService) AttachToInstance(ctx context.Context, instanceID, groupID uuid.UUID) error {
-	ctx, span := otel.Tracer("security-group-service").Start(ctx, "AttachToInstance")
+	ctx, span := otel.Tracer(securityGroupTracer).Start(ctx, "AttachToInstance")
 	defer span.End()
 
 	span.SetAttributes(
@@ -207,7 +209,7 @@ func (s *SecurityGroupService) AttachToInstance(ctx context.Context, instanceID,
 }
 
 func (s *SecurityGroupService) DetachFromInstance(ctx context.Context, instanceID, groupID uuid.UUID) error {
-	ctx, span := otel.Tracer("security-group-service").Start(ctx, "DetachFromInstance")
+	ctx, span := otel.Tracer(securityGroupTracer).Start(ctx, "DetachFromInstance")
 	defer span.End()
 
 	span.SetAttributes(

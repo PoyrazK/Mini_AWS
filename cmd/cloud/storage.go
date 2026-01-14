@@ -71,7 +71,7 @@ var storageUploadCmd = &cobra.Command{
 
 		client := getClient()
 		if err := client.UploadObject(bucket, key, f); err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(errFmt, err)
 			return
 		}
 
@@ -123,7 +123,7 @@ var storageDeleteCmd = &cobra.Command{
 
 		client := getClient()
 		if err := client.DeleteObject(bucket, key); err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(errFmt, err)
 			return
 		}
 
