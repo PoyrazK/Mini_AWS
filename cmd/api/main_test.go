@@ -20,9 +20,10 @@ import (
 	"github.com/poyrazk/thecloud/internal/repositories/noop"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/redis/go-redis/v9"
+	"github.com/stretchr/testify/assert"
 )
 
-func TestInitInfrastructure_MigrateOnlyStopsAfterMigrations(t *testing.T) {
+func TestInitInfrastructureMigrateOnlyStopsAfterMigrations(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	fakeDB := &stubDB{}
@@ -66,7 +67,7 @@ func TestInitInfrastructure_MigrateOnlyStopsAfterMigrations(t *testing.T) {
 	}
 }
 
-func TestInitInfrastructure_ConfigError(t *testing.T) {
+func TestInitInfrastructureConfigError(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	resetLoadConfig := stubLoadConfig(func(*slog.Logger) (*platform.Config, error) {
@@ -79,7 +80,7 @@ func TestInitInfrastructure_ConfigError(t *testing.T) {
 	}
 }
 
-func TestInitInfrastructure_RedisErrorClosesDB(t *testing.T) {
+func TestInitInfrastructureRedisErrorClosesDB(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	fakeDB := &stubDB{}
 
@@ -112,7 +113,7 @@ func TestInitInfrastructure_RedisErrorClosesDB(t *testing.T) {
 	}
 }
 
-func TestInitBackends_LBProxyError(t *testing.T) {
+func TestInitBackendsLBProxyError(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	cfg := &platform.Config{}
 
@@ -147,7 +148,7 @@ func TestInitBackends_LBProxyError(t *testing.T) {
 	}
 }
 
-func TestRunApplication_ApiRoleStartsAndShutsDown(t *testing.T) {
+func TestRunApplicationApiRoleStartsAndShutsDown(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	t.Setenv("ROLE", "api")
 
@@ -277,4 +278,35 @@ func stubNotifySignals(fn func(chan<- os.Signal, ...os.Signal)) func() {
 	prev := notifySignals
 	notifySignals = fn
 	return func() { notifySignals = prev }
+}
+
+func TestInitTracing(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	t.Run("Disabled", func(t *testing.T) {
+		t.Setenv("TRACING_ENABLED", "false")
+		tp := initTracing(logger)
+		assert.Nil(t, tp)
+	})
+
+	t.Run("Console", func(t *testing.T) {
+		t.Setenv("TRACING_ENABLED", "true")
+		t.Setenv("TRACING_EXPORTER", "console")
+		tp := initTracing(logger)
+		assert.NotNil(t, tp)
+		tp.Shutdown(context.Background())
+	})
+
+	t.Run("Jaeger", func(t *testing.T) {
+		t.Setenv("TRACING_ENABLED", "true")
+		t.Setenv("TRACING_EXPORTER", "jaeger")
+		t.Setenv("JAEGER_ENDPOINT", "http://localhost:4318")
+		// This might fail if it tries to connect, but let's see.
+		// Actually initTracing just returns the provider, it doesn't necessarily block.
+		tp := initTracing(logger)
+		assert.NotNil(t, tp)
+		if tp != nil {
+			tp.Shutdown(context.Background())
+		}
+	})
 }
