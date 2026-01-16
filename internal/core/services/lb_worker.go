@@ -20,6 +20,18 @@ type LBWorker struct {
 	lbRepo       ports.LBRepository
 	instanceRepo ports.InstanceRepository
 	proxyAdapter ports.LBProxyAdapter
+	dialer       PortDialer
+}
+
+// PortDialer defines an interface for dialing network connections.
+type PortDialer interface {
+	DialTimeout(network, address string, timeout time.Duration) (net.Conn, error)
+}
+
+type realDialer struct{}
+
+func (d *realDialer) DialTimeout(network, address string, timeout time.Duration) (net.Conn, error) {
+	return net.DialTimeout(network, address, timeout)
 }
 
 // NewLBWorker constructs an LBWorker with its dependencies.
@@ -28,6 +40,7 @@ func NewLBWorker(lbRepo ports.LBRepository, instanceRepo ports.InstanceRepositor
 		lbRepo:       lbRepo,
 		instanceRepo: instanceRepo,
 		proxyAdapter: proxyAdapter,
+		dialer:       &realDialer{},
 	}
 }
 
@@ -181,7 +194,7 @@ func (w *LBWorker) checkTargetHealth(ctx context.Context, lb *domain.LoadBalance
 	hostPort := getHostPort(inst.Ports, t.Port)
 	status := "unhealthy"
 	if hostPort != "" {
-		if isPortOpen(hostPort) {
+		if w.isPortOpen(hostPort) {
 			status = "healthy"
 		}
 	}
@@ -206,8 +219,8 @@ func getHostPort(portsStr string, targetPort int) string {
 	return ""
 }
 
-func isPortOpen(port string) bool {
-	conn, err := net.DialTimeout("tcp", "localhost:"+port, 2*time.Second)
+func (w *LBWorker) isPortOpen(port string) bool {
+	conn, err := w.dialer.DialTimeout("tcp", "localhost:"+port, 2*time.Second)
 	if err == nil {
 		_ = conn.Close()
 		return true
