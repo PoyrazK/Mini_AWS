@@ -17,6 +17,13 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+const (
+	stackType      = "*domain.Stack"
+	stackTestVpc   = "test-vpc"
+	stackTestInst  = "test-inst"
+	stackTestStack = "test-stack"
+)
+
 func setupStackServiceTest(_ *testing.T) (*MockStackRepo, *MockInstanceService, *MockVpcService, *MockVolumeService, *MockSnapshotService, ports.StackService) {
 	repo := new(MockStackRepo)
 	instanceSvc := new(MockInstanceService)
@@ -28,7 +35,7 @@ func setupStackServiceTest(_ *testing.T) (*MockStackRepo, *MockInstanceService, 
 	return repo, instanceSvc, vpcSvc, volumeSvc, snapshotSvc, svc
 }
 
-func TestCreateStack_Success(t *testing.T) {
+func TestCreateStackSuccess(t *testing.T) {
 	repo, instanceSvc, vpcSvc, _, _, svc := setupStackServiceTest(t)
 	defer repo.AssertExpectations(t)
 	defer instanceSvc.AssertExpectations(t)
@@ -50,19 +57,19 @@ Resources:
         Ref: MyVPC
 `
 
-	repo.On("Create", ctx, mock.AnythingOfType("*domain.Stack")).Return(nil)
+	repo.On("Create", ctx, mock.AnythingOfType(stackType)).Return(nil)
 
 	// Async expectations
 	vpcID := uuid.New()
-	vpc := &domain.VPC{ID: vpcID, Name: "test-vpc"}
-	vpcSvc.On("CreateVPC", mock.Anything, "test-vpc", "").Return(vpc, nil)
+	vpc := &domain.VPC{ID: vpcID, Name: stackTestVpc}
+	vpcSvc.On("CreateVPC", mock.Anything, stackTestVpc, "").Return(vpc, nil)
 	repo.On("AddResource", mock.Anything, mock.MatchedBy(func(r *domain.StackResource) bool {
 		return r.LogicalID == "MyVPC" && r.ResourceType == "VPC"
 	})).Return(nil)
 
 	instID := uuid.New()
-	inst := &domain.Instance{ID: instID, Name: "test-inst"}
-	instanceSvc.On("LaunchInstance", mock.Anything, "test-inst", "alpine", "80", &vpcID, mock.Anything, mock.Anything).Return(inst, nil)
+	inst := &domain.Instance{ID: instID, Name: stackTestInst}
+	instanceSvc.On("LaunchInstance", mock.Anything, stackTestInst, "alpine", "80", &vpcID, mock.Anything, mock.Anything).Return(inst, nil)
 	repo.On("AddResource", mock.Anything, mock.MatchedBy(func(r *domain.StackResource) bool {
 		return r.LogicalID == "MyInstance" && r.ResourceType == "Instance"
 	})).Return(nil)
@@ -71,18 +78,18 @@ Resources:
 		return s.Status == domain.StackStatusCreateComplete
 	})).Return(nil)
 
-	stack, err := svc.CreateStack(ctx, "test-stack", template, nil)
+	stack, err := svc.CreateStack(ctx, stackTestStack, template, nil)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, stack)
-	assert.Equal(t, "test-stack", stack.Name)
+	assert.Equal(t, stackTestStack, stack.Name)
 	assert.Equal(t, domain.StackStatusCreateInProgress, stack.Status)
 
 	// Wait for background processing
 	time.Sleep(150 * time.Millisecond)
 }
 
-func TestDeleteStack_Success(t *testing.T) {
+func TestDeleteStackSuccess(t *testing.T) {
 	repo, instanceSvc, vpcSvc, _, _, svc := setupStackServiceTest(t)
 	defer repo.AssertExpectations(t)
 	defer instanceSvc.AssertExpectations(t)
@@ -112,7 +119,7 @@ func TestDeleteStack_Success(t *testing.T) {
 	time.Sleep(150 * time.Millisecond)
 }
 
-func TestCreateStack_Rollback(t *testing.T) {
+func TestCreateStackRollback(t *testing.T) {
 	repo, instanceSvc, vpcSvc, _, _, svc := setupStackServiceTest(t)
 	defer repo.AssertExpectations(t)
 	defer instanceSvc.AssertExpectations(t)
@@ -134,18 +141,18 @@ Resources:
         Ref: MyVPC
 `
 
-	repo.On("Create", ctx, mock.AnythingOfType("*domain.Stack")).Return(nil)
+	repo.On("Create", ctx, mock.AnythingOfType(stackType)).Return(nil)
 
 	// 1. VPC Success
 	vpcID := uuid.New()
-	vpc := &domain.VPC{ID: vpcID, Name: "test-vpc"}
-	vpcSvc.On("CreateVPC", mock.Anything, "test-vpc", "").Return(vpc, nil)
+	vpc := &domain.VPC{ID: vpcID, Name: stackTestVpc}
+	vpcSvc.On("CreateVPC", mock.Anything, stackTestVpc, "").Return(vpc, nil)
 	repo.On("AddResource", mock.Anything, mock.MatchedBy(func(r *domain.StackResource) bool {
 		return r.LogicalID == "MyVPC" && r.ResourceType == "VPC"
 	})).Return(nil)
 
 	// 2. Instance Fail
-	instanceSvc.On("LaunchInstance", mock.Anything, "test-inst", "alpine", "80", &vpcID, mock.Anything, mock.Anything).Return(nil, fmt.Errorf("launch failed"))
+	instanceSvc.On("LaunchInstance", mock.Anything, stackTestInst, "alpine", "80", &vpcID, mock.Anything, mock.Anything).Return(nil, fmt.Errorf("launch failed"))
 
 	// 3. Rollback
 	repo.On("Update", mock.Anything, mock.MatchedBy(func(s *domain.Stack) bool {
@@ -175,5 +182,120 @@ Resources:
 	assert.NoError(t, err)
 
 	// Wait for background processing
+	time.Sleep(150 * time.Millisecond)
+}
+func TestGetStack(t *testing.T) {
+	repo, _, _, _, _, svc := setupStackServiceTest(t)
+	defer repo.AssertExpectations(t)
+
+	ctx := context.Background()
+	stackID := uuid.New()
+	stack := &domain.Stack{ID: stackID, Name: stackTestStack}
+
+	repo.On("GetByID", ctx, stackID).Return(stack, nil)
+
+	res, err := svc.GetStack(ctx, stackID)
+	assert.NoError(t, err)
+	assert.Equal(t, stack, res)
+}
+
+func TestListStacks(t *testing.T) {
+	repo, _, _, _, _, svc := setupStackServiceTest(t)
+	defer repo.AssertExpectations(t)
+
+	userID := uuid.New()
+	ctx := appcontext.WithUserID(context.Background(), userID)
+	stacks := []*domain.Stack{{ID: uuid.New(), Name: "s1"}}
+
+	repo.On("ListByUserID", ctx, userID).Return(stacks, nil)
+
+	res, err := svc.ListStacks(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, stacks, res)
+}
+
+func TestValidateTemplate(t *testing.T) {
+	_, _, _, _, _, svc := setupStackServiceTest(t)
+
+	t.Run("valid template", func(t *testing.T) {
+		template := `
+Resources:
+  MyVPC:
+    Type: VPC
+    Properties:
+      Name: test-vpc
+`
+		res, err := svc.ValidateTemplate(context.Background(), template)
+		assert.NoError(t, err)
+		assert.True(t, res.Valid)
+	})
+
+	t.Run("invalid yaml", func(t *testing.T) {
+		template := `
+Resources:
+  MyVPC:
+    Type: VPC
+  - invalid
+`
+		res, err := svc.ValidateTemplate(context.Background(), template)
+		assert.NoError(t, err) // It returns error in response object
+		assert.False(t, res.Valid)
+		assert.NotEmpty(t, res.Errors)
+	})
+
+	t.Run("missing resources", func(t *testing.T) {
+		template := "Parameters: {}"
+		res, err := svc.ValidateTemplate(context.Background(), template)
+		assert.NoError(t, err)
+		assert.False(t, res.Valid)
+	})
+}
+
+func TestCreateStackComplex(t *testing.T) {
+	repo, instanceSvc, vpcSvc, volumeSvc, snapshotSvc, svc := setupStackServiceTest(t)
+	defer repo.AssertExpectations(t)
+	defer instanceSvc.AssertExpectations(t)
+	defer vpcSvc.AssertExpectations(t)
+	defer volumeSvc.AssertExpectations(t)
+	defer snapshotSvc.AssertExpectations(t)
+
+	ctx := appcontext.WithUserID(context.Background(), uuid.New())
+	template := `
+Resources:
+  MyVolume:
+    Type: Volume
+    Properties:
+      Name: vol1
+      Size: 20
+  MySnapshot:
+    Type: Snapshot
+    Properties:
+      Name: snap1
+      VolumeID: 
+        Ref: MyVolume
+`
+	repo.On("Create", ctx, mock.AnythingOfType(stackType)).Return(nil)
+
+	volID := uuid.New()
+	vol := &domain.Volume{ID: volID, Name: "vol1"}
+	volumeSvc.On("CreateVolume", mock.Anything, "vol1", 20).Return(vol, nil)
+	repo.On("AddResource", mock.Anything, mock.MatchedBy(func(r *domain.StackResource) bool {
+		return r.LogicalID == "MyVolume" && r.ResourceType == "Volume"
+	})).Return(nil)
+
+	snapID := uuid.New()
+	snap := &domain.Snapshot{ID: snapID, Description: "snap1"}
+	snapshotSvc.On("CreateSnapshot", mock.Anything, volID, "snap1").Return(snap, nil)
+	repo.On("AddResource", mock.Anything, mock.MatchedBy(func(r *domain.StackResource) bool {
+		return r.LogicalID == "MySnapshot" && r.ResourceType == "Snapshot"
+	})).Return(nil)
+
+	repo.On("Update", mock.Anything, mock.MatchedBy(func(s *domain.Stack) bool {
+		return s.Status == domain.StackStatusCreateComplete
+	})).Return(nil)
+
+	_, err := svc.CreateStack(ctx, "complex-stack", template, nil)
+	assert.NoError(t, err)
+
 	time.Sleep(150 * time.Millisecond)
 }

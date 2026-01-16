@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 	"time"
 
@@ -13,47 +14,120 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-func setupCronWorkerTest(_ *testing.T) (*MockCronRepo, *services.CronWorker) {
+func TestCronWorkerProcessJobs(t *testing.T) {
 	repo := new(MockCronRepo)
 	worker := services.NewCronWorker(repo)
-	return repo, worker
-}
 
-func TestCronWorker_ProcessJobs(t *testing.T) {
-	repo, worker := setupCronWorkerTest(t)
-	defer repo.AssertExpectations(t)
-
-	// Mock target server
+	// Setup a test server to be the target
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
 	}))
 	defer server.Close()
 
+	ctx := context.Background()
+	jobID := uuid.New()
 	job := &domain.CronJob{
-		ID:            uuid.New(),
-		Name:          "job-1",
-		Schedule:      "* * * * *",
-		TargetURL:     server.URL,
-		TargetMethod:  "GET",
-		TargetPayload: "",
+		ID:           jobID,
+		UserID:       uuid.New(),
+		TargetMethod: "GET",
+		TargetURL:    server.URL,
+		Schedule:     "* * * * *", // Every minute
 	}
 
-	repo.On("GetNextJobsToRun", mock.Anything).Return([]*domain.CronJob{job}, nil)
-
-	// Expectations for recording run
+	repo.On("GetNextJobsToRun", ctx).Return([]*domain.CronJob{job}, nil)
+	
 	repo.On("SaveJobRun", mock.Anything, mock.MatchedBy(func(run *domain.CronJobRun) bool {
-		return run.JobID == job.ID && run.Status == "SUCCESS"
+		return run.JobID == jobID && run.Status == "SUCCESS" && run.StatusCode == 200
 	})).Return(nil)
 
-	// Expectations for updating job
 	repo.On("UpdateJob", mock.Anything, mock.MatchedBy(func(j *domain.CronJob) bool {
-		return j.ID == job.ID && j.LastRunAt != nil && j.NextRunAt != nil
+		return j.ID == jobID && j.LastRunAt != nil && j.NextRunAt != nil
 	})).Return(nil)
 
-	// Call the exported method
-	worker.ProcessJobs(context.Background())
+	worker.ProcessJobs(ctx)
 
-	// Should wait for goroutines? ProcessJobs launches goroutines.
-	// Since w.runJob is called in a goroutine, we need to wait.
+	// Wait briefly for goroutines to finish since runJob is called in a goroutine
 	time.Sleep(100 * time.Millisecond)
+
+	repo.AssertExpectations(t)
+}
+
+func TestCronWorkerProcessJobs_RequestFailure(t *testing.T) {
+	repo := new(MockCronRepo)
+	worker := services.NewCronWorker(repo)
+
+	// No server, request should fail
+	ctx := context.Background()
+	jobID := uuid.New()
+	job := &domain.CronJob{
+		ID:           jobID,
+		UserID:       uuid.New(),
+		TargetMethod: "GET",
+		TargetURL:    "http://localhost:12345/unreachable",
+		Schedule:     "* * * * *",
+	}
+
+	repo.On("GetNextJobsToRun", ctx).Return([]*domain.CronJob{job}, nil)
+
+	repo.On("SaveJobRun", mock.Anything, mock.MatchedBy(func(run *domain.CronJobRun) bool {
+		return run.JobID == jobID && run.Status == "FAILED"
+	})).Return(nil)
+
+	repo.On("UpdateJob", mock.Anything, mock.MatchedBy(func(j *domain.CronJob) bool {
+		return j.ID == jobID
+	})).Return(nil)
+
+	worker.ProcessJobs(ctx)
+
+	time.Sleep(100 * time.Millisecond)
+
+	repo.AssertExpectations(t)
+}
+
+func TestCronWorkerProcessJobs_HTTPError(t *testing.T) {
+	repo := new(MockCronRepo)
+	worker := services.NewCronWorker(repo)
+
+	// Server returns 500
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	ctx := context.Background()
+	jobID := uuid.New()
+	job := &domain.CronJob{
+		ID:           jobID,
+		TargetMethod: "GET",
+		TargetURL:    server.URL,
+		Schedule:     "* * * * *",
+	}
+
+	repo.On("GetNextJobsToRun", ctx).Return([]*domain.CronJob{job}, nil)
+
+	repo.On("SaveJobRun", mock.Anything, mock.MatchedBy(func(run *domain.CronJobRun) bool {
+		return run.JobID == jobID && run.Status == "FAILED" && run.StatusCode == 500
+	})).Return(nil)
+
+	repo.On("UpdateJob", mock.Anything, mock.Anything).Return(nil)
+
+	worker.ProcessJobs(ctx)
+
+	time.Sleep(100 * time.Millisecond)
+
+	repo.AssertExpectations(t)
+}
+
+func TestCronWorkerRun(t *testing.T) {
+	repo := new(MockCronRepo)
+	worker := services.NewCronWorker(repo)
+	
+	ctx, cancel := context.WithCancel(context.Background())
+	var wg sync.WaitGroup
+	wg.Add(1)
+	
+	cancel()
+	worker.Run(ctx, &wg)
+	wg.Wait()
 }

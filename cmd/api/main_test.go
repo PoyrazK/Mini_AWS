@@ -15,12 +15,15 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/poyrazk/thecloud/internal/api/setup"
+	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/platform"
+	"github.com/poyrazk/thecloud/internal/repositories/noop"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/redis/go-redis/v9"
+	"github.com/stretchr/testify/assert"
 )
 
-func TestInitInfrastructure_MigrateOnlyStopsAfterMigrations(t *testing.T) {
+func TestInitInfrastructureMigrateOnlyStopsAfterMigrations(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	fakeDB := &stubDB{}
@@ -64,7 +67,7 @@ func TestInitInfrastructure_MigrateOnlyStopsAfterMigrations(t *testing.T) {
 	}
 }
 
-func TestInitInfrastructure_ConfigError(t *testing.T) {
+func TestInitInfrastructureConfigError(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	resetLoadConfig := stubLoadConfig(func(*slog.Logger) (*platform.Config, error) {
@@ -77,7 +80,75 @@ func TestInitInfrastructure_ConfigError(t *testing.T) {
 	}
 }
 
-func TestRunApplication_ApiRoleStartsAndShutsDown(t *testing.T) {
+func TestInitInfrastructureRedisErrorClosesDB(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	fakeDB := &stubDB{}
+
+	resetLoadConfig := stubLoadConfig(func(*slog.Logger) (*platform.Config, error) {
+		return &platform.Config{RedisURL: "127.0.0.1:1"}, nil
+	})
+	defer resetLoadConfig()
+
+	resetInitDatabase := stubInitDatabase(func(context.Context, *platform.Config, *slog.Logger) (postgres.DB, error) {
+		return fakeDB, nil
+	})
+	defer resetInitDatabase()
+
+	resetRunMigrations := stubRunMigrations(func(context.Context, postgres.DB, *slog.Logger) error {
+		return nil
+	})
+	defer resetRunMigrations()
+
+	resetInitRedis := stubInitRedis(func(context.Context, *platform.Config, *slog.Logger) (*redis.Client, error) {
+		return nil, errors.New("redis unavailable")
+	})
+	defer resetInitRedis()
+
+	_, _, _, err := initInfrastructure(logger, false)
+	if err == nil {
+		t.Fatalf("expected error when redis init fails")
+	}
+	if !fakeDB.closed {
+		t.Fatalf("expected database to be closed on redis init error")
+	}
+}
+
+func TestInitBackendsLBProxyError(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	cfg := &platform.Config{}
+
+	resetCompute := stubInitComputeBackend(func(*platform.Config, *slog.Logger) (ports.ComputeBackend, error) {
+		return noop.NewNoopComputeBackend(), nil
+	})
+	defer resetCompute()
+
+	resetStorage := stubInitStorageBackend(func(*platform.Config, *slog.Logger) (ports.StorageBackend, error) {
+		return noop.NewNoopStorageBackend(), nil
+	})
+	defer resetStorage()
+
+	resetNetwork := stubInitNetworkBackend(func(*platform.Config, *slog.Logger) ports.NetworkBackend {
+		return noop.NewNoopNetworkAdapter(logger)
+	})
+	defer resetNetwork()
+
+	resetRepos := stubInitRepositories(func(postgres.DB, *redis.Client) *setup.Repositories {
+		return &setup.Repositories{}
+	})
+	defer resetRepos()
+
+	resetLBProxy := stubInitLBProxy(func(*platform.Config, ports.ComputeBackend, ports.InstanceRepository, ports.VpcRepository) (ports.LBProxyAdapter, error) {
+		return nil, errors.New("lb proxy failed")
+	})
+	defer resetLBProxy()
+
+	_, _, _, _, err := initBackends(cfg, logger, &stubDB{}, redis.NewClient(&redis.Options{Addr: "127.0.0.1:1"}))
+	if err == nil {
+		t.Fatalf("expected error when lb proxy init fails")
+	}
+}
+
+func TestRunApplicationApiRoleStartsAndShutsDown(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	t.Setenv("ROLE", "api")
 
@@ -155,6 +226,36 @@ func stubInitRedis(fn func(context.Context, *platform.Config, *slog.Logger) (*re
 	return func() { initRedisFunc = prev }
 }
 
+func stubInitComputeBackend(fn func(*platform.Config, *slog.Logger) (ports.ComputeBackend, error)) func() {
+	prev := initComputeBackendFunc
+	initComputeBackendFunc = fn
+	return func() { initComputeBackendFunc = prev }
+}
+
+func stubInitStorageBackend(fn func(*platform.Config, *slog.Logger) (ports.StorageBackend, error)) func() {
+	prev := initStorageBackendFunc
+	initStorageBackendFunc = fn
+	return func() { initStorageBackendFunc = prev }
+}
+
+func stubInitNetworkBackend(fn func(*platform.Config, *slog.Logger) ports.NetworkBackend) func() {
+	prev := initNetworkBackendFunc
+	initNetworkBackendFunc = fn
+	return func() { initNetworkBackendFunc = prev }
+}
+
+func stubInitLBProxy(fn func(*platform.Config, ports.ComputeBackend, ports.InstanceRepository, ports.VpcRepository) (ports.LBProxyAdapter, error)) func() {
+	prev := initLBProxyFunc
+	initLBProxyFunc = fn
+	return func() { initLBProxyFunc = prev }
+}
+
+func stubInitRepositories(fn func(postgres.DB, *redis.Client) *setup.Repositories) func() {
+	prev := initRepositoriesFunc
+	initRepositoriesFunc = fn
+	return func() { initRepositoriesFunc = prev }
+}
+
 func stubNewHTTPServer(fn func(string, http.Handler) *http.Server) func() {
 	prev := newHTTPServer
 	newHTTPServer = fn
@@ -177,4 +278,35 @@ func stubNotifySignals(fn func(chan<- os.Signal, ...os.Signal)) func() {
 	prev := notifySignals
 	notifySignals = fn
 	return func() { notifySignals = prev }
+}
+
+func TestInitTracing(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	t.Run("Disabled", func(t *testing.T) {
+		t.Setenv("TRACING_ENABLED", "false")
+		tp := initTracing(logger)
+		assert.Nil(t, tp)
+	})
+
+	t.Run("Console", func(t *testing.T) {
+		t.Setenv("TRACING_ENABLED", "true")
+		t.Setenv("TRACING_EXPORTER", "console")
+		tp := initTracing(logger)
+		assert.NotNil(t, tp)
+		_ = tp.Shutdown(context.Background())
+	})
+
+	t.Run("Jaeger", func(t *testing.T) {
+		t.Setenv("TRACING_ENABLED", "true")
+		t.Setenv("TRACING_EXPORTER", "jaeger")
+		t.Setenv("JAEGER_ENDPOINT", "http://localhost:4318")
+		// This might fail if it tries to connect, but let's see.
+		// Actually initTracing just returns the provider, it doesn't necessarily block.
+		tp := initTracing(logger)
+		assert.NotNil(t, tp)
+		if tp != nil {
+			_ = tp.Shutdown(context.Background())
+		}
+	})
 }
