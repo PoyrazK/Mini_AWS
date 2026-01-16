@@ -294,7 +294,7 @@ func TestInitTracing(t *testing.T) {
 		t.Setenv("TRACING_EXPORTER", "console")
 		tp := initTracing(logger)
 		assert.NotNil(t, tp)
-		tp.Shutdown(context.Background())
+		_ = tp.Shutdown(context.Background())
 	})
 
 	t.Run("Jaeger", func(t *testing.T) {
@@ -306,7 +306,7 @@ func TestInitTracing(t *testing.T) {
 		tp := initTracing(logger)
 		assert.NotNil(t, tp)
 		if tp != nil {
-			tp.Shutdown(context.Background())
+			_ = tp.Shutdown(context.Background())
 		}
 	})
 }
