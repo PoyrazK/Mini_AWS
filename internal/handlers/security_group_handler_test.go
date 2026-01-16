@@ -263,3 +263,55 @@ func TestSecurityGroupHandlerDetach(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 	svc.AssertExpectations(t)
 }
+
+func TestSecurityGroupHandlerAttachError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	svc := new(mockSecurityGroupService)
+	h := NewSecurityGroupHandler(svc)
+
+	instanceID := uuid.New()
+	groupID := uuid.New()
+
+	svc.On("AttachToInstance", mock.Anything, instanceID, groupID).Return(context.DeadlineExceeded)
+
+	reqBody := map[string]interface{}{
+		"instance_id": instanceID,
+		"group_id":    groupID,
+	}
+	body, _ := json.Marshal(reqBody)
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest("POST", testSgPath+"/attach", bytes.NewBuffer(body))
+	c.Request.Header.Set(testContentType, testAppJSON)
+
+	h.Attach(c)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func TestSecurityGroupHandlerDetachError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	svc := new(mockSecurityGroupService)
+	h := NewSecurityGroupHandler(svc)
+
+	instanceID := uuid.New()
+	groupID := uuid.New()
+
+	svc.On("DetachFromInstance", mock.Anything, instanceID, groupID).Return(context.DeadlineExceeded)
+
+	reqBody := map[string]interface{}{
+		"instance_id": instanceID,
+		"group_id":    groupID,
+	}
+	body, _ := json.Marshal(reqBody)
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest("POST", testSgPath+"/detach", bytes.NewBuffer(body))
+	c.Request.Header.Set(testContentType, testAppJSON)
+
+	h.Detach(c)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}

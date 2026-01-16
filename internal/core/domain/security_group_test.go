@@ -7,7 +7,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestSecurityGroup_Validate(t *testing.T) {
+const (
+	testSGName = "test-sg"
+	anyIPv4    = "0.0.0.0/0"
+)
+
+func TestSecurityGroupValidate(t *testing.T) {
 	tests := []struct {
 		name    string
 		sg      SecurityGroup
@@ -17,7 +22,7 @@ func TestSecurityGroup_Validate(t *testing.T) {
 		{
 			name: "valid security group",
 			sg: SecurityGroup{
-				Name:   "test-sg",
+				Name:   testSGName,
 				VPCID:  uuid.New(),
 				UserID: uuid.New(),
 			},
@@ -36,7 +41,7 @@ func TestSecurityGroup_Validate(t *testing.T) {
 		{
 			name: "nil vpc id",
 			sg: SecurityGroup{
-				Name:   "test-sg",
+				Name:   testSGName,
 				VPCID:  uuid.Nil,
 				UserID: uuid.New(),
 			},
@@ -70,7 +75,7 @@ func TestSecurityGroup_Validate(t *testing.T) {
 	}
 }
 
-func TestSecurityRule_Validate(t *testing.T) {
+func TestSecurityRuleValidate(t *testing.T) {
 	tests := []struct {
 		name    string
 		rule    SecurityRule
@@ -84,7 +89,7 @@ func TestSecurityRule_Validate(t *testing.T) {
 				Protocol:  "tcp",
 				PortMin:   80,
 				PortMax:   80,
-				CIDR:      "0.0.0.0/0",
+				CIDR:      anyIPv4,
 			},
 			wantErr: false,
 		},
@@ -104,7 +109,7 @@ func TestSecurityRule_Validate(t *testing.T) {
 			rule: SecurityRule{
 				Direction: RuleIngress,
 				Protocol:  "icmp",
-				CIDR:      "0.0.0.0/0",
+				CIDR:      anyIPv4,
 			},
 			wantErr: false,
 		},
@@ -113,7 +118,7 @@ func TestSecurityRule_Validate(t *testing.T) {
 			rule: SecurityRule{
 				Direction: RuleIngress,
 				Protocol:  "all",
-				CIDR:      "0.0.0.0/0",
+				CIDR:      anyIPv4,
 			},
 			wantErr: false,
 		},
@@ -122,7 +127,7 @@ func TestSecurityRule_Validate(t *testing.T) {
 			rule: SecurityRule{
 				Direction: "invalid",
 				Protocol:  "tcp",
-				CIDR:      "0.0.0.0/0",
+				CIDR:      anyIPv4,
 			},
 			wantErr: true,
 			msg:     "invalid rule direction",
@@ -132,7 +137,7 @@ func TestSecurityRule_Validate(t *testing.T) {
 			rule: SecurityRule{
 				Direction: RuleIngress,
 				Protocol:  "invalid",
-				CIDR:      "0.0.0.0/0",
+				CIDR:      anyIPv4,
 			},
 			wantErr: true,
 			msg:     "invalid protocol",
@@ -144,7 +149,7 @@ func TestSecurityRule_Validate(t *testing.T) {
 				Protocol:  "tcp",
 				PortMin:   443,
 				PortMax:   80,
-				CIDR:      "0.0.0.0/0",
+				CIDR:      anyIPv4,
 			},
 			wantErr: true,
 			msg:     "port_min (443) cannot be greater than port_max (80)",
@@ -156,7 +161,7 @@ func TestSecurityRule_Validate(t *testing.T) {
 				Protocol:  "tcp",
 				PortMin:   0,
 				PortMax:   80,
-				CIDR:      "0.0.0.0/0",
+				CIDR:      anyIPv4,
 			},
 			wantErr: true,
 			msg:     "invalid port_min",
@@ -168,7 +173,7 @@ func TestSecurityRule_Validate(t *testing.T) {
 				Protocol:  "tcp",
 				PortMin:   80,
 				PortMax:   70000,
-				CIDR:      "0.0.0.0/0",
+				CIDR:      anyIPv4,
 			},
 			wantErr: true,
 			msg:     "invalid port_max",
