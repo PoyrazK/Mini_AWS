@@ -1,0 +1,213 @@
+package libvirt
+
+import (
+	"context"
+	"errors"
+	"io/ioutil"
+	"log/slog"
+	"testing"
+	"time"
+
+	"github.com/digitalocean/go-libvirt"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+)
+
+const (
+	testInstanceName = "test-instance"
+	testIP           = "192.168.122.10"
+)
+
+func newTestAdapter(m *MockLibvirtClient) *LibvirtAdapter {
+	return &LibvirtAdapter{
+		client:         m,
+		logger:         slog.New(slog.NewTextHandler(ioutil.Discard, nil)),
+		uri:            "qemu:///system",
+		ipWaitInterval: 1 * time.Millisecond,
+	}
+}
+
+func TestStopInstanceSuccess(t *testing.T) {
+	m := new(MockLibvirtClient)
+	a := newTestAdapter(m)
+	ctx := context.Background()
+
+	dom := libvirt.Domain{Name: testInstanceName, ID: 1, UUID: [16]byte{1}}
+
+	m.On("DomainLookupByName", testInstanceName).Return(dom, nil)
+	m.On("DomainDestroy", dom).Return(nil)
+
+	err := a.StopInstance(ctx, testInstanceName)
+	assert.NoError(t, err)
+	m.AssertExpectations(t)
+}
+
+func TestStopInstanceNotFound(t *testing.T) {
+	m := new(MockLibvirtClient)
+	a := newTestAdapter(m)
+	ctx := context.Background()
+
+	m.On("DomainLookupByName", testInstanceName).Return(libvirt.Domain{}, errors.New("domain not found"))
+
+	err := a.StopInstance(ctx, testInstanceName)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "not found")
+	m.AssertExpectations(t)
+}
+
+func TestDeleteInstanceSuccess(t *testing.T) {
+	m := new(MockLibvirtClient)
+	a := newTestAdapter(m)
+	ctx := context.Background()
+
+	dom := libvirt.Domain{Name: testInstanceName, ID: 1, UUID: [16]byte{1}}
+	pool := libvirt.StoragePool{Name: "default"}
+	vol := libvirt.StorageVol{Name: testInstanceName + "-root"}
+
+	// 1. Lookup
+	m.On("DomainLookupByName", testInstanceName).Return(dom, nil)
+
+	// 2. Stop check (Running = 1)
+	m.On("DomainGetState", dom, uint32(0)).Return(int32(1), int32(0), nil)
+	m.On("DomainDestroy", dom).Return(nil)
+
+	// 3. Undefine
+	m.On("DomainUndefine", dom).Return(nil)
+
+	// 4. Cleanup Root Volume
+	m.On("StoragePoolLookupByName", "default").Return(pool, nil)
+	m.On("StorageVolLookupByName", pool, testInstanceName+"-root").Return(vol, nil)
+	m.On("StorageVolDelete", vol, uint32(0)).Return(nil)
+
+	err := a.DeleteInstance(ctx, testInstanceName)
+	assert.NoError(t, err)
+	m.AssertExpectations(t)
+}
+
+func TestGetInstanceIPSuccess(t *testing.T) {
+	m := new(MockLibvirtClient)
+	a := newTestAdapter(m)
+	ctx := context.Background()
+
+	dom := libvirt.Domain{Name: testInstanceName, ID: 1}
+	net := libvirt.Network{Name: "default"}
+
+	// Mock XML containing MAC
+	xmlDesc := `<domain><devices><interface type='network'><mac address='52:54:00:11:22:33'/></interface></devices></domain>`
+
+	m.On("DomainLookupByName", testInstanceName).Return(dom, nil)
+	m.On("DomainGetXMLDesc", dom, libvirt.DomainXMLFlags(0)).Return(xmlDesc, nil)
+	m.On("NetworkLookupByName", "default").Return(net, nil)
+
+	leases := []libvirt.NetworkDhcpLease{
+		{Mac: []string{"52:54:00:11:22:33"}, Ipaddr: testIP},
+	}
+	m.On("NetworkGetDhcpLeases", net, mock.Anything, uint32(0), uint32(0)).Return(leases, uint32(1), nil)
+
+	ip, err := a.GetInstanceIP(ctx, testInstanceName)
+	assert.NoError(t, err)
+	assert.Equal(t, testIP, ip)
+	m.AssertExpectations(t)
+}
+
+func TestWaitInitialIPSuccess(t *testing.T) {
+	m := new(MockLibvirtClient)
+	a := newTestAdapter(m)
+	ctx := context.Background()
+
+	// 4. Get IP (waitInitialIP)
+	dom := libvirt.Domain{Name: testInstanceName, ID: 1}
+	m.On("DomainLookupByName", testInstanceName).Return(dom, nil)
+
+	// Get XML for MAC
+	xmlDesc := `<domain><devices><interface type='network'><mac address='52:54:00:11:22:33'/></interface></devices></domain>`
+	m.On("DomainGetXMLDesc", dom, libvirt.DomainXMLFlags(0)).Return(xmlDesc, nil)
+
+	// Get Network
+	net := libvirt.Network{Name: "default"}
+	m.On("NetworkLookupByName", "default").Return(net, nil)
+
+	// Get Leases
+	leases := []libvirt.NetworkDhcpLease{
+		{Mac: []string{"52:54:00:11:22:33"}, Ipaddr: testIP},
+	}
+	m.On("NetworkGetDhcpLeases", net, mock.Anything, uint32(0), uint32(0)).Return(leases, uint32(1), nil)
+
+	// Execute
+	ip, err := a.waitInitialIP(ctx, testInstanceName)
+	assert.NoError(t, err)
+	assert.Equal(t, testIP, ip)
+
+	m.AssertExpectations(t)
+}
+
+func TestAttachVolumeSuccess(t *testing.T) {
+	m := new(MockLibvirtClient)
+	a := newTestAdapter(m)
+	ctx := context.Background()
+
+	dom := libvirt.Domain{Name: testInstanceName, ID: 1, UUID: [16]byte{1}}
+	volumePath := "/var/lib/libvirt/images/vol1.qcow2"
+
+	m.On("DomainLookupByName", testInstanceName).Return(dom, nil)
+	// We expect DomainAttachDevice with an XML for the disk
+	m.On("DomainAttachDevice", dom, mock.AnythingOfType("string")).Return(nil)
+
+	err := a.AttachVolume(ctx, testInstanceName, volumePath)
+	assert.NoError(t, err)
+	m.AssertExpectations(t)
+}
+
+func TestDetachVolumeSuccess(t *testing.T) {
+	m := new(MockLibvirtClient)
+	a := newTestAdapter(m)
+	ctx := context.Background()
+
+	dom := libvirt.Domain{Name: testInstanceName, ID: 1, UUID: [16]byte{1}}
+	volumePath := "/var/lib/libvirt/images/vol1.qcow2"
+
+	m.On("DomainLookupByName", testInstanceName).Return(dom, nil)
+	m.On("DomainDetachDevice", dom, mock.AnythingOfType("string")).Return(nil)
+
+	err := a.DetachVolume(ctx, testInstanceName, volumePath)
+	assert.NoError(t, err)
+
+	m.AssertExpectations(t)
+}
+
+func TestGetConsoleURLSuccess(t *testing.T) {
+	m := new(MockLibvirtClient)
+	a := newTestAdapter(m)
+	ctx := context.Background()
+
+	dom := libvirt.Domain{Name: testInstanceName, ID: 1, UUID: [16]byte{1}}
+	xmlDesc := "<domain><devices><graphics type='vnc' port='5900'/></devices></domain>"
+
+	m.On("DomainLookupByName", testInstanceName).Return(dom, nil)
+	m.On("DomainGetXMLDesc", dom, libvirt.DomainXMLFlags(0)).Return(xmlDesc, nil)
+
+	url, err := a.GetConsoleURL(ctx, testInstanceName)
+	assert.NoError(t, err)
+	assert.Equal(t, "vnc://127.0.0.1:5900", url)
+	m.AssertExpectations(t)
+}
+
+func TestGetInstanceStatsSuccess(t *testing.T) {
+	m := new(MockLibvirtClient)
+	a := newTestAdapter(m)
+	ctx := context.Background()
+
+	dom := libvirt.Domain{Name: testInstanceName, ID: 1, UUID: [16]byte{1}}
+	stats := []libvirt.DomainMemoryStat{
+		{Tag: 6, Val: 1048576}, // rss
+	}
+
+	m.On("DomainLookupByName", testInstanceName).Return(dom, nil)
+	m.On("DomainMemoryStats", dom, uint32(10), uint32(0)).Return(stats, nil)
+
+	rc, err := a.GetInstanceStats(ctx, testInstanceName)
+	assert.NoError(t, err)
+	assert.NotNil(t, rc)
+	_ = rc.Close()
+	m.AssertExpectations(t)
+}
