@@ -15,6 +15,10 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+const (
+	testVolName = "test-vol"
+)
+
 func setupVolumeServiceTest(_ *testing.T) (*MockVolumeRepo, *MockStorageBackend, *MockEventService, *MockAuditService, ports.VolumeService) {
 	repo := new(MockVolumeRepo)
 	storage := new(MockStorageBackend)
@@ -34,7 +38,7 @@ func TestVolumeServiceCreateVolumeSuccess(t *testing.T) {
 	defer auditSvc.AssertExpectations(t)
 
 	ctx := appcontext.WithUserID(context.Background(), uuid.New())
-	name := "test-vol"
+	name := testVolName
 	size := 10
 
 	// CreateVolume(ctx, name, size) -> (path, error)
@@ -66,7 +70,7 @@ func TestVolumeServiceDeleteVolumeSuccess(t *testing.T) {
 	volID := uuid.New()
 	vol := &domain.Volume{
 		ID:     volID,
-		Name:   "test-vol",
+		Name:   testVolName,
 		Status: domain.VolumeStatusAvailable,
 	}
 
@@ -103,4 +107,63 @@ func TestVolumeServiceDeleteVolumeInUseFails(t *testing.T) {
 
 	storage.AssertNotCalled(t, "DeleteVolume", mock.Anything, mock.Anything)
 	repo.AssertNotCalled(t, "Delete", mock.Anything, mock.Anything)
+}
+func TestVolumeServiceListVolumesSuccess(t *testing.T) {
+	repo, _, _, _, svc := setupVolumeServiceTest(t)
+	defer repo.AssertExpectations(t)
+
+	ctx := context.Background()
+	volumes := []*domain.Volume{{ID: uuid.New(), Name: "v1"}, {ID: uuid.New(), Name: "v2"}}
+	repo.On("List", mock.Anything).Return(volumes, nil)
+
+	result, err := svc.ListVolumes(ctx)
+
+	assert.NoError(t, err)
+	assert.Equal(t, 2, len(result))
+}
+
+func TestVolumeServiceGetVolume(t *testing.T) {
+	repo, _, _, _, svc := setupVolumeServiceTest(t)
+	defer repo.AssertExpectations(t)
+
+	ctx := context.Background()
+	volID := uuid.New()
+	vol := &domain.Volume{ID: volID, Name: testVolName}
+
+	t.Run("get by id", func(t *testing.T) {
+		repo.On("GetByID", mock.Anything, volID).Return(vol, nil).Once()
+		res, err := svc.GetVolume(ctx, volID.String())
+		assert.NoError(t, err)
+		assert.Equal(t, vol, res)
+	})
+
+	t.Run("get by name", func(t *testing.T) {
+		repo.On("GetByName", mock.Anything, testVolName).Return(vol, nil).Once()
+		res, err := svc.GetVolume(ctx, testVolName)
+		assert.NoError(t, err)
+		assert.Equal(t, vol, res)
+	})
+}
+
+func TestVolumeServiceReleaseVolumesForInstance(t *testing.T) {
+	repo, _, _, _, svc := setupVolumeServiceTest(t)
+	defer repo.AssertExpectations(t)
+
+	ctx := context.Background()
+	instanceID := uuid.New()
+	volumes := []*domain.Volume{
+		{ID: uuid.New(), InstanceID: &instanceID, Status: domain.VolumeStatusInUse},
+		{ID: uuid.New(), InstanceID: &instanceID, Status: domain.VolumeStatusInUse},
+	}
+
+	repo.On("ListByInstanceID", mock.Anything, instanceID).Return(volumes, nil)
+	repo.On("Update", mock.Anything, mock.AnythingOfType("*domain.Volume")).Return(nil).Twice()
+
+	err := svc.ReleaseVolumesForInstance(ctx, instanceID)
+
+	assert.NoError(t, err)
+	for _, v := range volumes {
+		assert.Equal(t, domain.VolumeStatusAvailable, v.Status)
+		assert.Nil(t, v.InstanceID)
+	}
 }
