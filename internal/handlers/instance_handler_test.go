@@ -358,3 +358,41 @@ func TestInstanceHandlerLaunchRejectsInvalidVPCID(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 	mockSvc.AssertNotCalled(t, "LaunchInstance", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 }
+
+func TestInstanceHandlerGetConsole(t *testing.T) {
+	mockSvc, handler, r := setupInstanceHandlerTest(t)
+	defer mockSvc.AssertExpectations(t)
+	r.GET(instancesPath+"/:id/console", handler.GetConsole)
+
+	id := uuid.New().String()
+	url := "vnc://localhost:5900"
+	mockSvc.On("GetConsoleURL", mock.Anything, id).Return(url, nil)
+
+	req := httptest.NewRequest(http.MethodGet, instancesPath+"/"+id+"/console", nil)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var resp struct {
+		Data map[string]string `json:"data"`
+	}
+	assert.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	assert.Equal(t, url, resp.Data["url"])
+}
+
+func TestInstanceHandlerGetConsoleError(t *testing.T) {
+	mockSvc, handler, r := setupInstanceHandlerTest(t)
+	defer mockSvc.AssertExpectations(t)
+	r.GET(instancesPath+"/:id/console", handler.GetConsole)
+
+	id := uuid.New().String()
+	mockSvc.On("GetConsoleURL", mock.Anything, id).Return("", errors.New(errors.Internal, "console error"))
+
+	req := httptest.NewRequest(http.MethodGet, instancesPath+"/"+id+"/console", nil)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
