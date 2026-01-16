@@ -23,6 +23,10 @@ func (m *mockComputeBackend) GetInstanceIP(ctx context.Context, id string) (stri
 	return args.String(0), args.Error(1)
 }
 
+const (
+	algoRoundRobin = "round-robin"
+)
+
 func TestLibvirtAdapterType(t *testing.T) {
 	a := &LibvirtAdapter{}
 	assert.Equal(t, "libvirt", a.Type())
@@ -77,7 +81,7 @@ func TestGenerateNginxConfig(t *testing.T) {
 		lb := &domain.LoadBalancer{
 			ID:        uuid.New(),
 			Port:      80,
-			Algorithm: "round-robin",
+			Algorithm: algoRoundRobin,
 		}
 		instanceID := uuid.New()
 		targets := []*domain.LBTarget{
@@ -120,10 +124,32 @@ func TestGenerateNginxConfig(t *testing.T) {
 		lb := &domain.LoadBalancer{
 			ID:        uuid.New(),
 			Port:      80,
-			Algorithm: "round-robin",
+			Algorithm: algoRoundRobin,
 		}
 
 		config, err := a.generateNginxConfig(context.Background(), lb, nil)
+		assert.NoError(t, err)
+		assert.Contains(t, config, "return 503")
+		assert.NotContains(t, config, "upstream backend")
+	})
+
+	t.Run("compute error", func(t *testing.T) {
+		mockCompute := new(mockComputeBackend)
+		a := NewLBProxyAdapter(mockCompute)
+
+		lb := &domain.LoadBalancer{
+			ID:        uuid.New(),
+			Port:      80,
+			Algorithm: algoRoundRobin,
+		}
+		instanceID := uuid.New()
+		targets := []*domain.LBTarget{
+			{InstanceID: instanceID, Port: 8080, Weight: 1},
+		}
+
+		mockCompute.On("GetInstanceIP", mock.Anything, instanceID.String()).Return("", fmt.Errorf("compute error"))
+
+		config, err := a.generateNginxConfig(context.Background(), lb, targets)
 		assert.NoError(t, err)
 		assert.Contains(t, config, "return 503")
 		assert.NotContains(t, config, "upstream backend")

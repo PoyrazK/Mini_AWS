@@ -3,13 +3,20 @@ package libvirt
 import (
 	"context"
 	"fmt"
+	"io"
+	"log/slog"
 	"net"
+	"os"
+	"os/exec"
 	"testing"
+	"time"
 
 	"github.com/digitalocean/go-libvirt"
 	"github.com/poyrazk/thecloud/pkg/testutil"
 	"github.com/stretchr/testify/assert"
 )
+
+const testEnvVar = "FOO=bar"
 
 func TestSanitizeDomainName(t *testing.T) {
 	a := &LibvirtAdapter{}
@@ -106,9 +113,9 @@ func TestGenerateUserData(t *testing.T) {
 	}{
 		{
 			name:        "with env vars",
-			env:         []string{"FOO=bar", "DEBUG=true"},
+			env:         []string{testEnvVar, "DEBUG=true"},
 			cmd:         nil,
-			shouldExist: []string{"FOO=bar", "DEBUG=true"},
+			shouldExist: []string{testEnvVar, "DEBUG=true"},
 		},
 		{
 			name:        "with command",
@@ -334,7 +341,9 @@ func TestResolveVolumePath(t *testing.T) {
 
 func TestCleanupCreateFailure(t *testing.T) {
 	// This function has side effects but we can test it doesn't panic
-	a := &LibvirtAdapter{}
+	a := &LibvirtAdapter{
+		ipWaitInterval: time.Millisecond,
+	}
 
 	// Should not panic - just verify it's callable
 	// Cannot test without real libvirt connection
@@ -342,7 +351,9 @@ func TestCleanupCreateFailure(t *testing.T) {
 }
 
 func TestWaitInitialIPContextCancellation(t *testing.T) {
-	a := &LibvirtAdapter{}
+	a := &LibvirtAdapter{
+		ipWaitInterval: time.Millisecond,
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // Cancel immediately
@@ -357,6 +368,7 @@ func TestGetNextNetworkRange(t *testing.T) {
 		networkCounter: 0,
 		poolStart:      net.ParseIP(testutil.TestLibvirtPoolStart),
 		poolEnd:        net.ParseIP(testutil.TestLibvirtPoolEnd),
+		ipWaitInterval: time.Millisecond,
 	}
 
 	gateway1, start1, end1 := a.getNextNetworkRange()
@@ -370,9 +382,70 @@ func TestGetNextNetworkRange(t *testing.T) {
 	assert.Equal(t, 2, a.networkCounter)
 }
 
+func TestGetNextNetworkRangePoolExhaustion(t *testing.T) {
+	a := &LibvirtAdapter{
+		networkCounter: 254, // The 255th /24 network
+		poolStart:      net.ParseIP("192.168.0.0"),
+		poolEnd:        net.ParseIP("192.168.255.255"),
+	}
+
+	gateway, _, _ := a.getNextNetworkRange()
+	// 192.168.0.0 + (254 * 256) = 192.168.254.0
+	// Gateway is .1 -> 192.168.254.1
+	assert.Equal(t, "192.168.254.1", gateway, "Should calculate 255th network correctly")
+
+	// Next one should be 192.168.255.1
+	gateway2, _, _ := a.getNextNetworkRange()
+	assert.Equal(t, "192.168.255.1", gateway2, "Should calculate 256th network correctly")
+}
+
 func TestExecNotSupported(t *testing.T) {
 	a := &LibvirtAdapter{}
 	_, err := a.Exec(context.Background(), "instance-id", []string{"echo", "test"})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "not supported")
+}
+
+func TestCleanupPortMappings(t *testing.T) {
+	// Stub execCommand to avoid sudo/real command execution
+	oldExec := execCommand
+	defer func() { execCommand = oldExec }()
+	execCommand = func(name string, arg ...string) *exec.Cmd {
+		return exec.Command("true") // Always succeeds
+	}
+
+	a := &LibvirtAdapter{
+		portMappings: make(map[string]map[string]int),
+	}
+	instanceID := "inst-1"
+	a.portMappings[instanceID] = map[string]int{"80": 30080}
+
+	a.cleanupPortMappings(instanceID)
+
+	assert.Empty(t, a.portMappings[instanceID])
+}
+
+func TestGenerateCloudInitISO(t *testing.T) {
+	oldExec := execCommand
+	defer func() { execCommand = oldExec }()
+	execCommand = func(name string, arg ...string) *exec.Cmd {
+		return exec.Command("true")
+	}
+
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	a := &LibvirtAdapter{logger: logger}
+	ctx := context.Background()
+	name := "test-asg"
+	env := []string{testEnvVar}
+	cmd := []string{"ls -la"}
+
+	isoPath, err := a.generateCloudInitISO(ctx, name, env, cmd)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, isoPath)
+	assert.Contains(t, isoPath, ".iso")
+
+	// Cleanup the generated ISO file if it exists (though it might not if true succeeded)
+	if isoPath != "" {
+		_ = os.Remove(isoPath)
+	}
 }
