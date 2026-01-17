@@ -23,6 +23,7 @@ const (
 	invokeSuffix     = "/invoke"
 	logsSuffix       = "/logs"
 	hdrContentType   = "Content-Type"
+	pathInvalid      = "/invalid"
 )
 
 type mockFunctionService struct {

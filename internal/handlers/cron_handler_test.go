@@ -24,6 +24,7 @@ const (
 	resumePath     = "/:id/resume"
 	pauseSuffix    = "/pause"
 	resumeSuffix   = "/resume"
+	pathInvalid    = "/invalid"
 )
 
 type mockCronService struct {

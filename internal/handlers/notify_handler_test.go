@@ -23,6 +23,7 @@ const (
 	testExampleURL2 = "http://example.com"
 	subSuffix       = "/subscriptions"
 	publishSuffix   = "/publish"
+	pathInvalid     = "/invalid"
 )
 
 type mockNotifyService struct {

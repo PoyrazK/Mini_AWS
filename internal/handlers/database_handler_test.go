@@ -26,6 +26,7 @@ const (
 	testDBName    = "db-1"
 	connPath      = "/:id/connection"
 	connSuffix    = "/connection"
+	pathInvalid   = "/invalid"
 )
 
 type mockDatabaseService struct {

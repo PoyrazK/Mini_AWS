@@ -31,6 +31,7 @@ const (
 	testRouteName = "route-1"
 	gwProxyPath   = "/gw/*proxy"
 	gwAPITestPath = "/gw/api"
+	pathInvalid   = "/invalid"
 )
 
 type mockGatewayService struct {
