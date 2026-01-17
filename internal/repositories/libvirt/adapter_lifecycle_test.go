@@ -18,16 +18,18 @@ import (
 const (
 	testInstanceName = "test-instance"
 	testIP           = "192.168.122.10"
+	testTaskID       = "task-id"
 )
 
 func newTestAdapter(m *MockLibvirtClient) *LibvirtAdapter {
 	return &LibvirtAdapter{
-		client:         m,
-		logger:         slog.New(slog.NewTextHandler(io.Discard, nil)),
-		uri:            "qemu:///system",
-		ipWaitInterval: 1 * time.Millisecond,
-		poolStart:      net.ParseIP("192.168.100.0"),
-		poolEnd:        net.ParseIP("192.168.200.255"),
+		client:           m,
+		logger:           slog.New(slog.NewTextHandler(io.Discard, nil)),
+		uri:              "qemu:///system",
+		ipWaitInterval:   1 * time.Millisecond,
+		taskWaitInterval: 1 * time.Millisecond,
+		poolStart:        net.ParseIP("192.168.100.0"),
+		poolEnd:          net.ParseIP("192.168.200.255"),
 	}
 }
 
@@ -300,5 +302,33 @@ func TestDeleteNetworkSuccess(t *testing.T) {
 
 	err := a.DeleteNetwork(ctx, netName)
 	assert.NoError(t, err)
+	m.AssertExpectations(t)
+}
+
+func TestWaitTaskSuccess(t *testing.T) {
+	m := new(MockLibvirtClient)
+	a := newTestAdapter(m)
+	ctx := context.Background()
+
+	dom := libvirt.Domain{Name: testTaskID}
+	m.On("DomainLookupByName", mock.Anything, testTaskID).Return(dom, nil)
+	m.On("DomainGetState", mock.Anything, dom, uint32(0)).Return(int32(libvirt.DomainShutoff), int32(1), nil)
+
+	status, err := a.WaitTask(ctx, testTaskID)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(0), status)
+	m.AssertExpectations(t)
+}
+
+func TestWaitTaskDomainNotFound(t *testing.T) {
+	m := new(MockLibvirtClient)
+	a := newTestAdapter(m)
+	ctx := context.Background()
+
+	m.On("DomainLookupByName", mock.Anything, testTaskID).Return(libvirt.Domain{}, errors.New("not found"))
+
+	status, err := a.WaitTask(ctx, testTaskID)
+	assert.Error(t, err)
+	assert.Equal(t, int64(-1), status)
 	m.AssertExpectations(t)
 }

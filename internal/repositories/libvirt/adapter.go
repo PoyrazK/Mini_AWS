@@ -47,10 +47,11 @@ type LibvirtAdapter struct {
 	portMappings map[string]map[string]int // instanceID -> internalPort -> hostPort
 
 	// Network pool configuration
-	networkCounter int
-	poolStart      net.IP
-	poolEnd        net.IP
-	ipWaitInterval time.Duration
+	networkCounter   int
+	poolStart        net.IP
+	poolEnd          net.IP
+	ipWaitInterval   time.Duration
+	taskWaitInterval time.Duration
 }
 
 // NewLibvirtAdapter creates a LibvirtAdapter connected to the provided URI.
@@ -73,14 +74,15 @@ func NewLibvirtAdapter(logger *slog.Logger, uri string) (*LibvirtAdapter, error)
 	}
 
 	return &LibvirtAdapter{
-		client:         &RealLibvirtClient{conn: l},
-		logger:         logger,
-		uri:            uri,
-		portMappings:   make(map[string]map[string]int),
-		networkCounter: 0,
-		poolStart:      net.ParseIP("192.168.100.0"),
-		poolEnd:        net.ParseIP("192.168.200.255"),
-		ipWaitInterval: 5 * time.Second,
+		client:           &RealLibvirtClient{conn: l},
+		logger:           logger,
+		uri:              uri,
+		portMappings:     make(map[string]map[string]int),
+		networkCounter:   0,
+		poolStart:        net.ParseIP("192.168.100.0"),
+		poolEnd:          net.ParseIP("192.168.200.255"),
+		ipWaitInterval:   5 * time.Second,
+		taskWaitInterval: 2 * time.Second,
 	}, nil
 }
 
@@ -487,7 +489,11 @@ func (a *LibvirtAdapter) WaitTask(ctx context.Context, id string) (int64, error)
 	// Since we can't easily get the exit code from inside the VM without qemu-agent,
 	// we assume 0 if it shuts down gracefully (state Shutoff).
 
-	ticker := time.NewTicker(2 * time.Second)
+	interval := a.taskWaitInterval
+	if interval == 0 {
+		interval = 2 * time.Second
+	}
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
 	for {
