@@ -85,7 +85,7 @@ func NewLibvirtAdapter(logger *slog.Logger, uri string) (*LibvirtAdapter, error)
 
 // Ping checks if libvirt is reachable
 func (a *LibvirtAdapter) Ping(ctx context.Context) error {
-	return a.client.Connect() // returns error only
+	return a.client.Connect(ctx) // returns error only
 }
 
 func (a *LibvirtAdapter) Type() string {
@@ -95,13 +95,13 @@ func (a *LibvirtAdapter) Type() string {
 func (a *LibvirtAdapter) CreateInstance(ctx context.Context, opts ports.CreateInstanceOptions) (string, error) {
 	name := a.sanitizeDomainName(opts.Name)
 
-	diskPath, vol, err := a.prepareRootVolume(name)
+	diskPath, vol, err := a.prepareRootVolume(ctx, name)
 	if err != nil {
 		return "", err
 	}
 
 	isoPath := a.prepareCloudInit(ctx, name, opts.Env, opts.Cmd)
-	additionalDisks := a.resolveBinds(opts.VolumeBinds)
+	additionalDisks := a.resolveBinds(ctx, opts.VolumeBinds)
 
 	networkID := opts.NetworkID
 	if networkID == "" {
@@ -109,15 +109,15 @@ func (a *LibvirtAdapter) CreateInstance(ctx context.Context, opts ports.CreateIn
 	}
 
 	domainXML := generateDomainXML(name, diskPath, networkID, isoPath, 512, 1, additionalDisks)
-	dom, err := a.client.DomainDefineXML(domainXML)
+	dom, err := a.client.DomainDefineXML(ctx, domainXML)
 	if err != nil {
-		a.cleanupCreateFailure(vol, isoPath)
+		a.cleanupCreateFailure(ctx, vol, isoPath)
 		return "", fmt.Errorf("failed to define domain: %w", err)
 	}
 
-	if err := a.client.DomainCreate(dom); err != nil {
-		_ = a.client.DomainUndefine(dom)
-		_ = a.client.StorageVolDelete(vol, 0)
+	if err := a.client.DomainCreate(ctx, dom); err != nil {
+		_ = a.client.DomainUndefine(ctx, dom)
+		_ = a.client.StorageVolDelete(ctx, vol, 0)
 		return "", fmt.Errorf("failed to start domain: %w", err)
 	}
 
@@ -148,8 +148,8 @@ func (a *LibvirtAdapter) prepareCloudInit(ctx context.Context, name string, env 
 	return isoPath
 }
 
-func (a *LibvirtAdapter) cleanupCreateFailure(vol libvirt.StorageVol, isoPath string) {
-	_ = a.client.StorageVolDelete(vol, 0)
+func (a *LibvirtAdapter) cleanupCreateFailure(ctx context.Context, vol libvirt.StorageVol, isoPath string) {
+	_ = a.client.StorageVolDelete(ctx, vol, 0)
 	if isoPath != "" {
 		if err := os.Remove(isoPath); err != nil {
 			a.logger.Warn("failed to remove ISO", "path", isoPath, "error", err)
@@ -174,40 +174,40 @@ func (a *LibvirtAdapter) waitInitialIP(ctx context.Context, id string) (string, 
 }
 
 func (a *LibvirtAdapter) StopInstance(ctx context.Context, id string) error {
-	dom, err := a.client.DomainLookupByName(id)
+	dom, err := a.client.DomainLookupByName(ctx, id)
 	if err != nil {
 		return fmt.Errorf(errDomainNotFound, err)
 	}
 
-	if err := a.client.DomainDestroy(dom); err != nil {
+	if err := a.client.DomainDestroy(ctx, dom); err != nil {
 		return fmt.Errorf("failed to destroy domain: %w", err)
 	}
 	return nil
 }
 
 func (a *LibvirtAdapter) DeleteInstance(ctx context.Context, id string) error {
-	dom, err := a.client.DomainLookupByName(id)
+	dom, err := a.client.DomainLookupByName(ctx, id)
 	if err != nil {
 		return nil
 	}
 
-	a.stopDomainIfRunning(dom)
+	a.stopDomainIfRunning(ctx, dom)
 
-	if err := a.client.DomainUndefine(dom); err != nil {
+	if err := a.client.DomainUndefine(ctx, dom); err != nil {
 		return fmt.Errorf("failed to undefine domain: %w", err)
 	}
 
 	a.cleanupPortMappings(id)
 	a.cleanupDomainISO(id)
-	a.cleanupRootVolume(id)
+	a.cleanupRootVolume(ctx, id)
 
 	return nil
 }
 
-func (a *LibvirtAdapter) stopDomainIfRunning(dom libvirt.Domain) {
-	state, _, err := a.client.DomainGetState(dom, 0)
+func (a *LibvirtAdapter) stopDomainIfRunning(ctx context.Context, dom libvirt.Domain) {
+	state, _, err := a.client.DomainGetState(ctx, dom, 0)
 	if err == nil && state == 1 { // Running
-		_ = a.client.DomainDestroy(dom)
+		_ = a.client.DomainDestroy(ctx, dom)
 	}
 }
 
@@ -231,15 +231,15 @@ func (a *LibvirtAdapter) cleanupDomainISO(id string) {
 	_ = os.Remove(isoPath)
 }
 
-func (a *LibvirtAdapter) cleanupRootVolume(id string) {
-	pool, err := a.client.StoragePoolLookupByName(defaultPoolName)
+func (a *LibvirtAdapter) cleanupRootVolume(ctx context.Context, id string) {
+	pool, err := a.client.StoragePoolLookupByName(ctx, defaultPoolName)
 	if err != nil {
 		return
 	}
 	volName := id + "-root"
-	vol, err := a.client.StorageVolLookupByName(pool, volName)
+	vol, err := a.client.StorageVolLookupByName(ctx, pool, volName)
 	if err == nil {
-		_ = a.client.StorageVolDelete(vol, 0)
+		_ = a.client.StorageVolDelete(ctx, vol, 0)
 	}
 }
 
@@ -261,7 +261,7 @@ func (a *LibvirtAdapter) GetInstanceLogs(ctx context.Context, id string) (io.Rea
 }
 
 func (a *LibvirtAdapter) GetInstanceStats(ctx context.Context, id string) (io.ReadCloser, error) {
-	dom, err := a.client.DomainLookupByName(id)
+	dom, err := a.client.DomainLookupByName(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf(errDomainNotFound, err)
 	}
@@ -269,7 +269,7 @@ func (a *LibvirtAdapter) GetInstanceStats(ctx context.Context, id string) (io.Re
 	// Memory stats
 	// We use standard libvirt stats. The format for ComputeBackend expects JSON.
 	// We'll construct a simple JSON.
-	memStats, err := a.client.DomainMemoryStats(dom, 10, 0)
+	memStats, err := a.client.DomainMemoryStats(ctx, dom, 10, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -302,7 +302,7 @@ func (a *LibvirtAdapter) GetInstancePort(ctx context.Context, id string, interna
 }
 
 func (a *LibvirtAdapter) AttachVolume(ctx context.Context, id string, volumePath string) error {
-	dom, err := a.client.DomainLookupByName(id)
+	dom, err := a.client.DomainLookupByName(ctx, id)
 	if err != nil {
 		return fmt.Errorf(errDomainNotFound, err)
 	}
@@ -329,11 +329,11 @@ func (a *LibvirtAdapter) AttachVolume(ctx context.Context, id string, volumePath
       <target dev='%s' bus='virtio'/>
     </disk>`, diskType, driverType, sourceAttr, volumePath, dev)
 
-	return a.client.DomainAttachDevice(dom, xml)
+	return a.client.DomainAttachDevice(ctx, dom, xml)
 }
 
 func (a *LibvirtAdapter) DetachVolume(ctx context.Context, id string, volumePath string) error {
-	dom, err := a.client.DomainLookupByName(id)
+	dom, err := a.client.DomainLookupByName(ctx, id)
 	if err != nil {
 		return fmt.Errorf(errDomainNotFound, err)
 	}
@@ -346,7 +346,7 @@ func (a *LibvirtAdapter) DetachVolume(ctx context.Context, id string, volumePath
 		xml = fmt.Sprintf("<disk type='block' device='disk'><source dev='%s'/><target dev='vdb' bus='virtio'/></disk>", volumePath)
 	}
 
-	return a.client.DomainDetachDevice(dom, xml)
+	return a.client.DomainDetachDevice(ctx, dom, xml)
 }
 
 func (a *LibvirtAdapter) GetConsoleURL(ctx context.Context, id string) (string, error) {
@@ -357,12 +357,12 @@ func (a *LibvirtAdapter) GetConsoleURL(ctx context.Context, id string) (string, 
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 
-	domain, err := a.client.DomainLookupByName(id)
+	domain, err := a.client.DomainLookupByName(ctx, id)
 	if err != nil {
 		return "", fmt.Errorf("failed to lookup domain: %w", err)
 	}
 
-	xml, err := a.client.DomainGetXMLDesc(domain, 0)
+	xml, err := a.client.DomainGetXMLDesc(ctx, domain, 0)
 	if err != nil {
 		return "", fmt.Errorf("failed to get domain xml: %w", err)
 	}
@@ -385,14 +385,14 @@ func (a *LibvirtAdapter) GetConsoleURL(ctx context.Context, id string) (string, 
 
 func (a *LibvirtAdapter) GetInstanceIP(ctx context.Context, id string) (string, error) {
 	// 1. Get Domain
-	dom, err := a.client.DomainLookupByName(id)
+	dom, err := a.client.DomainLookupByName(ctx, id)
 	if err != nil {
 		return "", fmt.Errorf(errDomainNotFound, err)
 	}
 
 	// 2. We need the MAC address to look up DHCP leases.
 	// We can get XML desc and parse it.
-	xmlDesc, err := a.client.DomainGetXMLDesc(dom, 0)
+	xmlDesc, err := a.client.DomainGetXMLDesc(ctx, dom, 0)
 	if err != nil {
 		return "", fmt.Errorf("failed to get domain xml: %w", err)
 	}
@@ -413,13 +413,13 @@ func (a *LibvirtAdapter) GetInstanceIP(ctx context.Context, id string) (string, 
 
 	// 3. Lookup leases in default network
 	// We assume "default" network
-	net, err := a.client.NetworkLookupByName("default")
+	net, err := a.client.NetworkLookupByName(ctx, "default")
 	if err != nil {
 		return "", fmt.Errorf("default network not found: %w", err)
 	}
 
 	// Pass nil for mac to get all leases (simplifies type handling of OptString)
-	leases, _, err := a.client.NetworkGetDhcpLeases(net, nil, 0, 0)
+	leases, _, err := a.client.NetworkGetDhcpLeases(ctx, net, nil, 0, 0)
 	if err != nil {
 		return "", fmt.Errorf("failed to get leases: %w", err)
 	}
@@ -440,35 +440,36 @@ func (a *LibvirtAdapter) Exec(ctx context.Context, id string, cmd []string) (str
 func (a *LibvirtAdapter) RunTask(ctx context.Context, opts ports.RunTaskOptions) (string, error) {
 	name := "task-" + uuid.New().String()[:8]
 
-	pool, err := a.client.StoragePoolLookupByName(defaultPoolName)
+	pool, err := a.client.StoragePoolLookupByName(ctx, defaultPoolName)
 	if err != nil {
 		return "", fmt.Errorf("failed to find default pool: %w", err)
 	}
 
 	volXML := generateVolumeXML(name+"-root", 1)
-	vol, err := a.client.StorageVolCreateXML(pool, volXML, 0)
+	vol, err := a.client.StorageVolCreateXML(ctx, pool, volXML, 0)
 	if err != nil {
 		return "", fmt.Errorf("failed to create root volume: %w", err)
 	}
 
-	diskPath, err := a.client.StorageVolGetPath(vol)
+	diskPath, err := a.client.StorageVolGetPath(ctx, vol)
 	if err != nil {
-		_ = a.client.StorageVolDelete(vol, 0)
+		_ = a.client.StorageVolDelete(ctx, vol, 0)
 		return "", fmt.Errorf(errGetVolumePath, err)
 	}
 
 	isoPath := a.prepareCloudInit(ctx, name, nil, opts.Command)
-	domainXML := generateDomainXML(name, diskPath, "default", isoPath, int(opts.MemoryMB), 1, nil)
+	additionalDisks := a.resolveBinds(ctx, opts.Binds)
+	domainXML := generateDomainXML(name, diskPath, "default", isoPath, int(opts.MemoryMB), 1, additionalDisks)
 
-	dom, err := a.client.DomainDefineXML(domainXML)
+	dom, err := a.client.DomainDefineXML(ctx, domainXML)
 	if err != nil {
-		a.cleanupCreateFailure(vol, isoPath)
+		a.cleanupCreateFailure(ctx, vol, isoPath)
 		return "", fmt.Errorf("failed to define domain: %w", err)
 	}
 
-	if err := a.client.DomainCreate(dom); err != nil {
-		_ = a.client.DomainUndefine(dom)
-		_ = a.client.StorageVolDelete(vol, 0)
+	if err := a.client.DomainCreate(ctx, dom); err != nil {
+		_ = a.client.DomainUndefine(ctx, dom)
+		_ = a.client.StorageVolDelete(ctx, vol, 0)
 		return "", fmt.Errorf("failed to start domain: %w", err)
 	}
 
@@ -488,13 +489,13 @@ func (a *LibvirtAdapter) WaitTask(ctx context.Context, id string) (int64, error)
 		case <-ctx.Done():
 			return -1, ctx.Err()
 		case <-ticker.C:
-			dom, err := a.client.DomainLookupByName(id)
+			dom, err := a.client.DomainLookupByName(ctx, id)
 			if err != nil {
 				// If domain is gone, maybe it was deleted?
 				return -1, fmt.Errorf(errDomainNotFound, err)
 			}
 
-			state, _, err := a.client.DomainGetState(dom, 0)
+			state, _, err := a.client.DomainGetState(ctx, dom, 0)
 			if err != nil {
 				continue
 			}
@@ -514,12 +515,12 @@ func (a *LibvirtAdapter) CreateNetwork(ctx context.Context, name string) (string
 	// Simple NAT network
 	xml := generateNetworkXML(name, "virbr-"+name, gateway, rangeStart, rangeEnd)
 
-	net, err := a.client.NetworkDefineXML(xml)
+	net, err := a.client.NetworkDefineXML(ctx, xml)
 	if err != nil {
 		return "", fmt.Errorf("failed to define network: %w", err)
 	}
 
-	if err := a.client.NetworkCreate(net); err != nil {
+	if err := a.client.NetworkCreate(ctx, net); err != nil {
 		return "", fmt.Errorf("failed to start network: %w", err)
 	}
 
@@ -527,22 +528,22 @@ func (a *LibvirtAdapter) CreateNetwork(ctx context.Context, name string) (string
 }
 
 func (a *LibvirtAdapter) DeleteNetwork(ctx context.Context, id string) error {
-	net, err := a.client.NetworkLookupByName(id)
+	net, err := a.client.NetworkLookupByName(ctx, id)
 	if err != nil {
 		return nil // assume deleted
 	}
 
-	if err := a.client.NetworkDestroy(net); err != nil {
+	if err := a.client.NetworkDestroy(ctx, net); err != nil {
 		a.logger.Warn("failed to destroy network", "error", err)
 	}
-	if err := a.client.NetworkUndefine(net); err != nil {
+	if err := a.client.NetworkUndefine(ctx, net); err != nil {
 		return fmt.Errorf("failed to undefine network: %w", err)
 	}
 	return nil
 }
 
 func (a *LibvirtAdapter) CreateVolume(ctx context.Context, name string) error {
-	pool, err := a.client.StoragePoolLookupByName(defaultPoolName)
+	pool, err := a.client.StoragePoolLookupByName(ctx, defaultPoolName)
 	if err != nil {
 		return fmt.Errorf(errPoolNotFound, err)
 	}
@@ -551,12 +552,12 @@ func (a *LibvirtAdapter) CreateVolume(ctx context.Context, name string) error {
 	xml := generateVolumeXML(name, 10)
 
 	// Refresh pool first
-	if err := a.client.StoragePoolRefresh(pool, 0); err != nil {
+	if err := a.client.StoragePoolRefresh(ctx, pool, 0); err != nil {
 		// Log but continue
 		a.logger.Warn("failed to refresh pool", "error", err)
 	}
 
-	_, err = a.client.StorageVolCreateXML(pool, xml, 0)
+	_, err = a.client.StorageVolCreateXML(ctx, pool, xml, 0)
 	if err != nil {
 		return fmt.Errorf("failed to create volume xml: %w", err)
 	}
@@ -564,18 +565,18 @@ func (a *LibvirtAdapter) CreateVolume(ctx context.Context, name string) error {
 }
 
 func (a *LibvirtAdapter) DeleteVolume(ctx context.Context, name string) error {
-	pool, err := a.client.StoragePoolLookupByName(defaultPoolName)
+	pool, err := a.client.StoragePoolLookupByName(ctx, defaultPoolName)
 	if err != nil {
 		return fmt.Errorf(errPoolNotFound, err)
 	}
 
-	vol, err := a.client.StorageVolLookupByName(pool, name)
+	vol, err := a.client.StorageVolLookupByName(ctx, pool, name)
 	if err != nil {
 		// Check if not found
 		return nil
 	}
 
-	if err := a.client.StorageVolDelete(vol, 0); err != nil {
+	if err := a.client.StorageVolDelete(ctx, vol, 0); err != nil {
 		return fmt.Errorf("failed to delete volume: %w", err)
 	}
 	return nil
@@ -583,17 +584,17 @@ func (a *LibvirtAdapter) DeleteVolume(ctx context.Context, name string) error {
 
 func (a *LibvirtAdapter) CreateVolumeSnapshot(ctx context.Context, volumeID string, destinationPath string) error {
 	// volumeID is the libvirt volume name
-	pool, err := a.client.StoragePoolLookupByName(defaultPoolName)
+	pool, err := a.client.StoragePoolLookupByName(ctx, defaultPoolName)
 	if err != nil {
 		return fmt.Errorf(errPoolNotFound, err)
 	}
 
-	vol, err := a.client.StorageVolLookupByName(pool, volumeID)
+	vol, err := a.client.StorageVolLookupByName(ctx, pool, volumeID)
 	if err != nil {
 		return fmt.Errorf("failed to find volume: %w", err)
 	}
 
-	volPath, err := a.client.StorageVolGetPath(vol)
+	volPath, err := a.client.StorageVolGetPath(ctx, vol)
 	if err != nil {
 		return fmt.Errorf(errGetVolumePath, err)
 	}
@@ -621,17 +622,17 @@ func (a *LibvirtAdapter) CreateVolumeSnapshot(ctx context.Context, volumeID stri
 }
 
 func (a *LibvirtAdapter) RestoreVolumeSnapshot(ctx context.Context, volumeID string, sourcePath string) error {
-	pool, err := a.client.StoragePoolLookupByName(defaultPoolName)
+	pool, err := a.client.StoragePoolLookupByName(ctx, defaultPoolName)
 	if err != nil {
 		return fmt.Errorf(errPoolNotFound, err)
 	}
 
-	vol, err := a.client.StorageVolLookupByName(pool, volumeID)
+	vol, err := a.client.StorageVolLookupByName(ctx, pool, volumeID)
 	if err != nil {
 		return fmt.Errorf("failed to find volume: %w", err)
 	}
 
-	volPath, err := a.client.StorageVolGetPath(vol)
+	volPath, err := a.client.StorageVolGetPath(ctx, vol)
 	if err != nil {
 		return fmt.Errorf(errGetVolumePath, err)
 	}
@@ -840,9 +841,9 @@ func (a *LibvirtAdapter) configureIptables(name, ip, containerPort string, hPort
 	}
 }
 
-func (a *LibvirtAdapter) prepareRootVolume(name string) (string, libvirt.StorageVol, error) {
+func (a *LibvirtAdapter) prepareRootVolume(ctx context.Context, name string) (string, libvirt.StorageVol, error) {
 	// We assume 'imageName' is a backing volume in the default pool.
-	pool, err := a.client.StoragePoolLookupByName(defaultPoolName)
+	pool, err := a.client.StoragePoolLookupByName(ctx, defaultPoolName)
 	if err != nil {
 		return "", libvirt.StorageVol{}, fmt.Errorf("default pool not found: %w", err)
 	}
@@ -851,15 +852,15 @@ func (a *LibvirtAdapter) prepareRootVolume(name string) (string, libvirt.Storage
 	// For simplicity, we just create an empty 10GB qcows if image not found, or clone if we knew how
 	volXML := generateVolumeXML(name+"-root", 10)
 
-	vol, err := a.client.StorageVolCreateXML(pool, volXML, 0)
+	vol, err := a.client.StorageVolCreateXML(ctx, pool, volXML, 0)
 	if err != nil {
 		return "", libvirt.StorageVol{}, fmt.Errorf("failed to create root volume: %w", err)
 	}
 
 	// Get volume path from libvirt
-	diskPath, err := a.client.StorageVolGetPath(vol)
+	diskPath, err := a.client.StorageVolGetPath(ctx, vol)
 	if err != nil {
-		_ = a.client.StorageVolDelete(vol, 0)
+		_ = a.client.StorageVolDelete(ctx, vol, 0)
 		return "", libvirt.StorageVol{}, fmt.Errorf(errGetVolumePath, err)
 	}
 
@@ -900,27 +901,27 @@ func (a *LibvirtAdapter) parseAndValidatePort(p string) (int, int, error) {
 	return hPort, cP, nil
 }
 
-func (a *LibvirtAdapter) resolveBinds(volumeBinds []string) []string {
+func (a *LibvirtAdapter) resolveBinds(ctx context.Context, volumeBinds []string) []string {
 	var additionalDisks []string
 	if len(volumeBinds) == 0 {
 		return additionalDisks
 	}
 
-	pool, poolErr := a.client.StoragePoolLookupByName(defaultPoolName)
+	pool, poolErr := a.client.StoragePoolLookupByName(ctx, defaultPoolName)
 
 	for _, bind := range volumeBinds {
 		// Format is name:mountPath
 		parts := strings.Split(bind, ":")
 		volName := parts[0]
 
-		if path := a.resolveVolumePath(volName, pool, poolErr); path != "" {
+		if path := a.resolveVolumePath(ctx, volName, pool, poolErr); path != "" {
 			additionalDisks = append(additionalDisks, path)
 		}
 	}
 	return additionalDisks
 }
 
-func (a *LibvirtAdapter) resolveVolumePath(volName string, pool libvirt.StoragePool, poolErr error) string {
+func (a *LibvirtAdapter) resolveVolumePath(ctx context.Context, volName string, pool libvirt.StoragePool, poolErr error) string {
 	// 1. Check if it's an LVM path
 	if strings.HasPrefix(volName, "/dev/") {
 		return volName
@@ -928,9 +929,9 @@ func (a *LibvirtAdapter) resolveVolumePath(volName string, pool libvirt.StorageP
 
 	// 2. Try libvirt pool lookup (legacy/file-based)
 	if poolErr == nil {
-		v, err := a.client.StorageVolLookupByName(pool, volName)
+		v, err := a.client.StorageVolLookupByName(ctx, pool, volName)
 		if err == nil {
-			path, err := a.client.StorageVolGetPath(v)
+			path, err := a.client.StorageVolGetPath(ctx, v)
 			if err == nil {
 				return path
 			}
