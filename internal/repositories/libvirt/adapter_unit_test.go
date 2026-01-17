@@ -482,8 +482,9 @@ func TestGetNextNetworkRange(t *testing.T) {
 func TestGetNextNetworkRangePoolExhaustion(t *testing.T) {
 	a := &LibvirtAdapter{
 		networkCounter: 254, // The 255th /24 network
-		poolStart:      net.ParseIP("192.168.0.0"),
-		poolEnd:        net.ParseIP("192.168.255.255"),
+		// Test IPs for private network calculation
+		poolStart: net.ParseIP("192.168.0.0"),
+		poolEnd:   net.ParseIP("192.168.255.255"),
 	}
 
 	gateway, _, _ := a.getNextNetworkRange()

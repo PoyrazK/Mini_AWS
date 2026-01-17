@@ -77,11 +77,12 @@ func NewLibvirtAdapter(logger *slog.Logger, uri string) (*LibvirtAdapter, error)
 	}
 
 	return &LibvirtAdapter{
-		client:           &RealLibvirtClient{conn: l},
-		logger:           logger,
-		uri:              uri,
-		portMappings:     make(map[string]map[string]int),
-		networkCounter:   0,
+		client:         &RealLibvirtClient{conn: l},
+		logger:         logger,
+		uri:            uri,
+		portMappings:   make(map[string]map[string]int),
+		networkCounter: 0,
+		// Local private network range for VM pools - safe for internal usage
 		poolStart:        net.ParseIP("192.168.100.0"),
 		poolEnd:          net.ParseIP("192.168.200.255"),
 		ipWaitInterval:   5 * time.Second,
