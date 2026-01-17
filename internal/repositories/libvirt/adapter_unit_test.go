@@ -16,7 +16,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const testEnvVar = "FOO=bar"
+const (
+	testEnvVar  = "FOO=bar"
+	testVolPath = "/path/to/vol1"
+)
 
 func TestSanitizeDomainName(t *testing.T) {
 	a := &LibvirtAdapter{}
@@ -173,6 +176,23 @@ func TestResolveBinds(t *testing.T) {
 			assert.Empty(t, result)
 		})
 	}
+
+	t.Run("successful pool lookup", func(t *testing.T) {
+		m := new(MockLibvirtClient)
+		a := &LibvirtAdapter{client: m}
+		ctx := context.Background()
+		pool := libvirt.StoragePool{Name: "default"}
+		vol := libvirt.StorageVol{Name: "vol1"}
+
+		m.On("StoragePoolLookupByName", ctx, "default").Return(pool, nil)
+		m.On("StorageVolLookupByName", ctx, pool, "vol1").Return(vol, nil)
+		m.On("StorageVolGetPath", ctx, vol).Return(testVolPath, nil)
+
+		result := a.resolveBinds(ctx, []string{"vol1:/data"})
+		assert.Len(t, result, 1)
+		assert.Equal(t, testVolPath, result[0])
+		m.AssertExpectations(t)
+	})
 }
 
 func TestPrepareCloudInit(t *testing.T) {
@@ -337,17 +357,94 @@ func TestResolveVolumePath(t *testing.T) {
 		path := a.resolveVolumePath(context.Background(), "/non/existent/path", libvirt.StoragePool{}, skipLibvirt)
 		assert.Equal(t, "", path)
 	})
+
+	t.Run("Libvirt pool lookup success", func(t *testing.T) {
+		m := new(MockLibvirtClient)
+		a := &LibvirtAdapter{client: m}
+		ctx := context.Background()
+		pool := libvirt.StoragePool{Name: "default"}
+		vol := libvirt.StorageVol{Name: "vol1"}
+
+		m.On("StorageVolLookupByName", ctx, pool, "vol1").Return(vol, nil)
+		m.On("StorageVolGetPath", ctx, vol).Return(testVolPath, nil)
+
+		path := a.resolveVolumePath(ctx, "vol1", pool, nil)
+		assert.Equal(t, testVolPath, path)
+		m.AssertExpectations(t)
+	})
 }
 
 func TestCleanupCreateFailure(t *testing.T) {
-	// This function has side effects but we can test it doesn't panic
+	m := new(MockLibvirtClient)
 	a := &LibvirtAdapter{
-		ipWaitInterval: time.Millisecond,
+		client: m,
+		logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+	ctx := context.Background()
+
+	// 1. Success path
+	vol := libvirt.StorageVol{Name: "test-vol"}
+	m.On("StorageVolDelete", ctx, vol, uint32(0)).Return(nil).Once()
+	a.cleanupCreateFailure(ctx, vol, "/tmp/iso")
+
+	// 2. Failure path (should not panic)
+	m.On("StorageVolDelete", ctx, vol, uint32(0)).Return(fmt.Errorf("delete error")).Once()
+	a.cleanupCreateFailure(ctx, vol, "/tmp/iso-fail")
+
+	m.AssertExpectations(t)
+}
+
+func TestGetInstanceLogs(t *testing.T) {
+	// Mock osOpen
+	tmpFile, _ := os.CreateTemp("", "log")
+	defer os.Remove(tmpFile.Name())
+	_, _ = tmpFile.WriteString("log data")
+	_ = tmpFile.Close()
+
+	oldOpen := osOpen
+	defer func() { osOpen = oldOpen }()
+	osOpen = func(name string) (*os.File, error) {
+		return os.Open(tmpFile.Name())
 	}
 
-	// Should not panic - just verify it's callable
-	// Cannot test without real libvirt connection
-	assert.NotNil(t, a)
+	m := new(MockLibvirtClient)
+	a := &LibvirtAdapter{client: m}
+	ctx := context.Background()
+
+	rc, err := a.GetInstanceLogs(ctx, "test")
+	assert.NoError(t, err)
+	assert.NotNil(t, rc)
+	_ = rc.Close()
+}
+
+func TestGetInstancePort(t *testing.T) {
+	m := new(MockLibvirtClient)
+	a := &LibvirtAdapter{
+		client:       m,
+		portMappings: map[string]map[string]int{"test": {"80": 8080}},
+	}
+	ctx := context.Background()
+
+	port, err := a.GetInstancePort(ctx, "test", "80")
+	assert.NoError(t, err)
+	assert.Equal(t, 8080, port)
+
+	_, err = a.GetInstancePort(ctx, "test", "443")
+	assert.Error(t, err)
+}
+
+func TestNewLibvirtAdapter(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	_, _ = NewLibvirtAdapter(logger, "qemu:///system")
+}
+
+func TestClose(t *testing.T) {
+	m := new(MockLibvirtClient)
+	a := &LibvirtAdapter{client: m}
+	m.On("Close").Return(nil)
+	err := a.Close()
+	assert.NoError(t, err)
+	m.AssertExpectations(t)
 }
 
 func TestWaitInitialIPContextCancellation(t *testing.T) {

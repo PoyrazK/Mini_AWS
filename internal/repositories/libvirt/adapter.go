@@ -26,6 +26,9 @@ import (
 
 var execCommand = exec.Command
 var execCommandContext = exec.CommandContext
+var mkdirTemp = os.MkdirTemp
+var lookPath = exec.LookPath
+var osOpen = os.Open
 
 const (
 	defaultPoolName   = "default"
@@ -261,7 +264,7 @@ func (a *LibvirtAdapter) GetInstanceLogs(ctx context.Context, id string) (io.Rea
 	// Our XML defined <console type='pty'> which goes to a PTY. Reading PTY from outside is complex.
 	// We'll fall back to QEMU log for debug info.
 	logPath := fmt.Sprintf("/var/log/libvirt/qemu/%s.log", id)
-	f, err := os.Open(logPath)
+	f, err := osOpen(logPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open log file: %w", err)
 	}
@@ -650,7 +653,7 @@ func (a *LibvirtAdapter) RestoreVolumeSnapshot(ctx context.Context, volumeID str
 	}
 
 	// 1. Untar
-	tmpDir, err := os.MkdirTemp("", "restore-")
+	tmpDir, err := mkdirTemp("", "restore-")
 	if err != nil {
 		return err
 	}
@@ -837,7 +840,7 @@ func (a *LibvirtAdapter) configureIptables(name, ip, containerPort string, hPort
 
 	a.logger.Info("setting up port forwarding", "host", hPort, "vm", containerPort, "ip", ip)
 	// iptables -t nat -A PREROUTING -p tcp --dport <hPort> -j DNAT --to <ip>:<containerPort>
-	path, err := exec.LookPath("iptables")
+	path, err := lookPath("iptables")
 	if err != nil {
 		a.logger.Error("iptables not found, cannot set up port forwarding", "error", err)
 		return
