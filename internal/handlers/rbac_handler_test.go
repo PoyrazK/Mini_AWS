@@ -23,6 +23,7 @@ const (
 	adminRole      = "admin"
 	permSuffix     = "/permissions"
 	permFullSuffix = "/permissions/:permission"
+	pathInvalid    = "/invalid"
 )
 
 type mockRBACService struct {
