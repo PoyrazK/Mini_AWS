@@ -67,7 +67,7 @@ func TestLibvirtAdapterParseAndValidatePort(t *testing.T) {
 func TestLibvirtAdapterResolveBinds(t *testing.T) {
 	a := &LibvirtAdapter{}
 	// Test empty binds
-	resolved := a.resolveBinds(nil)
+	resolved := a.resolveBinds(context.Background(), nil)
 	assert.Empty(t, resolved)
 
 	// We cannot test full resolveBinds without a libvirt connection mock (complex)

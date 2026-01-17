@@ -169,7 +169,7 @@ func TestResolveBinds(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := a.resolveBinds(tt.binds)
+			result := a.resolveBinds(context.Background(), tt.binds)
 			assert.Empty(t, result)
 		})
 	}
@@ -323,18 +323,18 @@ func TestResolveVolumePath(t *testing.T) {
 	skipLibvirt := fmt.Errorf("skip libvirt")
 
 	t.Run("LVM path", func(t *testing.T) {
-		path := a.resolveVolumePath("/dev/vg0/lv0", libvirt.StoragePool{}, skipLibvirt)
+		path := a.resolveVolumePath(context.Background(), "/dev/vg0/lv0", libvirt.StoragePool{}, skipLibvirt)
 		assert.Equal(t, "/dev/vg0/lv0", path)
 	})
 
 	t.Run("Direct file path", func(t *testing.T) {
 		// Use a file that definitely exists
-		path := a.resolveVolumePath("/etc/hosts", libvirt.StoragePool{}, skipLibvirt)
+		path := a.resolveVolumePath(context.Background(), "/etc/hosts", libvirt.StoragePool{}, skipLibvirt)
 		assert.Equal(t, "/etc/hosts", path)
 	})
 
 	t.Run("Non-existent path", func(t *testing.T) {
-		path := a.resolveVolumePath("/non/existent/path", libvirt.StoragePool{}, skipLibvirt)
+		path := a.resolveVolumePath(context.Background(), "/non/existent/path", libvirt.StoragePool{}, skipLibvirt)
 		assert.Equal(t, "", path)
 	})
 }
