@@ -367,7 +367,7 @@ func TestRBACHandlerErrorPaths(t *testing.T) {
 	t.Run("UpdateRoleInvalidID", func(t *testing.T) {
 		_, handler, r := setupRBACHandlerTest(t)
 		r.PUT(rolesPath+"/:id", handler.UpdateRole)
-		req, _ := http.NewRequest("PUT", rolesPath+pathInvalid, nil)
+		req, _ := http.NewRequest("PUT", rolesPath+rbacPathInvalid, nil)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -398,7 +398,7 @@ func TestRBACHandlerErrorPaths(t *testing.T) {
 	t.Run("DeleteRoleInvalidID", func(t *testing.T) {
 		_, handler, r := setupRBACHandlerTest(t)
 		r.DELETE(rolesPath+"/:id", handler.DeleteRole)
-		req, _ := http.NewRequest("DELETE", rolesPath+pathInvalid, nil)
+		req, _ := http.NewRequest("DELETE", rolesPath+rbacPathInvalid, nil)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -418,7 +418,7 @@ func TestRBACHandlerErrorPaths(t *testing.T) {
 	t.Run("AddPermissionInvalidID", func(t *testing.T) {
 		_, handler, r := setupRBACHandlerTest(t)
 		r.POST(rolesPath+"/:id"+permSuffix, handler.AddPermission)
-		req, _ := http.NewRequest("POST", rolesPath+pathInvalid+permSuffix, nil)
+		req, _ := http.NewRequest("POST", rolesPath+rbacPathInvalid+permSuffix, nil)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -449,7 +449,7 @@ func TestRBACHandlerErrorPaths(t *testing.T) {
 	t.Run("RemovePermissionInvalidID", func(t *testing.T) {
 		_, handler, r := setupRBACHandlerTest(t)
 		r.DELETE(rolesPath+"/:id"+permFullSuffix, handler.RemovePermission)
-		req, _ := http.NewRequest("DELETE", rolesPath+pathInvalid+permSuffix+"/p", nil)
+		req, _ := http.NewRequest("DELETE", rolesPath+rbacPathInvalid+permSuffix+"/p", nil)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusBadRequest, w.Code)

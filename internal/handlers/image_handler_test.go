@@ -152,7 +152,7 @@ func TestImageHandlerUploadImage(t *testing.T) {
 
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest("POST", imagesAPI+pathInvalid+uploadSuffix, nil)
+		c.Request = httptest.NewRequest("POST", imagesAPI+imagePathInvalid+uploadSuffix, nil)
 		c.Params = []gin.Param{{Key: imageIDParam, Value: "invalid"}}
 
 		handler.UploadImage(c)
@@ -259,7 +259,7 @@ func TestImageHandlerDeleteImage(t *testing.T) {
 
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest("DELETE", imagesAPI+pathInvalid, nil)
+		c.Request = httptest.NewRequest("DELETE", imagesAPI+imagePathInvalid, nil)
 		c.Params = []gin.Param{{Key: imageIDParam, Value: "invalid"}}
 
 		handler.DeleteImage(c)
