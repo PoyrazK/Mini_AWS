@@ -9,19 +9,23 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+const (
+	testVolName = "test-vol"
+)
+
 func TestCreateVolumeSuccess(t *testing.T) {
 	m := new(MockLibvirtClient)
 	a := newTestAdapter(m)
 	ctx := context.Background()
 
 	pool := libvirt.StoragePool{Name: "default"}
-	vol := libvirt.StorageVol{Name: "test-vol"}
+	vol := libvirt.StorageVol{Name: testVolName}
 
 	m.On("StoragePoolLookupByName", mock.Anything, "default").Return(pool, nil)
 	m.On("StoragePoolRefresh", mock.Anything, pool, uint32(0)).Return(nil)
 	m.On("StorageVolCreateXML", mock.Anything, pool, mock.Anything, uint32(0)).Return(vol, nil)
 
-	err := a.CreateVolume(ctx, "test-vol")
+	err := a.CreateVolume(ctx, testVolName)
 	assert.NoError(t, err)
 	m.AssertExpectations(t)
 }
@@ -32,13 +36,13 @@ func TestDeleteVolumeSuccess(t *testing.T) {
 	ctx := context.Background()
 
 	pool := libvirt.StoragePool{Name: "default"}
-	vol := libvirt.StorageVol{Name: "test-vol"}
+	vol := libvirt.StorageVol{Name: testVolName}
 
 	m.On("StoragePoolLookupByName", mock.Anything, "default").Return(pool, nil)
-	m.On("StorageVolLookupByName", mock.Anything, pool, "test-vol").Return(vol, nil)
+	m.On("StorageVolLookupByName", mock.Anything, pool, testVolName).Return(vol, nil)
 	m.On("StorageVolDelete", mock.Anything, vol, uint32(0)).Return(nil)
 
-	err := a.DeleteVolume(ctx, "test-vol")
+	err := a.DeleteVolume(ctx, testVolName)
 	assert.NoError(t, err)
 	m.AssertExpectations(t)
 }
@@ -50,6 +54,6 @@ func TestStoragePoolNotFound(t *testing.T) {
 
 	m.On("StoragePoolLookupByName", mock.Anything, "default").Return(libvirt.StoragePool{}, libvirt.Error{Code: 1, Message: "not found"})
 
-	err := a.CreateVolume(ctx, "test-vol")
+	err := a.CreateVolume(ctx, testVolName)
 	assert.Error(t, err)
 }

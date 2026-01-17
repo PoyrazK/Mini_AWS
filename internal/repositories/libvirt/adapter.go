@@ -25,6 +25,7 @@ import (
 )
 
 var execCommand = exec.Command
+var execCommandContext = exec.CommandContext
 
 const (
 	defaultPoolName   = "default"
@@ -81,6 +82,11 @@ func NewLibvirtAdapter(logger *slog.Logger, uri string) (*LibvirtAdapter, error)
 		poolEnd:        net.ParseIP("192.168.200.255"),
 		ipWaitInterval: 5 * time.Second,
 	}, nil
+}
+
+// Close gracefully disconnects from libvirt
+func (a *LibvirtAdapter) Close() error {
+	return a.client.Close()
 }
 
 // Ping checks if libvirt is reachable

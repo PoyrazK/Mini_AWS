@@ -3,6 +3,7 @@ package libvirt
 import (
 	"context"
 	"fmt"
+	"os/exec"
 	"testing"
 
 	"github.com/google/uuid"
@@ -153,5 +154,40 @@ func TestGenerateNginxConfig(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Contains(t, config, "return 503")
 		assert.NotContains(t, config, "upstream backend")
+	})
+}
+
+func TestLBProxyAdapterOperations(t *testing.T) {
+	// Mock execCommandContext
+	oldExec := execCommandContext
+	defer func() { execCommandContext = oldExec }()
+	execCommandContext = func(ctx context.Context, name string, args ...string) *exec.Cmd {
+		return exec.CommandContext(ctx, "true")
+	}
+
+	mockCompute := new(mockComputeBackend)
+	a := NewLBProxyAdapter(mockCompute)
+	ctx := context.Background()
+
+	lb := &domain.LoadBalancer{
+		ID:        uuid.New(),
+		Port:      80,
+		Algorithm: algoRoundRobin,
+	}
+
+	t.Run("DeployProxy", func(t *testing.T) {
+		id, err := a.DeployProxy(ctx, lb, nil)
+		assert.NoError(t, err)
+		assert.Equal(t, lb.ID.String(), id)
+	})
+
+	t.Run("UpdateProxyConfig", func(t *testing.T) {
+		err := a.UpdateProxyConfig(ctx, lb, nil)
+		assert.NoError(t, err)
+	})
+
+	t.Run("RemoveProxy", func(t *testing.T) {
+		err := a.RemoveProxy(ctx, lb.ID)
+		assert.NoError(t, err)
 	})
 }
