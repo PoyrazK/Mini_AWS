@@ -23,7 +23,7 @@ const (
 	testExampleURL2 = "http://example.com"
 	subSuffix       = "/subscriptions"
 	publishSuffix   = "/publish"
-	pathInvalid     = "/invalid"
+	notifyPathInvalid     = "/invalid"
 )
 
 type mockNotifyService struct {
@@ -247,7 +247,7 @@ func TestNotifyHandlerTopicErrors(t *testing.T) {
 	t.Run("DeleteInvalidID", func(t *testing.T) {
 		_, handler, r := setupNotifyHandlerTest(t)
 		r.DELETE(topicsPath+"/:id", handler.DeleteTopic)
-		req, _ := http.NewRequest("DELETE", topicsPath+pathInvalid, nil)
+		req, _ := http.NewRequest("DELETE", topicsPath+notifyPathInvalid, nil)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -269,7 +269,7 @@ func TestNotifyHandlerSubscriptionErrors(t *testing.T) {
 	t.Run("SubscribeInvalidID", func(t *testing.T) {
 		_, handler, r := setupNotifyHandlerTest(t)
 		r.POST(topicsPath+"/:id"+subSuffix, handler.Subscribe)
-		req, _ := http.NewRequest("POST", topicsPath+pathInvalid+subSuffix, nil)
+		req, _ := http.NewRequest("POST", topicsPath+notifyPathInvalid+subSuffix, nil)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -300,7 +300,7 @@ func TestNotifyHandlerSubscriptionErrors(t *testing.T) {
 	t.Run("ListSubsInvalidID", func(t *testing.T) {
 		_, handler, r := setupNotifyHandlerTest(t)
 		r.GET(topicsPath+"/:id"+subSuffix, handler.ListSubscriptions)
-		req, _ := http.NewRequest("GET", topicsPath+pathInvalid+subSuffix, nil)
+		req, _ := http.NewRequest("GET", topicsPath+notifyPathInvalid+subSuffix, nil)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -320,7 +320,7 @@ func TestNotifyHandlerSubscriptionErrors(t *testing.T) {
 	t.Run("UnsubscribeInvalidID", func(t *testing.T) {
 		_, handler, r := setupNotifyHandlerTest(t)
 		r.DELETE(subsPath+"/:id", handler.Unsubscribe)
-		req, _ := http.NewRequest("DELETE", subsPath+pathInvalid, nil)
+		req, _ := http.NewRequest("DELETE", subsPath+notifyPathInvalid, nil)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -342,7 +342,7 @@ func TestNotifyHandlerPublishErrors(t *testing.T) {
 	t.Run("PublishInvalidID", func(t *testing.T) {
 		_, handler, r := setupNotifyHandlerTest(t)
 		r.POST(topicsPath+"/:id"+publishSuffix, handler.Publish)
-		req, _ := http.NewRequest("POST", topicsPath+pathInvalid+publishSuffix, nil)
+		req, _ := http.NewRequest("POST", topicsPath+notifyPathInvalid+publishSuffix, nil)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusBadRequest, w.Code)

@@ -24,7 +24,7 @@ const (
 	resumePath     = "/:id/resume"
 	pauseSuffix    = "/pause"
 	resumeSuffix   = "/resume"
-	pathInvalid    = "/invalid"
+	cronPathInvalid    = "/invalid"
 )
 
 type mockCronService struct {
@@ -227,7 +227,7 @@ func TestCronHandlerGetError(t *testing.T) {
 	t.Run("InvalidID", func(t *testing.T) {
 		_, handler, r := setupCronHandlerTest(t)
 		r.GET(cronPath+"/:id", handler.GetJob)
-		req, _ := http.NewRequest(http.MethodGet, cronPath+pathInvalid, nil)
+		req, _ := http.NewRequest(http.MethodGet, cronPath+cronPathInvalid, nil)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -250,7 +250,7 @@ func TestCronHandlerPauseError(t *testing.T) {
 	t.Run("InvalidID", func(t *testing.T) {
 		_, handler, r := setupCronHandlerTest(t)
 		r.POST(cronPath+pausePath, handler.PauseJob)
-		req, _ := http.NewRequest(http.MethodPost, cronPath+pathInvalid+pauseSuffix, nil)
+		req, _ := http.NewRequest(http.MethodPost, cronPath+cronPathInvalid+pauseSuffix, nil)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -273,7 +273,7 @@ func TestCronHandlerResumeError(t *testing.T) {
 	t.Run("InvalidID", func(t *testing.T) {
 		_, handler, r := setupCronHandlerTest(t)
 		r.POST(cronPath+resumePath, handler.ResumeJob)
-		req, _ := http.NewRequest(http.MethodPost, cronPath+pathInvalid+resumeSuffix, nil)
+		req, _ := http.NewRequest(http.MethodPost, cronPath+cronPathInvalid+resumeSuffix, nil)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -296,7 +296,7 @@ func TestCronHandlerDeleteError(t *testing.T) {
 	t.Run("InvalidID", func(t *testing.T) {
 		_, handler, r := setupCronHandlerTest(t)
 		r.DELETE(cronPath+"/:id", handler.DeleteJob)
-		req, _ := http.NewRequest(http.MethodDelete, cronPath+pathInvalid, nil)
+		req, _ := http.NewRequest(http.MethodDelete, cronPath+cronPathInvalid, nil)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusBadRequest, w.Code)

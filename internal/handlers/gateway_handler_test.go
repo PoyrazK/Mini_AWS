@@ -31,7 +31,7 @@ const (
 	testRouteName = "route-1"
 	gwProxyPath   = "/gw/*proxy"
 	gwAPITestPath = "/gw/api"
-	pathInvalid   = "/invalid"
+	gwPathInvalid   = "/invalid"
 )
 
 type mockGatewayService struct {
@@ -293,7 +293,7 @@ func TestGatewayHandlerDeleteError(t *testing.T) {
 	t.Run("InvalidID", func(t *testing.T) {
 		_, handler, r := setupGatewayHandlerTest(t)
 		r.DELETE(routesPath+"/:id", handler.DeleteRoute)
-		req, _ := http.NewRequest(http.MethodDelete, routesPath+pathInvalid, nil)
+		req, _ := http.NewRequest(http.MethodDelete, routesPath+gwPathInvalid, nil)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusBadRequest, w.Code)

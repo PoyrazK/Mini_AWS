@@ -23,7 +23,7 @@ const (
 	invokeSuffix     = "/invoke"
 	logsSuffix       = "/logs"
 	hdrContentType   = "Content-Type"
-	pathInvalid      = "/invalid"
+	fnPathInvalid      = "/invalid"
 )
 
 type mockFunctionService struct {
@@ -268,7 +268,7 @@ func TestFunctionHandlerGetError(t *testing.T) {
 	t.Run("InvalidID", func(t *testing.T) {
 		_, handler, r := setupFunctionHandlerTest(t)
 		r.GET(functionsPath+"/:id", handler.Get)
-		req, _ := http.NewRequest(http.MethodGet, functionsPath+pathInvalid, nil)
+		req, _ := http.NewRequest(http.MethodGet, functionsPath+fnPathInvalid, nil)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -291,7 +291,7 @@ func TestFunctionHandlerInvokeError(t *testing.T) {
 	t.Run("InvalidID", func(t *testing.T) {
 		_, handler, r := setupFunctionHandlerTest(t)
 		r.POST(functionsPath+"/:id"+invokeSuffix, handler.Invoke)
-		req, _ := http.NewRequest("POST", functionsPath+pathInvalid+invokeSuffix, nil)
+		req, _ := http.NewRequest("POST", functionsPath+fnPathInvalid+invokeSuffix, nil)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -327,7 +327,7 @@ func TestFunctionHandlerGetLogsError(t *testing.T) {
 	t.Run("InvalidID", func(t *testing.T) {
 		_, handler, r := setupFunctionHandlerTest(t)
 		r.GET(functionsPath+"/:id"+logsSuffix, handler.GetLogs)
-		req, _ := http.NewRequest(http.MethodGet, functionsPath+pathInvalid+logsSuffix, nil)
+		req, _ := http.NewRequest(http.MethodGet, functionsPath+fnPathInvalid+logsSuffix, nil)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -350,7 +350,7 @@ func TestFunctionHandlerDeleteError(t *testing.T) {
 	t.Run("InvalidID", func(t *testing.T) {
 		_, handler, r := setupFunctionHandlerTest(t)
 		r.DELETE(functionsPath+"/:id", handler.Delete)
-		req, _ := http.NewRequest(http.MethodDelete, functionsPath+pathInvalid, nil)
+		req, _ := http.NewRequest(http.MethodDelete, functionsPath+fnPathInvalid, nil)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusBadRequest, w.Code)

@@ -26,7 +26,7 @@ const (
 	testDBName    = "db-1"
 	connPath      = "/:id/connection"
 	connSuffix    = "/connection"
-	pathInvalid   = "/invalid"
+	dbPathInvalid   = "/invalid"
 )
 
 type mockDatabaseService struct {
@@ -207,7 +207,7 @@ func TestDatabaseHandlerGetError(t *testing.T) {
 	t.Run("InvalidID", func(t *testing.T) {
 		_, handler, r := setupDatabaseHandlerTest(t)
 		r.GET(databasesPath+"/:id", handler.Get)
-		req, _ := http.NewRequest(http.MethodGet, databasesPath+pathInvalid, nil)
+		req, _ := http.NewRequest(http.MethodGet, databasesPath+dbPathInvalid, nil)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -230,7 +230,7 @@ func TestDatabaseHandlerDeleteError(t *testing.T) {
 	t.Run("InvalidID", func(t *testing.T) {
 		_, handler, r := setupDatabaseHandlerTest(t)
 		r.DELETE(databasesPath+"/:id", handler.Delete)
-		req, _ := http.NewRequest(http.MethodDelete, databasesPath+pathInvalid, nil)
+		req, _ := http.NewRequest(http.MethodDelete, databasesPath+dbPathInvalid, nil)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -253,7 +253,7 @@ func TestDatabaseHandlerGetConnectionStringError(t *testing.T) {
 	t.Run("InvalidID", func(t *testing.T) {
 		_, handler, r := setupDatabaseHandlerTest(t)
 		r.GET(databasesPath+connPath, handler.GetConnectionString)
-		req, _ := http.NewRequest(http.MethodGet, databasesPath+pathInvalid+connSuffix, nil)
+		req, _ := http.NewRequest(http.MethodGet, databasesPath+dbPathInvalid+connSuffix, nil)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusBadRequest, w.Code)
