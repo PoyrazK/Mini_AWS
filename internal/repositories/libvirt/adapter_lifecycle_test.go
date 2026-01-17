@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"net"
 	"testing"
 	"time"
 
@@ -24,6 +25,8 @@ func newTestAdapter(m *MockLibvirtClient) *LibvirtAdapter {
 		logger:         slog.New(slog.NewTextHandler(io.Discard, nil)),
 		uri:            "qemu:///system",
 		ipWaitInterval: 1 * time.Millisecond,
+		poolStart:      net.ParseIP("192.168.100.0"),
+		poolEnd:        net.ParseIP("192.168.200.255"),
 	}
 }
 
