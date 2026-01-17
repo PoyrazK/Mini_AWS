@@ -268,3 +268,37 @@ func TestRunTaskSuccess(t *testing.T) {
 	assert.NotEmpty(t, id)
 	m.AssertExpectations(t)
 }
+
+func TestCreateNetworkSuccess(t *testing.T) {
+	m := new(MockLibvirtClient)
+	a := newTestAdapter(m)
+	ctx := context.Background()
+
+	netName := "test-net"
+	mockNet := libvirt.Network{Name: netName}
+
+	m.On("NetworkDefineXML", mock.Anything, mock.Anything).Return(mockNet, nil)
+	m.On("NetworkCreate", mock.Anything, mockNet).Return(nil)
+
+	id, err := a.CreateNetwork(ctx, netName)
+	assert.NoError(t, err)
+	assert.Equal(t, netName, id)
+	m.AssertExpectations(t)
+}
+
+func TestDeleteNetworkSuccess(t *testing.T) {
+	m := new(MockLibvirtClient)
+	a := newTestAdapter(m)
+	ctx := context.Background()
+
+	netName := "test-net"
+	mockNet := libvirt.Network{Name: netName}
+
+	m.On("NetworkLookupByName", mock.Anything, netName).Return(mockNet, nil)
+	m.On("NetworkDestroy", mock.Anything, mockNet).Return(nil)
+	m.On("NetworkUndefine", mock.Anything, mockNet).Return(nil)
+
+	err := a.DeleteNetwork(ctx, netName)
+	assert.NoError(t, err)
+	m.AssertExpectations(t)
+}
