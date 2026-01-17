@@ -17,13 +17,13 @@ import (
 )
 
 const (
-	deploymentsPath   = "/containers/deployments"
-	testDepName       = "dep-1"
-	imageNginx        = "nginx"
-	containerPort8080 = "80:80"
-	scalePath         = "/:id/scale"
-	scaleSuffix       = "/scale"
-	pathInvalid       = "/invalid"
+	deploymentsPath      = "/containers/deployments"
+	testDepName          = "dep-1"
+	imageNginx           = "nginx"
+	containerPort8080    = "80:80"
+	scalePath            = "/:id/scale"
+	scaleSuffix          = "/scale"
+	containerPathInvalid = "/invalid"
 )
 
 type mockContainerService struct {
@@ -206,7 +206,7 @@ func TestContainerHandlerGetError(t *testing.T) {
 	t.Run("InvalidID", func(t *testing.T) {
 		_, handler, r := setupContainerHandlerTest(t)
 		r.GET(deploymentsPath+"/:id", handler.GetDeployment)
-		req, _ := http.NewRequest(http.MethodGet, deploymentsPath+pathInvalid, nil)
+		req, _ := http.NewRequest(http.MethodGet, deploymentsPath+containerPathInvalid, nil)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -229,7 +229,7 @@ func TestContainerHandlerScaleError(t *testing.T) {
 	t.Run("InvalidID", func(t *testing.T) {
 		_, handler, r := setupContainerHandlerTest(t)
 		r.POST(deploymentsPath+scalePath, handler.ScaleDeployment)
-		req, _ := http.NewRequest("POST", deploymentsPath+pathInvalid+scaleSuffix, nil)
+		req, _ := http.NewRequest("POST", deploymentsPath+containerPathInvalid+scaleSuffix, nil)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -262,7 +262,7 @@ func TestContainerHandlerDeleteError(t *testing.T) {
 	t.Run("InvalidID", func(t *testing.T) {
 		_, handler, r := setupContainerHandlerTest(t)
 		r.DELETE(deploymentsPath+"/:id", handler.DeleteDeployment)
-		req, _ := http.NewRequest(http.MethodDelete, deploymentsPath+pathInvalid, nil)
+		req, _ := http.NewRequest(http.MethodDelete, deploymentsPath+containerPathInvalid, nil)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusBadRequest, w.Code)

@@ -17,13 +17,13 @@ import (
 )
 
 const (
-	rolesPath      = "/rbac/roles"
-	bindPath       = "/rbac/bindings"
-	testRoleName   = "test-role"
-	adminRole      = "admin"
-	permSuffix     = "/permissions"
-	permFullSuffix = "/permissions/:permission"
-	pathInvalid    = "/invalid"
+	rolesPath       = "/rbac/roles"
+	bindPath        = "/rbac/bindings"
+	testRoleName    = "test-role"
+	adminRole       = "admin"
+	permSuffix      = "/permissions"
+	permFullSuffix  = "/permissions/:permission"
+	rbacPathInvalid = "/invalid"
 )
 
 type mockRBACService struct {
