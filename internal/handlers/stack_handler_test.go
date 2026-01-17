@@ -177,7 +177,6 @@ func TestStackHandlerValidate(t *testing.T) {
 	handler.Validate(c)
 
 	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Equal(t, http.StatusOK, w.Code)
 	svc.AssertExpectations(t)
 }
 

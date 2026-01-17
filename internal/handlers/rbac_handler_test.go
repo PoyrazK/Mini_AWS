@@ -18,7 +18,7 @@ import (
 
 const (
 	rolesPath      = "/rbac/roles"
-	bindPath       = "/rbac/bind"
+	bindPath       = "/rbac/bindings"
 	testRoleName   = "test-role"
 	adminRole      = "admin"
 	permSuffix     = "/permissions"

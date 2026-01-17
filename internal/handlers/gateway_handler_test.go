@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/http/httputil"
+	"net/url"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -162,20 +163,22 @@ func TestGatewayHandlerProxySuccess(t *testing.T) {
 		_, _ = w.Write([]byte("proxied"))
 	}))
 	defer ts.Close()
+	targetURL, _ := url.Parse(ts.URL)
 
-	// No target needed for this test
-	svc.On("GetProxy", "/api").Return(&httputil.ReverseProxy{
-		Director: func(req *http.Request) {
-			req.URL.Scheme = "http"
-			req.URL.Host = "localhost"
-		},
-	}, true)
+	// Use real proxy targeting test server
+	proxy := httputil.NewSingleHostReverseProxy(targetURL)
+	// NewSingleHostReverseProxy doesn't set a Director that strips the prefix /gw by default if we just proxy.
+	// But GatewayHandler typically strips prefix before calling proxy or expects proxy to handle it.
+	// Gateway Handler implementation: c.Request.URL.Path = c.Param("proxy")? or just calls ServeHTTP.
+	// If GatewayHandler calls `proxy.ServeHTTP(w, c.Request)`, the request path "/gw/api" is sent to target.
+	// Test server expects any path.
+	svc.On("GetProxy", "/api").Return(proxy, true)
 
 	req, err := http.NewRequest(http.MethodGet, gwAPITestPath, nil)
 	assert.NoError(t, err)
 	w := &closeNotifierRecorder{httptest.NewRecorder()}
 	r.ServeHTTP(w, req)
-	assert.Equal(t, http.StatusBadGateway, w.Code)
+	assert.Equal(t, http.StatusOK, w.Code)
 }
 
 func TestGatewayHandlerProxyWithoutSlash(t *testing.T) {
@@ -184,18 +187,20 @@ func TestGatewayHandlerProxyWithoutSlash(t *testing.T) {
 
 	r.Any(gwProxyPath, handler.Proxy)
 
-	svc.On("GetProxy", "/api").Return(&httputil.ReverseProxy{
-		Director: func(req *http.Request) {
-			req.URL.Scheme = "http"
-			req.URL.Host = "localhost"
-		},
-	}, true)
+	// Mock ReverseProxy
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+	targetURL, _ := url.Parse(ts.URL)
+
+	svc.On("GetProxy", "/api").Return(httputil.NewSingleHostReverseProxy(targetURL), true)
 
 	req, err := http.NewRequest(http.MethodGet, gwAPITestPath, nil)
 	assert.NoError(t, err)
 	w := &closeNotifierRecorder{httptest.NewRecorder()}
 	r.ServeHTTP(w, req)
-	assert.Equal(t, http.StatusBadGateway, w.Code)
+	assert.Equal(t, http.StatusOK, w.Code)
 }
 
 func TestGatewayHandlerProxyWithSlash(t *testing.T) {
@@ -204,19 +209,21 @@ func TestGatewayHandlerProxyWithSlash(t *testing.T) {
 
 	r.Any(gwProxyPath, handler.Proxy)
 
-	svc.On("GetProxy", "//api").Return(&httputil.ReverseProxy{
-		Director: func(req *http.Request) {
-			req.URL.Scheme = "http"
-			req.URL.Host = "localhost"
-		},
-	}, true)
+	// Mock ReverseProxy
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+	targetURL, _ := url.Parse(ts.URL)
+
+	svc.On("GetProxy", "//api").Return(httputil.NewSingleHostReverseProxy(targetURL), true)
 
 	req, err := http.NewRequest(http.MethodGet, "/gw//api", nil)
 	assert.NoError(t, err)
 	w := &closeNotifierRecorder{httptest.NewRecorder()}
 	r.ServeHTTP(w, req)
 
-	assert.Equal(t, http.StatusBadGateway, w.Code)
+	assert.Equal(t, http.StatusOK, w.Code)
 }
 
 func TestGatewayHandlerCreateError(t *testing.T) {
@@ -265,16 +272,18 @@ func TestGatewayHandlerProxyParamWithoutSlash(t *testing.T) {
 	c.Params = gin.Params{{Key: "proxy", Value: "api"}}
 	c.Request = httptest.NewRequest("GET", gwAPITestPath, nil)
 
+	// Mock ReverseProxy
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+	targetURL, _ := url.Parse(ts.URL)
+
 	// Expect GetProxy to be called with "/api" (slash added)
-	mockSvc.On("GetProxy", "/api").Return(&httputil.ReverseProxy{
-		Director: func(req *http.Request) {
-			// Director is required by ReverseProxy, but for this test we don't need to modify the request
-		},
-	}, true)
+	mockSvc.On("GetProxy", "/api").Return(httputil.NewSingleHostReverseProxy(targetURL), true)
 
 	handler.Proxy(c)
 
-	// Since we didn't mock Transport, ReverseProxy will fail to dial but due to test setup might return 200
 	assert.Equal(t, http.StatusOK, w.Code)
 	mockSvc.AssertExpectations(t)
 }

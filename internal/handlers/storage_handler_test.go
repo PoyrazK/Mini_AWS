@@ -187,6 +187,7 @@ func TestStorageHandlerErrorPaths(t *testing.T) {
 
 	t.Run("UploadServiceError", func(t *testing.T) {
 		svc, handler, r := setup(t)
+		defer svc.AssertExpectations(t)
 		r.PUT(storageObjectPath, handler.Upload)
 		svc.On("Upload", mock.Anything, storageBucketName, testFileName, mock.Anything).Return(nil, errors.New(errors.Internal, "error"))
 		req, _ := http.NewRequest("PUT", storageBasePath+storageBucketName+"/"+testFileName, strings.NewReader("data"))
@@ -197,6 +198,7 @@ func TestStorageHandlerErrorPaths(t *testing.T) {
 
 	t.Run("DownloadServiceError", func(t *testing.T) {
 		svc, handler, r := setup(t)
+		defer svc.AssertExpectations(t)
 		r.GET(storageObjectPath, handler.Download)
 		svc.On("Download", mock.Anything, storageBucketName, testFileName).Return(nil, nil, errors.New(errors.Internal, "error"))
 		req, _ := http.NewRequest("GET", storageBasePath+storageBucketName+"/"+testFileName, nil)
@@ -207,6 +209,7 @@ func TestStorageHandlerErrorPaths(t *testing.T) {
 
 	t.Run("ListServiceError", func(t *testing.T) {
 		svc, handler, r := setup(t)
+		defer svc.AssertExpectations(t)
 		r.GET("/storage/:bucket", handler.List)
 		svc.On("ListObjects", mock.Anything, storageBucketName).Return(nil, errors.New(errors.Internal, "error"))
 		req, _ := http.NewRequest("GET", storageBasePath+storageBucketName, nil)
@@ -217,6 +220,7 @@ func TestStorageHandlerErrorPaths(t *testing.T) {
 
 	t.Run("DeleteServiceError", func(t *testing.T) {
 		svc, handler, r := setup(t)
+		defer svc.AssertExpectations(t)
 		r.DELETE(storageObjectPath, handler.Delete)
 		svc.On("DeleteObject", mock.Anything, storageBucketName, testFileName).Return(errors.New(errors.Internal, "error"))
 		req, _ := http.NewRequest("DELETE", storageBasePath+storageBucketName+"/"+testFileName, nil)
