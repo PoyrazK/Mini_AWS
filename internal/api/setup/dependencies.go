@@ -9,6 +9,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/handlers/ws"
 	"github.com/poyrazk/thecloud/internal/platform"
 	"github.com/poyrazk/thecloud/internal/repositories/filesystem"
+	"github.com/poyrazk/thecloud/internal/repositories/k8s"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/poyrazk/thecloud/internal/repositories/redis"
 	"github.com/poyrazk/thecloud/internal/workers"
@@ -45,6 +46,7 @@ type Repositories struct {
 	Accounting    ports.AccountingRepository
 	TaskQueue     ports.TaskQueue
 	Image         ports.ImageRepository
+	Cluster       ports.ClusterRepository
 }
 
 // InitRepositories constructs repositories using the provided database clients.
@@ -78,6 +80,7 @@ func InitRepositories(db postgres.DB, rdb *redisv9.Client) *Repositories {
 		Accounting:    postgres.NewAccountingRepository(db),
 		TaskQueue:     redis.NewRedisTaskQueue(rdb),
 		Image:         postgres.NewImageRepository(db),
+		Cluster:       postgres.NewClusterRepository(db),
 	}
 }
 
@@ -113,6 +116,7 @@ type Services struct {
 	AutoScaling   ports.AutoScalingService
 	Accounting    ports.AccountingService
 	Image         ports.ImageService
+	Cluster       ports.ClusterService
 }
 
 // Workers struct to return background workers
@@ -196,6 +200,11 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 	imageSvc := services.NewImageService(c.Repos.Image, fileStore, c.Logger)
 	provisionWorker := workers.NewProvisionWorker(instSvcConcrete, c.Repos.TaskQueue, c.Logger)
 
+	clusterProvisioner := k8s.NewMockProvisioner()
+	clusterSvc := services.NewClusterService(services.ClusterServiceParams{
+		Repo: c.Repos.Cluster, Provisioner: clusterProvisioner, VpcSvc: vpcSvc, InstanceSvc: instSvcConcrete, Logger: c.Logger,
+	})
+
 	svcs := &Services{
 		WsHub: wsHub, Audit: auditSvc, Identity: identitySvc, Auth: authSvc, PasswordReset: pwdResetSvc, RBAC: rbacSvc,
 		Vpc: vpcSvc, Subnet: subnetSvc, Event: eventSvc, Volume: volumeSvc, Instance: instSvcConcrete,
@@ -203,6 +212,7 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 		Storage: storageSvc, Database: databaseSvc, Secret: secretSvc, Function: fnSvc, Cache: cacheSvc,
 		Queue: queueSvc, Notify: notifySvc, Cron: cronSvc, Gateway: gwSvc, Container: containerSvc,
 		Health: services.NewHealthServiceImpl(c.DB, c.Compute), AutoScaling: asgSvc, Accounting: accountingSvc, Image: imageSvc,
+		Cluster:   clusterSvc,
 		Dashboard: services.NewDashboardService(c.Repos.Instance, c.Repos.Volume, c.Repos.Vpc, c.Repos.Event, c.Logger),
 	}
 

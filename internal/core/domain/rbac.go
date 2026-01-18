@@ -107,6 +107,11 @@ const (
 	PermissionImageRead   Permission = "image:read"
 	PermissionImageDelete Permission = "image:delete"
 
+	// Cluster Permissions
+	PermissionClusterCreate Permission = "cluster:create"
+	PermissionClusterDelete Permission = "cluster:delete"
+	PermissionClusterRead   Permission = "cluster:read"
+
 	// System Permissions
 	PermissionFullAccess Permission = "*"
 )
