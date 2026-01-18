@@ -17,7 +17,8 @@ type RBACHandler struct {
 	svc ports.RBACService
 }
 
-// NewRBACHandler constructs an RBACHandler.
+// NewRBACHandler constructs a new RBACHandler with the given RBAC service.
+// It returns an initialized handler capable of managing roles, permissions, and user bindings.
 func NewRBACHandler(svc ports.RBACService) *RBACHandler {
 	return &RBACHandler{svc: svc}
 }
