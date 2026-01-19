@@ -14,6 +14,8 @@ const (
 	ClusterStatusProvisioning ClusterStatus = "provisioning"
 	ClusterStatusRunning      ClusterStatus = "running"
 	ClusterStatusUpgrading    ClusterStatus = "upgrading"
+	ClusterStatusUpdating     ClusterStatus = "updating"
+	ClusterStatusRepairing    ClusterStatus = "repairing"
 	ClusterStatusFailed       ClusterStatus = "failed"
 	ClusterStatusDeleting     ClusterStatus = "deleting"
 )
@@ -28,17 +30,22 @@ const (
 
 // Cluster represents a managed Kubernetes cluster.
 type Cluster struct {
-	ID              uuid.UUID     `json:"id"`
-	Name            string        `json:"name"`
-	UserID          uuid.UUID     `json:"user_id"`
-	VpcID           uuid.UUID     `json:"vpc_id"`
-	Version         string        `json:"version"`
-	ControlPlaneIPs []string      `json:"control_plane_ips"`
-	WorkerCount     int           `json:"worker_count"`
-	Status          ClusterStatus `json:"status"`
-	Kubeconfig      string        `json:"kubeconfig,omitempty"` // Encrypted
-	CreatedAt       time.Time     `json:"created_at"`
-	UpdatedAt       time.Time     `json:"updated_at"`
+	ID                 uuid.UUID     `json:"id"`
+	Name               string        `json:"name"`
+	UserID             uuid.UUID     `json:"user_id"`
+	VpcID              uuid.UUID     `json:"vpc_id"`
+	Version            string        `json:"version"`
+	ControlPlaneIPs    []string      `json:"control_plane_ips"`
+	WorkerCount        int           `json:"worker_count"`
+	Status             ClusterStatus `json:"status"`
+	SSHKey             string        `json:"ssh_key,omitempty"`    // Base64 encoded private key
+	Kubeconfig         string        `json:"kubeconfig,omitempty"` // Encrypted
+	NetworkIsolation   bool          `json:"network_isolation"`
+	HAEnabled          bool          `json:"ha_enabled"`
+	APIServerLBAddress *string       `json:"api_server_lb_address,omitempty"`
+	JobID              *string       `json:"job_id,omitempty"`
+	CreatedAt          time.Time     `json:"created_at"`
+	UpdatedAt          time.Time     `json:"updated_at"`
 }
 
 // ClusterNode represents a node within a Kubernetes cluster.
