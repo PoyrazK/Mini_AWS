@@ -105,7 +105,8 @@ func createVPC(t *testing.T, client *http.Client, token, name, cidr string) VPC 
 		Data VPC `json:"data"`
 	}
 	var w Wrapper
-	json.NewDecoder(resp.Body).Decode(&w)
+	err = json.NewDecoder(resp.Body).Decode(&w)
+	require.NoError(t, err)
 	return w.Data
 }
 
@@ -150,6 +151,7 @@ func getCluster(t *testing.T, client *http.Client, token, id string) Cluster {
 		Data Cluster `json:"data"`
 	}
 	var w Wrapper
-	json.NewDecoder(resp.Body).Decode(&w)
+	err = json.NewDecoder(resp.Body).Decode(&w)
+	require.NoError(t, err)
 	return w.Data
 }
