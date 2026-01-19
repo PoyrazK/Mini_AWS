@@ -1,0 +1,153 @@
+package k8s
+
+import (
+	"context"
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/poyrazk/thecloud/internal/core/domain"
+)
+
+func (p *KubeadmProvisioner) provisionHAControlPlane(ctx context.Context, cluster *domain.Cluster) (string, error) {
+	p.logger.Info("provisioning HA control plane (3 nodes)", "cluster_id", cluster.ID)
+
+	// 1. Create Load Balancer for the Control Plane
+	lbName := fmt.Sprintf("lb-k8s-%s", cluster.Name)
+	lb, err := p.lbSvc.Create(ctx, lbName, cluster.VpcID, 6443, "round-robin", cluster.ID.String())
+	if err != nil {
+		return "", p.failCluster(ctx, cluster, "failed to create control plane load balancer", err)
+	}
+
+	lbIP := lb.IP
+	if lbIP == "" {
+		time.Sleep(5 * time.Second)
+		lb, _ = p.lbSvc.Get(ctx, lb.ID)
+		lbIP = lb.IP
+	}
+
+	cluster.APIServerLBAddress = &lbIP
+	p.repo.Update(ctx, cluster)
+
+	// 2. Provision 3 Master Nodes
+	masterIPs, _, err := p.provisionHAMasters(ctx, cluster, lb)
+	if err != nil {
+		return "", err
+	}
+
+	cluster.ControlPlaneIPs = masterIPs
+	p.repo.Update(ctx, cluster)
+
+	// 3. Init Kubeadm on master-0
+	p.logger.Info("initializing kubeadm on first master", "ip", masterIPs[0])
+	joinCmd, cpJoinCmd, kubeconfig, err := p.initKubeadmHA(ctx, cluster, masterIPs[0], lbIP)
+	if err != nil {
+		return "", p.failCluster(ctx, cluster, "failed to init primary master", err)
+	}
+
+	// 4. Join master-1 and master-2 to control plane
+	if err := p.joinHAMasters(ctx, cluster, masterIPs, cpJoinCmd); err != nil {
+		return "", err
+	}
+
+	// 5. Encrypt and store kubeconfig
+	p.storeKubeconfig(ctx, cluster, kubeconfig)
+
+	return joinCmd, nil
+}
+
+func (p *KubeadmProvisioner) provisionHAMasters(ctx context.Context, cluster *domain.Cluster, lb *domain.LoadBalancer) ([]string, []*domain.Instance, error) {
+	var masters []*domain.Instance
+	var masterIPs []string
+
+	for i := 0; i < 3; i++ {
+		name := fmt.Sprintf("master-%d", i)
+		node, err := p.createNode(ctx, cluster, name, domain.NodeRoleControlPlane)
+		if err != nil {
+			return nil, nil, p.failCluster(ctx, cluster, "failed to create master node "+name, err)
+		}
+		ip := p.waitForIP(ctx, node.ID)
+		if ip == "" {
+			return nil, nil, p.failCluster(ctx, cluster, "timeout waiting for IP for master "+name, nil)
+		}
+		masters = append(masters, node)
+		masterIPs = append(masterIPs, ip)
+
+		if err := p.lbSvc.AddTarget(ctx, lb.ID, node.ID, 6443, 10); err != nil {
+			p.logger.Warn("failed to add master to LB rotation", "node_id", node.ID, "error", err)
+		}
+	}
+
+	for _, ip := range masterIPs {
+		if err := p.bootstrapNode(ctx, cluster, ip, cluster.Version, true); err != nil {
+			return nil, nil, p.failCluster(ctx, cluster, "failed to bootstrap master "+ip, err)
+		}
+	}
+
+	return masterIPs, masters, nil
+}
+
+func (p *KubeadmProvisioner) joinHAMasters(ctx context.Context, cluster *domain.Cluster, masterIPs []string, cpJoinCmd string) error {
+	for i := 1; i < 3; i++ {
+		p.logger.Info("joining master to control plane", "ip", masterIPs[i])
+		if err := p.joinControlPlane(ctx, cluster, masterIPs[i], cpJoinCmd); err != nil {
+			return p.failCluster(ctx, cluster, "failed to join master "+masterIPs[i], err)
+		}
+	}
+	return nil
+}
+
+func (p *KubeadmProvisioner) storeKubeconfig(ctx context.Context, cluster *domain.Cluster, kubeconfig string) {
+	encryptedKubeconfig, err := p.secretSvc.Encrypt(ctx, cluster.UserID, kubeconfig)
+	if err != nil {
+		cluster.Kubeconfig = kubeconfig
+	} else {
+		cluster.Kubeconfig = encryptedKubeconfig
+	}
+	p.repo.Update(ctx, cluster)
+}
+
+func (p *KubeadmProvisioner) initKubeadmHA(ctx context.Context, cluster *domain.Cluster, ip, lbIP string) (joinCmd, cpJoinCmd, kubeconfig string, err error) {
+	exec, err := p.getExecutor(ctx, cluster, ip)
+	if err != nil {
+		return "", "", "", err
+	}
+
+	initCmd := fmt.Sprintf("kubeadm init --kubernetes-version=%s --pod-network-cidr=%s --control-plane-endpoint=%s:6443 --upload-certs --ignore-preflight-errors=all", cluster.Version, podCIDR, lbIP)
+	out, err := exec.Run(ctx, initCmd)
+	if err != nil {
+		return "", "", "", err
+	}
+
+	lines := strings.Split(out, "\n")
+	for i, line := range lines {
+		if strings.Contains(line, "kubeadm join") {
+			cmd := line
+			for j := i + 1; j < len(lines); j++ {
+				trimmed := strings.TrimSpace(lines[j])
+				if trimmed == "" {
+					break
+				}
+				cmd += " " + trimmed
+			}
+			fullCmd := strings.TrimSpace(strings.ReplaceAll(cmd, "\\", ""))
+			if strings.Contains(fullCmd, "--control-plane") {
+				cpJoinCmd = fullCmd
+			} else {
+				joinCmd = fullCmd
+			}
+		}
+	}
+
+	kubeconfig, _ = exec.Run(ctx, "cat "+adminKubeconfig)
+	return joinCmd, cpJoinCmd, kubeconfig, nil
+}
+
+func (p *KubeadmProvisioner) joinControlPlane(ctx context.Context, cluster *domain.Cluster, ip, joinCmd string) error {
+	exec, err := p.getExecutor(ctx, cluster, ip)
+	if err != nil {
+		return err
+	}
+	_, err = exec.Run(ctx, joinCmd+" --ignore-preflight-errors=all")
+	return err
+}
