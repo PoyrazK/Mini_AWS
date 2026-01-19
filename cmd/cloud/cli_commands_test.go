@@ -55,8 +55,7 @@ func setupAPIServer(t *testing.T) *httptest.Server {
 			handleNotifyMock(w, r, method, path) ||
 			handleRBACMock(w, r, method, path) ||
 			handleDatabasesMock(w, r, method, path) ||
-			handleRBACMock(w, r, method, path) ||
-			handleDatabasesMock(w, r, method, path) ||
+			//	handleDatabasesMock(w, r, method, path) || // Duplicate removed
 			handleSecretsMock(w, r, method, path) ||
 			handleKubernetesMock(w, r, method, path)
 
