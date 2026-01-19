@@ -127,6 +127,7 @@ type Workers struct {
 	Container   *services.ContainerWorker
 	Provision   *workers.ProvisionWorker
 	Accounting  *workers.AccountingWorker
+	Cluster     *workers.ClusterWorker
 }
 
 // ServiceConfig holds the dependencies required to initialize services
@@ -200,9 +201,9 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 	imageSvc := services.NewImageService(c.Repos.Image, fileStore, c.Logger)
 	provisionWorker := workers.NewProvisionWorker(instSvcConcrete, c.Repos.TaskQueue, c.Logger)
 
-	clusterProvisioner := k8s.NewMockProvisioner()
+	clusterProvisioner := k8s.NewKubeadmProvisioner(instSvcConcrete, c.Repos.Cluster, secretSvc, sgSvc, storageSvc, lbSvc, c.Logger)
 	clusterSvc := services.NewClusterService(services.ClusterServiceParams{
-		Repo: c.Repos.Cluster, Provisioner: clusterProvisioner, VpcSvc: vpcSvc, InstanceSvc: instSvcConcrete, Logger: c.Logger,
+		Repo: c.Repos.Cluster, Provisioner: clusterProvisioner, VpcSvc: vpcSvc, InstanceSvc: instSvcConcrete, SecretSvc: secretSvc, TaskQueue: c.Repos.TaskQueue, Logger: c.Logger,
 	})
 
 	svcs := &Services{
@@ -219,6 +220,7 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 	workersCollection := &Workers{
 		LB: lbWorker, AutoScaling: asgWorker, Cron: cronWorker, Container: containerWorker,
 		Provision: provisionWorker, Accounting: accountingWorker,
+		Cluster: workers.NewClusterWorker(c.Repos.Cluster, clusterProvisioner, c.Repos.TaskQueue, c.Logger),
 	}
 
 	return svcs, workersCollection, nil
