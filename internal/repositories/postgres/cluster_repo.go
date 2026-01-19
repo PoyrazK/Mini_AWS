@@ -23,12 +23,12 @@ func NewClusterRepository(db DB) *ClusterRepository {
 
 func (r *ClusterRepository) Create(ctx context.Context, cluster *domain.Cluster) error {
 	query := `
-		INSERT INTO clusters (id, user_id, vpc_id, name, version, control_plane_ips, worker_count, status, kubeconfig, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		INSERT INTO clusters (id, user_id, vpc_id, name, version, control_plane_ips, worker_count, status, ssh_key, kubeconfig, network_isolation, ha_enabled, api_server_lb_address, job_id, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
 	`
 	_, err := r.db.Exec(ctx, query,
 		cluster.ID, cluster.UserID, cluster.VpcID, cluster.Name, cluster.Version, cluster.ControlPlaneIPs, cluster.WorkerCount,
-		string(cluster.Status), cluster.Kubeconfig, cluster.CreatedAt, cluster.UpdatedAt,
+		string(cluster.Status), cluster.SSHKey, cluster.Kubeconfig, cluster.NetworkIsolation, cluster.HAEnabled, cluster.APIServerLBAddress, cluster.JobID, cluster.CreatedAt, cluster.UpdatedAt,
 	)
 	if err != nil {
 		return errors.Wrap(errors.Internal, "failed to create cluster", err)
@@ -39,7 +39,7 @@ func (r *ClusterRepository) Create(ctx context.Context, cluster *domain.Cluster)
 func (r *ClusterRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Cluster, error) {
 	userID := appcontext.UserIDFromContext(ctx)
 	query := `
-		SELECT id, user_id, vpc_id, name, version, COALESCE(control_plane_ips, '{}'), worker_count, status, COALESCE(kubeconfig, ''), created_at, updated_at
+		SELECT id, user_id, vpc_id, name, version, COALESCE(control_plane_ips, '{}'), worker_count, status, COALESCE(ssh_key, ''), COALESCE(kubeconfig, ''), network_isolation, ha_enabled, api_server_lb_address, job_id, created_at, updated_at
 		FROM clusters
 		WHERE id = $1 AND user_id = $2
 	`
@@ -48,7 +48,7 @@ func (r *ClusterRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.
 
 func (r *ClusterRepository) ListByUserID(ctx context.Context, userID uuid.UUID) ([]*domain.Cluster, error) {
 	query := `
-		SELECT id, user_id, vpc_id, name, version, COALESCE(control_plane_ips, '{}'), worker_count, status, COALESCE(kubeconfig, ''), created_at, updated_at
+		SELECT id, user_id, vpc_id, name, version, COALESCE(control_plane_ips, '{}'), worker_count, status, COALESCE(ssh_key, ''), COALESCE(kubeconfig, ''), network_isolation, ha_enabled, api_server_lb_address, job_id, created_at, updated_at
 		FROM clusters
 		WHERE user_id = $1
 		ORDER BY created_at DESC
@@ -73,12 +73,12 @@ func (r *ClusterRepository) ListByUserID(ctx context.Context, userID uuid.UUID) 
 func (r *ClusterRepository) Update(ctx context.Context, cluster *domain.Cluster) error {
 	query := `
 		UPDATE clusters
-		SET vpc_id = $1, name = $2, version = $3, control_plane_ips = $4, worker_count = $5, status = $6, kubeconfig = $7, updated_at = $8
-		WHERE id = $9 AND user_id = $10
+		SET vpc_id = $1, name = $2, version = $3, control_plane_ips = $4, worker_count = $5, status = $6, ssh_key = $7, kubeconfig = $8, network_isolation = $9, ha_enabled = $10, api_server_lb_address = $11, job_id = $12, updated_at = $13
+		WHERE id = $14 AND user_id = $15
 	`
 	_, err := r.db.Exec(ctx, query,
 		cluster.VpcID, cluster.Name, cluster.Version, cluster.ControlPlaneIPs, cluster.WorkerCount,
-		string(cluster.Status), cluster.Kubeconfig, time.Now(), cluster.ID, cluster.UserID,
+		string(cluster.Status), cluster.SSHKey, cluster.Kubeconfig, cluster.NetworkIsolation, cluster.HAEnabled, cluster.APIServerLBAddress, cluster.JobID, time.Now(), cluster.ID, cluster.UserID,
 	)
 	if err != nil {
 		return errors.Wrap(errors.Internal, "failed to update cluster", err)
@@ -133,6 +133,19 @@ func (r *ClusterRepository) GetNodes(ctx context.Context, clusterID uuid.UUID) (
 	return nodes, nil
 }
 
+func (r *ClusterRepository) UpdateNode(ctx context.Context, node *domain.ClusterNode) error {
+	query := `
+		UPDATE cluster_nodes
+		SET status = $1, joined_at = $2
+		WHERE id = $3
+	`
+	_, err := r.db.Exec(ctx, query, node.Status, node.JoinedAt, node.ID)
+	if err != nil {
+		return errors.Wrap(errors.Internal, "failed to update cluster node", err)
+	}
+	return nil
+}
+
 func (r *ClusterRepository) DeleteNode(ctx context.Context, nodeID uuid.UUID) error {
 	query := `DELETE FROM cluster_nodes WHERE id = $1`
 	_, err := r.db.Exec(ctx, query, nodeID)
@@ -145,7 +158,7 @@ func (r *ClusterRepository) DeleteNode(ctx context.Context, nodeID uuid.UUID) er
 func (r *ClusterRepository) scanCluster(row pgx.Row) (*domain.Cluster, error) {
 	var c domain.Cluster
 	var status string
-	err := row.Scan(&c.ID, &c.UserID, &c.VpcID, &c.Name, &c.Version, &c.ControlPlaneIPs, &c.WorkerCount, &status, &c.Kubeconfig, &c.CreatedAt, &c.UpdatedAt)
+	err := row.Scan(&c.ID, &c.UserID, &c.VpcID, &c.Name, &c.Version, &c.ControlPlaneIPs, &c.WorkerCount, &status, &c.SSHKey, &c.Kubeconfig, &c.NetworkIsolation, &c.HAEnabled, &c.APIServerLBAddress, &c.JobID, &c.CreatedAt, &c.UpdatedAt)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, nil
