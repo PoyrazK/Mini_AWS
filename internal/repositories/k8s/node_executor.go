@@ -27,12 +27,14 @@ func NewSSHExecutor(ip, user, key string) *SSHExecutor {
 	return &SSHExecutor{ip: ip, user: user, key: key}
 }
 
+const sshRetryInterval = 2 * time.Second
+
 func (e *SSHExecutor) Run(ctx context.Context, cmd string) (string, error) {
 	client, err := sshutil.NewClientWithKey(e.ip, e.user, e.key)
 	if err != nil {
 		return "", fmt.Errorf("failed to create ssh client: %w", err)
 	}
-	return client.Run(cmd)
+	return client.Run(ctx, cmd) // Propagate ctx
 }
 
 func (e *SSHExecutor) WaitForReady(ctx context.Context, timeout time.Duration) error {
@@ -40,7 +42,11 @@ func (e *SSHExecutor) WaitForReady(ctx context.Context, timeout time.Duration) e
 	if err != nil {
 		return fmt.Errorf("failed to create ssh client: %w", err)
 	}
-	return client.WaitForSSH(timeout)
+	// We pass the original ctx here because WaitForSSH now handles its own timeout context internally if needed,
+	// but actually our updated signature expects (ctx, timeout).
+	// The original code created a separate timeout context but didn't pass it.
+	// Now we pass the parent context and let WaitForSSH handle the timeout loop with the duration.
+	return client.WaitForSSH(ctx, timeout)
 }
 
 // ServiceExecutor implements NodeExecutor using InstanceService.Exec.
@@ -68,7 +74,7 @@ func (e *ServiceExecutor) WaitForReady(ctx context.Context, timeout time.Duratio
 	ctxTimeout, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	ticker := time.NewTicker(2 * time.Second)
+	ticker := time.NewTicker(sshRetryInterval)
 	defer ticker.Stop()
 
 	for {
