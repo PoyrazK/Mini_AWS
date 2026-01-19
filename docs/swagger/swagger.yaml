@@ -65,18 +65,29 @@ definitions:
     type: object
   domain.Cluster:
     properties:
+      api_server_lb_address:
+        type: string
       control_plane_ips:
         items:
           type: string
         type: array
       created_at:
         type: string
+      ha_enabled:
+        type: boolean
       id:
+        type: string
+      job_id:
         type: string
       kubeconfig:
         description: Encrypted
         type: string
       name:
+        type: string
+      network_isolation:
+        type: boolean
+      ssh_key:
+        description: Base64 encoded private key
         type: string
       status:
         $ref: '#/definitions/domain.ClusterStatus'
@@ -97,6 +108,8 @@ definitions:
     - provisioning
     - running
     - upgrading
+    - updating
+    - repairing
     - failed
     - deleting
     type: string
@@ -105,6 +118,8 @@ definitions:
     - ClusterStatusProvisioning
     - ClusterStatusRunning
     - ClusterStatusUpgrading
+    - ClusterStatusUpdating
+    - ClusterStatusRepairing
     - ClusterStatusFailed
     - ClusterStatusDeleting
   domain.DashboardStats:
@@ -300,6 +315,8 @@ definitions:
         type: string
       idempotency_key:
         type: string
+      ip:
+        type: string
       name:
         type: string
       port:
@@ -414,6 +431,7 @@ definitions:
     - cluster:create
     - cluster:delete
     - cluster:read
+    - cluster:update
     - '*'
     type: string
     x-enum-varnames:
@@ -482,6 +500,7 @@ definitions:
     - PermissionClusterCreate
     - PermissionClusterDelete
     - PermissionClusterRead
+    - PermissionClusterUpdate
     - PermissionFullAccess
   domain.ResourceSummary:
     properties:
@@ -949,8 +968,12 @@ definitions:
     type: object
   httphandlers.CreateClusterRequest:
     properties:
+      ha:
+        type: boolean
       name:
         type: string
+      network_isolation:
+        type: boolean
       version:
         type: string
       vpc_id:
@@ -1146,6 +1169,13 @@ definitions:
     - new_password
     - token
     type: object
+  httphandlers.RestoreBackupRequest:
+    properties:
+      backup_path:
+        type: string
+    required:
+    - backup_path
+    type: object
   httphandlers.RestoreSnapshotRequest:
     properties:
       new_volume_name:
@@ -1154,6 +1184,18 @@ definitions:
         type: string
     required:
     - new_volume_name
+    type: object
+  httphandlers.ScaleClusterRequest:
+    properties:
+      workers:
+        type: integer
+    type: object
+  httphandlers.UpgradeClusterRequest:
+    properties:
+      version:
+        type: string
+    required:
+    - version
     type: object
   httphandlers.VolumeAttachmentRequest:
     properties:
@@ -1192,6 +1234,19 @@ definitions:
       error: {}
       meta:
         $ref: '#/definitions/httputil.Meta'
+    type: object
+  ports.ClusterHealth:
+    properties:
+      api_server:
+        type: boolean
+      message:
+        type: string
+      nodes_ready:
+        type: integer
+      nodes_total:
+        type: integer
+      status:
+        $ref: '#/definitions/domain.ClusterStatus'
     type: object
 info:
   contact: {}
@@ -1865,6 +1920,40 @@ paths:
       summary: Get cluster details
       tags:
       - K8s
+  /clusters/{id}/backups:
+    post:
+      description: Creates an etcd snapshot of the cluster state
+      parameters:
+      - description: Cluster ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "202":
+          description: Accepted
+      summary: Create cluster backup
+      tags:
+      - K8s
+  /clusters/{id}/health:
+    get:
+      description: Returns readiness of nodes and API server
+      parameters:
+      - description: Cluster ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ports.ClusterHealth'
+      summary: Get cluster operational health
+      tags:
+      - K8s
   /clusters/{id}/kubeconfig:
     get:
       description: Returns the kubeconfig for clinical access to the cluster
@@ -1874,6 +1963,10 @@ paths:
         name: id
         required: true
         type: string
+      - description: Role (e.g. viewer)
+        in: query
+        name: role
+        type: string
       produces:
       - text/plain
       responses:
@@ -1882,6 +1975,100 @@ paths:
           schema:
             type: string
       summary: Download kubeconfig
+      tags:
+      - K8s
+  /clusters/{id}/repair:
+    post:
+      description: Re-applies CNI and kube-proxy patches to a running cluster
+      parameters:
+      - description: Cluster ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "202":
+          description: Accepted
+      summary: Repair cluster components
+      tags:
+      - K8s
+  /clusters/{id}/restore:
+    post:
+      description: Restores the etcd state from a specified snapshot path
+      parameters:
+      - description: Cluster ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Restore Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httphandlers.RestoreBackupRequest'
+      responses:
+        "200":
+          description: OK
+      summary: Restore cluster from backup
+      tags:
+      - K8s
+  /clusters/{id}/rotate-secrets:
+    post:
+      description: Renews cluster certificates and refreshes admin kubeconfig
+      parameters:
+      - description: Cluster ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+      summary: Rotate cluster secrets
+      tags:
+      - K8s
+  /clusters/{id}/scale:
+    post:
+      description: Adjusts the number of worker nodes
+      parameters:
+      - description: Cluster ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Scale Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httphandlers.ScaleClusterRequest'
+      responses:
+        "200":
+          description: OK
+      summary: Scale cluster workers
+      tags:
+      - K8s
+  /clusters/{id}/upgrade:
+    post:
+      description: Initiates an asynchronous upgrade of the Kubernetes control plane
+        and workers
+      parameters:
+      - description: Cluster ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Upgrade Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httphandlers.UpgradeClusterRequest'
+      responses:
+        "202":
+          description: Accepted
+      summary: Upgrade cluster version
       tags:
       - K8s
   /health/live:

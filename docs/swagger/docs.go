@@ -1068,6 +1068,58 @@ const docTemplate = `{
                 }
             }
         },
+        "/clusters/{id}/backups": {
+            "post": {
+                "description": "Creates an etcd snapshot of the cluster state",
+                "tags": [
+                    "K8s"
+                ],
+                "summary": "Create cluster backup",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Cluster ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Accepted"
+                    }
+                }
+            }
+        },
+        "/clusters/{id}/health": {
+            "get": {
+                "description": "Returns readiness of nodes and API server",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "K8s"
+                ],
+                "summary": "Get cluster operational health",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Cluster ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/ports.ClusterHealth"
+                        }
+                    }
+                }
+            }
+        },
         "/clusters/{id}/kubeconfig": {
             "get": {
                 "description": "Returns the kubeconfig for clinical access to the cluster",
@@ -1085,6 +1137,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Role (e.g. viewer)",
+                        "name": "role",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -1093,6 +1151,148 @@ const docTemplate = `{
                         "schema": {
                             "type": "string"
                         }
+                    }
+                }
+            }
+        },
+        "/clusters/{id}/repair": {
+            "post": {
+                "description": "Re-applies CNI and kube-proxy patches to a running cluster",
+                "tags": [
+                    "K8s"
+                ],
+                "summary": "Repair cluster components",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Cluster ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Accepted"
+                    }
+                }
+            }
+        },
+        "/clusters/{id}/restore": {
+            "post": {
+                "description": "Restores the etcd state from a specified snapshot path",
+                "tags": [
+                    "K8s"
+                ],
+                "summary": "Restore cluster from backup",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Cluster ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Restore Request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httphandlers.RestoreBackupRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/clusters/{id}/rotate-secrets": {
+            "post": {
+                "description": "Renews cluster certificates and refreshes admin kubeconfig",
+                "tags": [
+                    "K8s"
+                ],
+                "summary": "Rotate cluster secrets",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Cluster ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/clusters/{id}/scale": {
+            "post": {
+                "description": "Adjusts the number of worker nodes",
+                "tags": [
+                    "K8s"
+                ],
+                "summary": "Scale cluster workers",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Cluster ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Scale Request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httphandlers.ScaleClusterRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/clusters/{id}/upgrade": {
+            "post": {
+                "description": "Initiates an asynchronous upgrade of the Kubernetes control plane and workers",
+                "tags": [
+                    "K8s"
+                ],
+                "summary": "Upgrade cluster version",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Cluster ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Upgrade Request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httphandlers.UpgradeClusterRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Accepted"
                     }
                 }
             }
@@ -3449,6 +3649,9 @@ const docTemplate = `{
         "domain.Cluster": {
             "type": "object",
             "properties": {
+                "api_server_lb_address": {
+                    "type": "string"
+                },
                 "control_plane_ips": {
                     "type": "array",
                     "items": {
@@ -3458,7 +3661,13 @@ const docTemplate = `{
                 "created_at": {
                     "type": "string"
                 },
+                "ha_enabled": {
+                    "type": "boolean"
+                },
                 "id": {
+                    "type": "string"
+                },
+                "job_id": {
                     "type": "string"
                 },
                 "kubeconfig": {
@@ -3466,6 +3675,13 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "name": {
+                    "type": "string"
+                },
+                "network_isolation": {
+                    "type": "boolean"
+                },
+                "ssh_key": {
+                    "description": "Base64 encoded private key",
                     "type": "string"
                 },
                 "status": {
@@ -3495,6 +3711,8 @@ const docTemplate = `{
                 "provisioning",
                 "running",
                 "upgrading",
+                "updating",
+                "repairing",
                 "failed",
                 "deleting"
             ],
@@ -3503,6 +3721,8 @@ const docTemplate = `{
                 "ClusterStatusProvisioning",
                 "ClusterStatusRunning",
                 "ClusterStatusUpgrading",
+                "ClusterStatusUpdating",
+                "ClusterStatusRepairing",
                 "ClusterStatusFailed",
                 "ClusterStatusDeleting"
             ]
@@ -3777,6 +3997,9 @@ const docTemplate = `{
                 "idempotency_key": {
                     "type": "string"
                 },
+                "ip": {
+                    "type": "string"
+                },
                 "name": {
                     "type": "string"
                 },
@@ -3915,6 +4138,7 @@ const docTemplate = `{
                 "cluster:create",
                 "cluster:delete",
                 "cluster:read",
+                "cluster:update",
                 "*"
             ],
             "x-enum-varnames": [
@@ -3983,6 +4207,7 @@ const docTemplate = `{
                 "PermissionClusterCreate",
                 "PermissionClusterDelete",
                 "PermissionClusterRead",
+                "PermissionClusterUpdate",
                 "PermissionFullAccess"
             ]
         },
@@ -4653,8 +4878,14 @@ const docTemplate = `{
                 "vpc_id"
             ],
             "properties": {
+                "ha": {
+                    "type": "boolean"
+                },
                 "name": {
                     "type": "string"
+                },
+                "network_isolation": {
+                    "type": "boolean"
                 },
                 "version": {
                     "type": "string"
@@ -4937,6 +5168,17 @@ const docTemplate = `{
                 }
             }
         },
+        "httphandlers.RestoreBackupRequest": {
+            "type": "object",
+            "required": [
+                "backup_path"
+            ],
+            "properties": {
+                "backup_path": {
+                    "type": "string"
+                }
+            }
+        },
         "httphandlers.RestoreSnapshotRequest": {
             "type": "object",
             "required": [
@@ -4947,6 +5189,25 @@ const docTemplate = `{
                     "type": "string",
                     "maxLength": 64,
                     "minLength": 3
+                }
+            }
+        },
+        "httphandlers.ScaleClusterRequest": {
+            "type": "object",
+            "properties": {
+                "workers": {
+                    "type": "integer"
+                }
+            }
+        },
+        "httphandlers.UpgradeClusterRequest": {
+            "type": "object",
+            "required": [
+                "version"
+            ],
+            "properties": {
+                "version": {
+                    "type": "string"
                 }
             }
         },
@@ -5004,6 +5265,26 @@ const docTemplate = `{
                 "error": {},
                 "meta": {
                     "$ref": "#/definitions/httputil.Meta"
+                }
+            }
+        },
+        "ports.ClusterHealth": {
+            "type": "object",
+            "properties": {
+                "api_server": {
+                    "type": "boolean"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "nodes_ready": {
+                    "type": "integer"
+                },
+                "nodes_total": {
+                    "type": "integer"
+                },
+                "status": {
+                    "$ref": "#/definitions/domain.ClusterStatus"
                 }
             }
         }
