@@ -99,7 +99,10 @@ func (c *Client) WriteFile(path string, content []byte, mode string) error {
 		w, _ := session.StdinPipe()
 		defer w.Close()
 		fmt.Fprintf(w, "C%s %d %s\n", mode, len(content), path)
-		w.Write(content)
+		if _, err := w.Write(content); err != nil {
+			// This might happen if the pipe closes early
+			_ = err
+		}
 		fmt.Fprint(w, "\x00")
 	}()
 
