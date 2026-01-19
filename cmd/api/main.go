@@ -23,8 +23,6 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
-// ... (omitted comments) ...
-
 // ErrMigrationDone signals that migrations have already completed.
 var ErrMigrationDone = errors.New("migrations done")
 
@@ -59,8 +57,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	repos := initRepositoriesFunc(db, rdb)
-	svcs, workers, err := initServicesFunc(setup.ServiceConfig{
+	repos := setup.InitRepositories(db, rdb)
+	svcs, workers, err := setup.InitServices(setup.ServiceConfig{
 		Config: cfg, Repos: repos, Compute: compute, Storage: storage,
 		Network: network, LBProxy: lbProxy, DB: db, RDB: rdb, Logger: logger,
 	})
@@ -69,8 +67,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	handlers := initHandlersFunc(svcs, logger)
-	r := setupRouterFunc(cfg, logger, handlers, svcs, network)
+	handlers := setup.InitHandlers(svcs, logger)
+	r := setup.SetupRouter(cfg, logger, handlers, svcs, network)
 
 	// Add Tracing Middleware if enabled
 	if os.Getenv("TRACING_ENABLED") == "true" {
@@ -112,7 +110,7 @@ func initTracing(logger *slog.Logger) *sdktrace.TracerProvider {
 }
 
 func initInfrastructure(logger *slog.Logger, migrateOnly bool) (*platform.Config, postgres.DB, *redis.Client, error) {
-	cfg, err := loadConfigFunc(logger)
+	cfg, err := setup.LoadConfig(logger)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -120,12 +118,12 @@ func initInfrastructure(logger *slog.Logger, migrateOnly bool) (*platform.Config
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	db, err := initDatabaseFunc(ctx, cfg, logger)
+	db, err := setup.InitDatabase(ctx, cfg, logger)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 
-	if err := runMigrationsFunc(ctx, db, logger); err != nil {
+	if err := setup.RunMigrations(ctx, db, logger); err != nil {
 		logger.Warn("failed to run migrations", "error", err)
 		if migrateOnly {
 			db.Close()
@@ -137,7 +135,7 @@ func initInfrastructure(logger *slog.Logger, migrateOnly bool) (*platform.Config
 		return nil, nil, nil, ErrMigrationDone
 	}
 
-	rdb, err := initRedisFunc(ctx, cfg, logger)
+	rdb, err := setup.InitRedis(ctx, cfg, logger)
 	if err != nil {
 		db.Close()
 		return nil, nil, nil, err
@@ -147,20 +145,20 @@ func initInfrastructure(logger *slog.Logger, migrateOnly bool) (*platform.Config
 }
 
 func initBackends(cfg *platform.Config, logger *slog.Logger, db postgres.DB, rdb *redis.Client) (ports.ComputeBackend, ports.StorageBackend, ports.NetworkBackend, ports.LBProxyAdapter, error) {
-	compute, err := initComputeBackendFunc(cfg, logger)
+	compute, err := setup.InitComputeBackend(cfg, logger)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
 
-	storage, err := initStorageBackendFunc(cfg, logger)
+	storage, err := setup.InitStorageBackend(cfg, logger)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
 
-	network := initNetworkBackendFunc(cfg, logger)
+	network := setup.InitNetworkBackend(cfg, logger)
 
-	tmpRepos := initRepositoriesFunc(db, rdb)
-	lbProxy, err := initLBProxyFunc(cfg, compute, tmpRepos.Instance, tmpRepos.Vpc)
+	tmpRepos := setup.InitRepositories(db, rdb)
+	lbProxy, err := setup.InitLBProxy(cfg, compute, tmpRepos.Instance, tmpRepos.Vpc)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
@@ -214,11 +212,12 @@ func runApplication(cfg *platform.Config, logger *slog.Logger, r *gin.Engine, wo
 }
 
 func runWorkers(ctx context.Context, wg *sync.WaitGroup, workers *setup.Workers) {
-	wg.Add(6)
+	wg.Add(7)
 	go workers.LB.Run(ctx, wg)
 	go workers.AutoScaling.Run(ctx, wg)
 	go workers.Cron.Run(ctx, wg)
 	go workers.Container.Run(ctx, wg)
 	go workers.Provision.Run(ctx, wg)
 	go workers.Accounting.Run(ctx, wg)
+	go workers.Cluster.Run(ctx, wg)
 }
