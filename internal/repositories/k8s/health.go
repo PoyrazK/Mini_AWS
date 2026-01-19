@@ -102,8 +102,8 @@ func (p *KubeadmProvisioner) scaleUp(ctx context.Context, cluster *domain.Cluste
 
 		if err := p.bootstrapNode(ctx, cluster, ip, cluster.Version, false); err != nil {
 			errs = append(errs, fmt.Errorf("failed to bootstrap node %s (%s): %w", workerName, ip, err))
-			if termErr := p.instSvc.TerminateInstance(ctx, worker.InstanceID.String()); termErr != nil {
-				p.logger.Error("failed to terminate failed bootstrap instance", "instance_id", worker.InstanceID, "error", termErr)
+			if termErr := p.instSvc.TerminateInstance(ctx, worker.ID.String()); termErr != nil {
+				p.logger.Error("failed to terminate failed bootstrap instance", "instance_id", worker.ID, "error", termErr)
 			}
 			if delErr := p.repo.DeleteNode(ctx, worker.ID); delErr != nil {
 				p.logger.Error("failed to delete failed bootstrap node", "node_id", worker.ID, "error", delErr)
