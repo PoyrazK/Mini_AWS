@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/core/ports"
 )
 
 // MockProvisioner is a simulation provisioner for testing.
@@ -30,4 +31,36 @@ func (p *MockProvisioner) Deprovision(ctx context.Context, cluster *domain.Clust
 
 func (p *MockProvisioner) GetStatus(ctx context.Context, cluster *domain.Cluster) (domain.ClusterStatus, error) {
 	return domain.ClusterStatusRunning, nil
+}
+
+func (p *MockProvisioner) Repair(ctx context.Context, cluster *domain.Cluster) error {
+	return nil
+}
+
+func (p *MockProvisioner) Scale(ctx context.Context, cluster *domain.Cluster) error {
+	return nil
+}
+
+func (p *MockProvisioner) GetKubeconfig(ctx context.Context, cluster *domain.Cluster, role string) (string, error) {
+	return "mock-kubeconfig", nil
+}
+
+func (p *MockProvisioner) GetHealth(ctx context.Context, cluster *domain.Cluster) (*ports.ClusterHealth, error) {
+	return &ports.ClusterHealth{Status: cluster.Status, APIServer: true, NodesTotal: cluster.WorkerCount + 1, NodesReady: cluster.WorkerCount + 1}, nil
+}
+
+func (p *MockProvisioner) Upgrade(ctx context.Context, cluster *domain.Cluster, version string) error {
+	return nil
+}
+
+func (p *MockProvisioner) RotateSecrets(ctx context.Context, cluster *domain.Cluster) error {
+	return nil
+}
+
+func (p *MockProvisioner) CreateBackup(ctx context.Context, cluster *domain.Cluster) error {
+	return nil
+}
+
+func (p *MockProvisioner) Restore(ctx context.Context, cluster *domain.Cluster, backupPath string) error {
+	return nil
 }
