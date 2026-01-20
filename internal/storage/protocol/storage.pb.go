@@ -21,6 +21,186 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type GossipMessage struct {
+	state         protoimpl.MessageState  `protogen:"open.v1"`
+	SenderId      string                  `protobuf:"bytes,1,opt,name=sender_id,json=senderId,proto3" json:"sender_id,omitempty"`
+	SenderAddr    string                  `protobuf:"bytes,2,opt,name=sender_addr,json=senderAddr,proto3" json:"sender_addr,omitempty"`
+	Members       map[string]*MemberState `protobuf:"bytes,3,rep,name=members,proto3" json:"members,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // Key is node_id
+	Timestamp     int64                   `protobuf:"varint,4,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GossipMessage) Reset() {
+	*x = GossipMessage{}
+	mi := &file_internal_storage_protocol_storage_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GossipMessage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GossipMessage) ProtoMessage() {}
+
+func (x *GossipMessage) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_storage_protocol_storage_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GossipMessage.ProtoReflect.Descriptor instead.
+func (*GossipMessage) Descriptor() ([]byte, []int) {
+	return file_internal_storage_protocol_storage_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *GossipMessage) GetSenderId() string {
+	if x != nil {
+		return x.SenderId
+	}
+	return ""
+}
+
+func (x *GossipMessage) GetSenderAddr() string {
+	if x != nil {
+		return x.SenderAddr
+	}
+	return ""
+}
+
+func (x *GossipMessage) GetMembers() map[string]*MemberState {
+	if x != nil {
+		return x.Members
+	}
+	return nil
+}
+
+func (x *GossipMessage) GetTimestamp() int64 {
+	if x != nil {
+		return x.Timestamp
+	}
+	return 0
+}
+
+type MemberState struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Addr          string                 `protobuf:"bytes,1,opt,name=addr,proto3" json:"addr,omitempty"`
+	Status        string                 `protobuf:"bytes,2,opt,name=status,proto3" json:"status,omitempty"` // "alive", "suspect", "dead"
+	LastSeen      int64                  `protobuf:"varint,3,opt,name=last_seen,json=lastSeen,proto3" json:"last_seen,omitempty"`
+	Heartbeat     uint64                 `protobuf:"varint,4,opt,name=heartbeat,proto3" json:"heartbeat,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MemberState) Reset() {
+	*x = MemberState{}
+	mi := &file_internal_storage_protocol_storage_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MemberState) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MemberState) ProtoMessage() {}
+
+func (x *MemberState) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_storage_protocol_storage_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MemberState.ProtoReflect.Descriptor instead.
+func (*MemberState) Descriptor() ([]byte, []int) {
+	return file_internal_storage_protocol_storage_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *MemberState) GetAddr() string {
+	if x != nil {
+		return x.Addr
+	}
+	return ""
+}
+
+func (x *MemberState) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *MemberState) GetLastSeen() int64 {
+	if x != nil {
+		return x.LastSeen
+	}
+	return 0
+}
+
+func (x *MemberState) GetHeartbeat() uint64 {
+	if x != nil {
+		return x.Heartbeat
+	}
+	return 0
+}
+
+type GossipResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GossipResponse) Reset() {
+	*x = GossipResponse{}
+	mi := &file_internal_storage_protocol_storage_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GossipResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GossipResponse) ProtoMessage() {}
+
+func (x *GossipResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_storage_protocol_storage_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GossipResponse.ProtoReflect.Descriptor instead.
+func (*GossipResponse) Descriptor() ([]byte, []int) {
+	return file_internal_storage_protocol_storage_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *GossipResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
 type StoreRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Bucket        string                 `protobuf:"bytes,1,opt,name=bucket,proto3" json:"bucket,omitempty"`
@@ -32,7 +212,7 @@ type StoreRequest struct {
 
 func (x *StoreRequest) Reset() {
 	*x = StoreRequest{}
-	mi := &file_internal_storage_protocol_storage_proto_msgTypes[0]
+	mi := &file_internal_storage_protocol_storage_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -44,7 +224,7 @@ func (x *StoreRequest) String() string {
 func (*StoreRequest) ProtoMessage() {}
 
 func (x *StoreRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_storage_protocol_storage_proto_msgTypes[0]
+	mi := &file_internal_storage_protocol_storage_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -57,7 +237,7 @@ func (x *StoreRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StoreRequest.ProtoReflect.Descriptor instead.
 func (*StoreRequest) Descriptor() ([]byte, []int) {
-	return file_internal_storage_protocol_storage_proto_rawDescGZIP(), []int{0}
+	return file_internal_storage_protocol_storage_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *StoreRequest) GetBucket() string {
@@ -91,7 +271,7 @@ type StoreResponse struct {
 
 func (x *StoreResponse) Reset() {
 	*x = StoreResponse{}
-	mi := &file_internal_storage_protocol_storage_proto_msgTypes[1]
+	mi := &file_internal_storage_protocol_storage_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -103,7 +283,7 @@ func (x *StoreResponse) String() string {
 func (*StoreResponse) ProtoMessage() {}
 
 func (x *StoreResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_storage_protocol_storage_proto_msgTypes[1]
+	mi := &file_internal_storage_protocol_storage_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -116,7 +296,7 @@ func (x *StoreResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StoreResponse.ProtoReflect.Descriptor instead.
 func (*StoreResponse) Descriptor() ([]byte, []int) {
-	return file_internal_storage_protocol_storage_proto_rawDescGZIP(), []int{1}
+	return file_internal_storage_protocol_storage_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *StoreResponse) GetSuccess() bool {
@@ -143,7 +323,7 @@ type RetrieveRequest struct {
 
 func (x *RetrieveRequest) Reset() {
 	*x = RetrieveRequest{}
-	mi := &file_internal_storage_protocol_storage_proto_msgTypes[2]
+	mi := &file_internal_storage_protocol_storage_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -155,7 +335,7 @@ func (x *RetrieveRequest) String() string {
 func (*RetrieveRequest) ProtoMessage() {}
 
 func (x *RetrieveRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_storage_protocol_storage_proto_msgTypes[2]
+	mi := &file_internal_storage_protocol_storage_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -168,7 +348,7 @@ func (x *RetrieveRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RetrieveRequest.ProtoReflect.Descriptor instead.
 func (*RetrieveRequest) Descriptor() ([]byte, []int) {
-	return file_internal_storage_protocol_storage_proto_rawDescGZIP(), []int{2}
+	return file_internal_storage_protocol_storage_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *RetrieveRequest) GetBucket() string {
@@ -196,7 +376,7 @@ type RetrieveResponse struct {
 
 func (x *RetrieveResponse) Reset() {
 	*x = RetrieveResponse{}
-	mi := &file_internal_storage_protocol_storage_proto_msgTypes[3]
+	mi := &file_internal_storage_protocol_storage_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -208,7 +388,7 @@ func (x *RetrieveResponse) String() string {
 func (*RetrieveResponse) ProtoMessage() {}
 
 func (x *RetrieveResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_storage_protocol_storage_proto_msgTypes[3]
+	mi := &file_internal_storage_protocol_storage_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -221,7 +401,7 @@ func (x *RetrieveResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RetrieveResponse.ProtoReflect.Descriptor instead.
 func (*RetrieveResponse) Descriptor() ([]byte, []int) {
-	return file_internal_storage_protocol_storage_proto_rawDescGZIP(), []int{3}
+	return file_internal_storage_protocol_storage_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *RetrieveResponse) GetData() []byte {
@@ -255,7 +435,7 @@ type DeleteRequest struct {
 
 func (x *DeleteRequest) Reset() {
 	*x = DeleteRequest{}
-	mi := &file_internal_storage_protocol_storage_proto_msgTypes[4]
+	mi := &file_internal_storage_protocol_storage_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -267,7 +447,7 @@ func (x *DeleteRequest) String() string {
 func (*DeleteRequest) ProtoMessage() {}
 
 func (x *DeleteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_storage_protocol_storage_proto_msgTypes[4]
+	mi := &file_internal_storage_protocol_storage_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -280,7 +460,7 @@ func (x *DeleteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteRequest.ProtoReflect.Descriptor instead.
 func (*DeleteRequest) Descriptor() ([]byte, []int) {
-	return file_internal_storage_protocol_storage_proto_rawDescGZIP(), []int{4}
+	return file_internal_storage_protocol_storage_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *DeleteRequest) GetBucket() string {
@@ -307,7 +487,7 @@ type DeleteResponse struct {
 
 func (x *DeleteResponse) Reset() {
 	*x = DeleteResponse{}
-	mi := &file_internal_storage_protocol_storage_proto_msgTypes[5]
+	mi := &file_internal_storage_protocol_storage_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -319,7 +499,7 @@ func (x *DeleteResponse) String() string {
 func (*DeleteResponse) ProtoMessage() {}
 
 func (x *DeleteResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_storage_protocol_storage_proto_msgTypes[5]
+	mi := &file_internal_storage_protocol_storage_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -332,7 +512,7 @@ func (x *DeleteResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteResponse.ProtoReflect.Descriptor instead.
 func (*DeleteResponse) Descriptor() ([]byte, []int) {
-	return file_internal_storage_protocol_storage_proto_rawDescGZIP(), []int{5}
+	return file_internal_storage_protocol_storage_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *DeleteResponse) GetSuccess() bool {
@@ -353,7 +533,23 @@ var File_internal_storage_protocol_storage_proto protoreflect.FileDescriptor
 
 const file_internal_storage_protocol_storage_proto_rawDesc = "" +
 	"\n" +
-	"'internal/storage/protocol/storage.proto\x12\astorage\"L\n" +
+	"'internal/storage/protocol/storage.proto\x12\astorage\"\xfc\x01\n" +
+	"\rGossipMessage\x12\x1b\n" +
+	"\tsender_id\x18\x01 \x01(\tR\bsenderId\x12\x1f\n" +
+	"\vsender_addr\x18\x02 \x01(\tR\n" +
+	"senderAddr\x12=\n" +
+	"\amembers\x18\x03 \x03(\v2#.storage.GossipMessage.MembersEntryR\amembers\x12\x1c\n" +
+	"\ttimestamp\x18\x04 \x01(\x03R\ttimestamp\x1aP\n" +
+	"\fMembersEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12*\n" +
+	"\x05value\x18\x02 \x01(\v2\x14.storage.MemberStateR\x05value:\x028\x01\"t\n" +
+	"\vMemberState\x12\x12\n" +
+	"\x04addr\x18\x01 \x01(\tR\x04addr\x12\x16\n" +
+	"\x06status\x18\x02 \x01(\tR\x06status\x12\x1b\n" +
+	"\tlast_seen\x18\x03 \x01(\x03R\blastSeen\x12\x1c\n" +
+	"\theartbeat\x18\x04 \x01(\x04R\theartbeat\"*\n" +
+	"\x0eGossipResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\"L\n" +
 	"\fStoreRequest\x12\x16\n" +
 	"\x06bucket\x18\x01 \x01(\tR\x06bucket\x12\x10\n" +
 	"\x03key\x18\x02 \x01(\tR\x03key\x12\x12\n" +
@@ -373,11 +569,12 @@ const file_internal_storage_protocol_storage_proto_rawDesc = "" +
 	"\x03key\x18\x02 \x01(\tR\x03key\"@\n" +
 	"\x0eDeleteResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x14\n" +
-	"\x05error\x18\x02 \x01(\tR\x05error2\xc1\x01\n" +
+	"\x05error\x18\x02 \x01(\tR\x05error2\xfc\x01\n" +
 	"\vStorageNode\x126\n" +
 	"\x05Store\x12\x15.storage.StoreRequest\x1a\x16.storage.StoreResponse\x12?\n" +
 	"\bRetrieve\x12\x18.storage.RetrieveRequest\x1a\x19.storage.RetrieveResponse\x129\n" +
-	"\x06Delete\x12\x16.storage.DeleteRequest\x1a\x17.storage.DeleteResponseB\x1bZ\x19internal/storage/protocolb\x06proto3"
+	"\x06Delete\x12\x16.storage.DeleteRequest\x1a\x17.storage.DeleteResponse\x129\n" +
+	"\x06Gossip\x12\x16.storage.GossipMessage\x1a\x17.storage.GossipResponseB\x1bZ\x19internal/storage/protocolb\x06proto3"
 
 var (
 	file_internal_storage_protocol_storage_proto_rawDescOnce sync.Once
@@ -391,27 +588,35 @@ func file_internal_storage_protocol_storage_proto_rawDescGZIP() []byte {
 	return file_internal_storage_protocol_storage_proto_rawDescData
 }
 
-var file_internal_storage_protocol_storage_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_internal_storage_protocol_storage_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_internal_storage_protocol_storage_proto_goTypes = []any{
-	(*StoreRequest)(nil),     // 0: storage.StoreRequest
-	(*StoreResponse)(nil),    // 1: storage.StoreResponse
-	(*RetrieveRequest)(nil),  // 2: storage.RetrieveRequest
-	(*RetrieveResponse)(nil), // 3: storage.RetrieveResponse
-	(*DeleteRequest)(nil),    // 4: storage.DeleteRequest
-	(*DeleteResponse)(nil),   // 5: storage.DeleteResponse
+	(*GossipMessage)(nil),    // 0: storage.GossipMessage
+	(*MemberState)(nil),      // 1: storage.MemberState
+	(*GossipResponse)(nil),   // 2: storage.GossipResponse
+	(*StoreRequest)(nil),     // 3: storage.StoreRequest
+	(*StoreResponse)(nil),    // 4: storage.StoreResponse
+	(*RetrieveRequest)(nil),  // 5: storage.RetrieveRequest
+	(*RetrieveResponse)(nil), // 6: storage.RetrieveResponse
+	(*DeleteRequest)(nil),    // 7: storage.DeleteRequest
+	(*DeleteResponse)(nil),   // 8: storage.DeleteResponse
+	nil,                      // 9: storage.GossipMessage.MembersEntry
 }
 var file_internal_storage_protocol_storage_proto_depIdxs = []int32{
-	0, // 0: storage.StorageNode.Store:input_type -> storage.StoreRequest
-	2, // 1: storage.StorageNode.Retrieve:input_type -> storage.RetrieveRequest
-	4, // 2: storage.StorageNode.Delete:input_type -> storage.DeleteRequest
-	1, // 3: storage.StorageNode.Store:output_type -> storage.StoreResponse
-	3, // 4: storage.StorageNode.Retrieve:output_type -> storage.RetrieveResponse
-	5, // 5: storage.StorageNode.Delete:output_type -> storage.DeleteResponse
-	3, // [3:6] is the sub-list for method output_type
-	0, // [0:3] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	9, // 0: storage.GossipMessage.members:type_name -> storage.GossipMessage.MembersEntry
+	1, // 1: storage.GossipMessage.MembersEntry.value:type_name -> storage.MemberState
+	3, // 2: storage.StorageNode.Store:input_type -> storage.StoreRequest
+	5, // 3: storage.StorageNode.Retrieve:input_type -> storage.RetrieveRequest
+	7, // 4: storage.StorageNode.Delete:input_type -> storage.DeleteRequest
+	0, // 5: storage.StorageNode.Gossip:input_type -> storage.GossipMessage
+	4, // 6: storage.StorageNode.Store:output_type -> storage.StoreResponse
+	6, // 7: storage.StorageNode.Retrieve:output_type -> storage.RetrieveResponse
+	8, // 8: storage.StorageNode.Delete:output_type -> storage.DeleteResponse
+	2, // 9: storage.StorageNode.Gossip:output_type -> storage.GossipResponse
+	6, // [6:10] is the sub-list for method output_type
+	2, // [2:6] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_internal_storage_protocol_storage_proto_init() }
@@ -425,7 +630,7 @@ func file_internal_storage_protocol_storage_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_internal_storage_protocol_storage_proto_rawDesc), len(file_internal_storage_protocol_storage_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   6,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

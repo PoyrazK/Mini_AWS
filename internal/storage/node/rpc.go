@@ -9,11 +9,12 @@ import (
 
 type RPCServer struct {
 	pb.UnimplementedStorageNodeServer
-	store *LocalStore
+	store    *LocalStore
+	gossiper *GossipProtocol
 }
 
-func NewRPCServer(store *LocalStore) *RPCServer {
-	return &RPCServer{store: store}
+func NewRPCServer(store *LocalStore, gossiper *GossipProtocol) *RPCServer {
+	return &RPCServer{store: store, gossiper: gossiper}
 }
 
 func (s *RPCServer) Store(ctx context.Context, req *pb.StoreRequest) (*pb.StoreResponse, error) {
@@ -41,4 +42,11 @@ func (s *RPCServer) Delete(ctx context.Context, req *pb.DeleteRequest) (*pb.Dele
 		return &pb.DeleteResponse{Success: false, Error: err.Error()}, nil
 	}
 	return &pb.DeleteResponse{Success: true}, nil
+}
+
+func (s *RPCServer) Gossip(ctx context.Context, req *pb.GossipMessage) (*pb.GossipResponse, error) {
+	if s.gossiper != nil {
+		s.gossiper.OnGossip(req)
+	}
+	return &pb.GossipResponse{Success: true}, nil
 }

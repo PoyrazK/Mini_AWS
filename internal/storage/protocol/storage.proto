@@ -8,7 +8,27 @@ service StorageNode {
   rpc Store(StoreRequest) returns (StoreResponse);
   rpc Retrieve(RetrieveRequest) returns (RetrieveResponse);
   rpc Delete(DeleteRequest) returns (DeleteResponse);
+  rpc Gossip(GossipMessage) returns (GossipResponse);
 }
+
+message GossipMessage {
+  string sender_id = 1;
+  string sender_addr = 2;
+  map<string, MemberState> members = 3; // Key is node_id
+  int64 timestamp = 4;
+}
+
+message MemberState {
+  string addr = 1;
+  string status = 2; // "alive", "suspect", "dead"
+  int64 last_seen = 3;
+  uint64 heartbeat = 4;
+}
+
+message GossipResponse {
+  bool success = 1;
+}
+
 
 message StoreRequest {
   string bucket = 1;

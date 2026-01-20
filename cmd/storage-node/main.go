@@ -8,6 +8,9 @@ import (
 	"os/signal"
 	"syscall"
 
+	"strings"
+	"time"
+
 	"github.com/poyrazk/thecloud/internal/storage/node"
 	pb "github.com/poyrazk/thecloud/internal/storage/protocol"
 	"google.golang.org/grpc"
@@ -16,10 +19,16 @@ import (
 func main() {
 	port := flag.String("port", "9101", "Port to listen on")
 	dataDir := flag.String("data-dir", "./data/storage-node", "Directory to store data")
+	peers := flag.String("peers", "", "Comma-separated list of peer addresses (e.g. localhost:9102)")
+	nodeID := flag.String("id", "", "Unique Node ID (defaults to port)")
 	flag.Parse()
 
+	if *nodeID == "" {
+		*nodeID = "node-" + *port
+	}
+
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-	logger.Info("starting storage node", "port", *port, "dataDir", *dataDir)
+	logger.Info("starting storage node", "id", *nodeID, "port", *port, "dataDir", *dataDir)
 
 	// 1. Init Store
 	store, err := node.NewLocalStore(*dataDir)
@@ -28,8 +37,23 @@ func main() {
 		os.Exit(1)
 	}
 
-	// 2. Init RPC Server
-	rpcServer := node.NewRPCServer(store)
+	// 2. Init Gossiper
+	gossiper := node.NewGossipProtocol(*nodeID, "localhost:"+*port, logger)
+	if *peers != "" {
+		for _, peerAddr := range strings.Split(*peers, ",") {
+			// For simplicity we use address as ID for initial peers until we know better
+			// In reality we'd need to know ID, or exchange it.
+			// Let's assume user provides ID? No, simplification: ID is unknown.
+			// GossipProtocol needs flexible AddPeer.
+			// For now, let's just add them with a temp ID or same as addr.
+			gossiper.AddPeer(peerAddr, peerAddr)
+		}
+	}
+	gossiper.Start(1 * time.Second)
+	defer gossiper.Stop()
+
+	// 3. Init RPC Server
+	rpcServer := node.NewRPCServer(store, gossiper)
 	grpcServer := grpc.NewServer()
 	pb.RegisterStorageNodeServer(grpcServer, rpcServer)
 

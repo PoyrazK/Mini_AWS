@@ -22,6 +22,7 @@ const (
 	StorageNode_Store_FullMethodName    = "/storage.StorageNode/Store"
 	StorageNode_Retrieve_FullMethodName = "/storage.StorageNode/Retrieve"
 	StorageNode_Delete_FullMethodName   = "/storage.StorageNode/Delete"
+	StorageNode_Gossip_FullMethodName   = "/storage.StorageNode/Gossip"
 )
 
 // StorageNodeClient is the client API for StorageNode service.
@@ -31,6 +32,7 @@ type StorageNodeClient interface {
 	Store(ctx context.Context, in *StoreRequest, opts ...grpc.CallOption) (*StoreResponse, error)
 	Retrieve(ctx context.Context, in *RetrieveRequest, opts ...grpc.CallOption) (*RetrieveResponse, error)
 	Delete(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*DeleteResponse, error)
+	Gossip(ctx context.Context, in *GossipMessage, opts ...grpc.CallOption) (*GossipResponse, error)
 }
 
 type storageNodeClient struct {
@@ -71,6 +73,16 @@ func (c *storageNodeClient) Delete(ctx context.Context, in *DeleteRequest, opts 
 	return out, nil
 }
 
+func (c *storageNodeClient) Gossip(ctx context.Context, in *GossipMessage, opts ...grpc.CallOption) (*GossipResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GossipResponse)
+	err := c.cc.Invoke(ctx, StorageNode_Gossip_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // StorageNodeServer is the server API for StorageNode service.
 // All implementations must embed UnimplementedStorageNodeServer
 // for forward compatibility.
@@ -78,6 +90,7 @@ type StorageNodeServer interface {
 	Store(context.Context, *StoreRequest) (*StoreResponse, error)
 	Retrieve(context.Context, *RetrieveRequest) (*RetrieveResponse, error)
 	Delete(context.Context, *DeleteRequest) (*DeleteResponse, error)
+	Gossip(context.Context, *GossipMessage) (*GossipResponse, error)
 	mustEmbedUnimplementedStorageNodeServer()
 }
 
@@ -96,6 +109,9 @@ func (UnimplementedStorageNodeServer) Retrieve(context.Context, *RetrieveRequest
 }
 func (UnimplementedStorageNodeServer) Delete(context.Context, *DeleteRequest) (*DeleteResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Delete not implemented")
+}
+func (UnimplementedStorageNodeServer) Gossip(context.Context, *GossipMessage) (*GossipResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Gossip not implemented")
 }
 func (UnimplementedStorageNodeServer) mustEmbedUnimplementedStorageNodeServer() {}
 func (UnimplementedStorageNodeServer) testEmbeddedByValue()                     {}
@@ -172,6 +188,24 @@ func _StorageNode_Delete_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
+func _StorageNode_Gossip_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GossipMessage)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(StorageNodeServer).Gossip(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: StorageNode_Gossip_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(StorageNodeServer).Gossip(ctx, req.(*GossipMessage))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // StorageNode_ServiceDesc is the grpc.ServiceDesc for StorageNode service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -190,6 +224,10 @@ var StorageNode_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Delete",
 			Handler:    _StorageNode_Delete_Handler,
+		},
+		{
+			MethodName: "Gossip",
+			Handler:    _StorageNode_Gossip_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
