@@ -2,6 +2,7 @@
 package domain
 
 import (
+	"io"
 	"time"
 
 	"github.com/google/uuid"
@@ -18,4 +19,18 @@ type Object struct {
 	ContentType string     `json:"content_type"`
 	CreatedAt   time.Time  `json:"created_at"`
 	DeletedAt   *time.Time `json:"deleted_at,omitempty"`
+	Data        io.Reader  `json:"-"` // Stream for reading/writing
+}
+
+type Bucket struct {
+	Name      string    `json:"name"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type StorageNode struct {
+	ID       string    `json:"id"`
+	Address  string    `json:"address"` // host:port
+	DataDir  string    `json:"data_dir"`
+	Status   string    `json:"status"`
+	LastSeen time.Time `json:"last_seen"`
 }

@@ -1,0 +1,44 @@
+package node
+
+import (
+	"context"
+	"os"
+
+	pb "github.com/poyrazk/thecloud/internal/storage/protocol"
+)
+
+type RPCServer struct {
+	pb.UnimplementedStorageNodeServer
+	store *LocalStore
+}
+
+func NewRPCServer(store *LocalStore) *RPCServer {
+	return &RPCServer{store: store}
+}
+
+func (s *RPCServer) Store(ctx context.Context, req *pb.StoreRequest) (*pb.StoreResponse, error) {
+	err := s.store.Write(req.Bucket, req.Key, req.Data)
+	if err != nil {
+		return &pb.StoreResponse{Success: false, Error: err.Error()}, nil
+	}
+	return &pb.StoreResponse{Success: true}, nil
+}
+
+func (s *RPCServer) Retrieve(ctx context.Context, req *pb.RetrieveRequest) (*pb.RetrieveResponse, error) {
+	data, err := s.store.Read(req.Bucket, req.Key)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return &pb.RetrieveResponse{Found: false}, nil
+		}
+		return &pb.RetrieveResponse{Found: false, Error: err.Error()}, nil
+	}
+	return &pb.RetrieveResponse{Data: data, Found: true}, nil
+}
+
+func (s *RPCServer) Delete(ctx context.Context, req *pb.DeleteRequest) (*pb.DeleteResponse, error) {
+	err := s.store.Delete(req.Bucket, req.Key)
+	if err != nil && !os.IsNotExist(err) {
+		return &pb.DeleteResponse{Success: false, Error: err.Error()}, nil
+	}
+	return &pb.DeleteResponse{Success: true}, nil
+}
