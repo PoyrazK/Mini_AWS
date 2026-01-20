@@ -2,6 +2,7 @@
 package setup
 
 import (
+	"fmt"
 	"log/slog"
 
 	"github.com/poyrazk/thecloud/internal/core/ports"
@@ -202,9 +203,12 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 	provisionWorker := workers.NewProvisionWorker(instSvcConcrete, c.Repos.TaskQueue, c.Logger)
 
 	clusterProvisioner := k8s.NewKubeadmProvisioner(instSvcConcrete, c.Repos.Cluster, secretSvc, sgSvc, storageSvc, lbSvc, c.Logger)
-	clusterSvc := services.NewClusterService(services.ClusterServiceParams{
+	clusterSvc, err := services.NewClusterService(services.ClusterServiceParams{
 		Repo: c.Repos.Cluster, Provisioner: clusterProvisioner, VpcSvc: vpcSvc, InstanceSvc: instSvcConcrete, SecretSvc: secretSvc, TaskQueue: c.Repos.TaskQueue, Logger: c.Logger,
 	})
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to init cluster service: %w", err)
+	}
 
 	svcs := &Services{
 		WsHub: wsHub, Audit: auditSvc, Identity: identitySvc, Auth: authSvc, PasswordReset: pwdResetSvc, RBAC: rbacSvc,

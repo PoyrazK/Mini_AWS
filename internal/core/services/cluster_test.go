@@ -16,7 +16,7 @@ import (
 
 const testClusterName = "test-cluster"
 
-func setupClusterServiceTest() (*MockClusterRepo, *MockClusterProvisioner, *MockVpcService, *MockInstanceService, *MockTaskQueue, ports.ClusterService) {
+func setupClusterServiceTest() (*MockClusterRepo, *MockClusterProvisioner, *MockVpcService, *MockInstanceService, *MockTaskQueue, *MockSecretService, ports.ClusterService) {
 	repo := new(MockClusterRepo)
 	provisioner := new(MockClusterProvisioner)
 	vpcSvc := new(MockVpcService)
@@ -25,7 +25,7 @@ func setupClusterServiceTest() (*MockClusterRepo, *MockClusterProvisioner, *Mock
 	taskQueue := new(MockTaskQueue)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	svc := services.NewClusterService(services.ClusterServiceParams{
+	svc, _ := services.NewClusterService(services.ClusterServiceParams{
 		Repo:        repo,
 		Provisioner: provisioner,
 		VpcSvc:      vpcSvc,
@@ -34,11 +34,11 @@ func setupClusterServiceTest() (*MockClusterRepo, *MockClusterProvisioner, *Mock
 		TaskQueue:   taskQueue,
 		Logger:      logger,
 	})
-	return repo, provisioner, vpcSvc, instSvc, taskQueue, svc
+	return repo, provisioner, vpcSvc, instSvc, taskQueue, secretSvc, svc
 }
 
 func TestClusterServiceCreate(t *testing.T) {
-	repo, _, vpcSvc, _, taskQueue, svc := setupClusterServiceTest()
+	repo, _, vpcSvc, _, taskQueue, secretSvc, svc := setupClusterServiceTest()
 	ctx := context.Background()
 	userID := uuid.New()
 	vpcID := uuid.New()
@@ -49,6 +49,7 @@ func TestClusterServiceCreate(t *testing.T) {
 	})).Return(nil)
 	repo.On("Update", mock.Anything, mock.Anything).Return(nil)
 	repo.On("Update", mock.Anything, mock.Anything).Return(nil)
+	secretSvc.On("Encrypt", mock.Anything, userID, mock.Anything).Return("encrypted-key", nil)
 
 	// Expect task queue enqueue
 	taskQueue.On("Enqueue", mock.Anything, "k8s_jobs", mock.MatchedBy(func(job domain.ClusterJob) bool {
@@ -73,7 +74,7 @@ func TestClusterServiceCreate(t *testing.T) {
 }
 
 func TestClusterServiceDelete(t *testing.T) {
-	repo, _, _, _, taskQueue, svc := setupClusterServiceTest()
+	repo, _, _, _, taskQueue, _, svc := setupClusterServiceTest()
 	ctx := context.Background()
 	id := uuid.New()
 	cluster := &domain.Cluster{ID: id, Status: domain.ClusterStatusRunning}

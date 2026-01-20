@@ -31,9 +31,16 @@ func NewClusterWorker(repo ports.ClusterRepository, provisioner ports.ClusterPro
 	}
 }
 
+const (
+	queuePollBackoff    = 1 * time.Second
+	maxConcurrentClusts = 10
+)
+
 func (w *ClusterWorker) Run(ctx context.Context, wg *sync.WaitGroup) {
 	defer wg.Done()
-	w.logger.Info("starting cluster worker")
+	w.logger.Info("starting cluster worker", "concurrency", maxConcurrentClusts)
+
+	sem := make(chan struct{}, maxConcurrentClusts)
 
 	for {
 		select {
@@ -43,10 +50,12 @@ func (w *ClusterWorker) Run(ctx context.Context, wg *sync.WaitGroup) {
 		default:
 			msg, err := w.taskQueue.Dequeue(ctx, "k8s_jobs")
 			if err != nil {
-				time.Sleep(1 * time.Second)
+				w.logger.Error("failed to dequeue cluster job", "error", err)
+				time.Sleep(queuePollBackoff)
 				continue
 			}
 			if msg == "" {
+				time.Sleep(queuePollBackoff)
 				continue
 			}
 
@@ -58,7 +67,11 @@ func (w *ClusterWorker) Run(ctx context.Context, wg *sync.WaitGroup) {
 
 			w.logger.Info("processing cluster job", "cluster_id", job.ClusterID, "type", job.Type)
 
-			go w.processJob(job)
+			sem <- struct{}{}
+			go func() {
+				defer func() { <-sem }()
+				w.processJob(job)
+			}()
 		}
 	}
 }

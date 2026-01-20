@@ -53,6 +53,8 @@ func (p *KubeadmProvisioner) waitForIP(ctx context.Context, instID uuid.UUID) st
 
 	for {
 		select {
+		case <-ctx.Done():
+			return ""
 		case <-timeout:
 			return ""
 		case <-ticker.C:
@@ -80,18 +82,26 @@ func (p *KubeadmProvisioner) waitForAPIServer(ctx context.Context, cluster *doma
 	var lastErr error
 
 	// Wait up to 5 minutes
-	for i := 0; i < 30; i++ {
-		_, err = exec.Run(ctx, checkCmd)
-		if err == nil {
-			p.logger.Info("API server is healthy", "ip", masterIP)
-			return nil
-		}
-		lastErr = err
-		p.logger.Debug("API server not ready yet, retrying...", "attempt", i+1, "error", err)
-		time.Sleep(10 * time.Second)
-	}
+	timeout := time.After(5 * time.Minute)
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
 
-	return fmt.Errorf("timeout waiting for API server health: %w", lastErr)
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-timeout:
+			return fmt.Errorf("timeout waiting for API server health: %w", lastErr)
+		case <-ticker.C:
+			_, err = exec.Run(ctx, checkCmd)
+			if err == nil {
+				p.logger.Info("API server is healthy", "ip", masterIP)
+				return nil
+			}
+			lastErr = err
+			p.logger.Debug("API server not ready yet, retrying...", "error", err)
+		}
+	}
 }
 
 func (p *KubeadmProvisioner) bootstrapNode(ctx context.Context, cluster *domain.Cluster, ip, _ string, _ bool) error {

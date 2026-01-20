@@ -37,9 +37,9 @@ type ClusterServiceParams struct {
 }
 
 // NewClusterService creates a new ClusterService with the provided parameters.
-func NewClusterService(params ClusterServiceParams) *ClusterService {
+func NewClusterService(params ClusterServiceParams) (*ClusterService, error) {
 	if params.TaskQueue == nil {
-		panic("taskQueue cannot be nil")
+		return nil, errors.New(errors.Internal, "taskQueue cannot be nil")
 	}
 	return &ClusterService{
 		repo:        params.Repo,
@@ -49,7 +49,7 @@ func NewClusterService(params ClusterServiceParams) *ClusterService {
 		secretSvc:   params.SecretSvc,
 		taskQueue:   params.TaskQueue,
 		logger:      params.Logger,
-	}
+	}, nil
 }
 
 // CreateCluster initiates the provisioning of a new Kubernetes cluster.
@@ -66,6 +66,12 @@ func (s *ClusterService) CreateCluster(ctx context.Context, params ports.CreateC
 		return nil, errors.Wrap(errors.Internal, "failed to generate cluster ssh key", err)
 	}
 
+	// Encrypt the SSH key before storing
+	encryptedKey, err := s.secretSvc.Encrypt(ctx, params.UserID, privKey)
+	if err != nil {
+		return nil, errors.Wrap(errors.Internal, "failed to encrypt cluster ssh key", err)
+	}
+
 	// 3. Create cluster record in database
 	cluster := &domain.Cluster{
 		ID:               uuid.New(),
@@ -77,7 +83,7 @@ func (s *ClusterService) CreateCluster(ctx context.Context, params ports.CreateC
 		NetworkIsolation: params.NetworkIsolation,
 		HAEnabled:        params.HAEnabled,
 		Status:           domain.ClusterStatusPending,
-		SSHKey:           privKey,
+		SSHKey:           encryptedKey,
 		CreatedAt:        time.Now(),
 		UpdatedAt:        time.Now(),
 	}
@@ -95,7 +101,11 @@ func (s *ClusterService) CreateCluster(ctx context.Context, params ports.CreateC
 
 	if err := s.taskQueue.Enqueue(ctx, "k8s_jobs", job); err != nil {
 		s.logger.Error("failed to enqueue cluster provision job", "cluster_id", cluster.ID, "error", err)
-		// We still return the cluster, but the background worker will have to pick it up later or it stays pending
+		cluster.Status = domain.ClusterStatusFailed
+		if updateErr := s.repo.Update(ctx, cluster); updateErr != nil {
+			s.logger.Error("failed to update cluster status after enqueue failure", "cluster_id", cluster.ID, "error", updateErr)
+		}
+		return nil, errors.Wrap(errors.Internal, "failed to enqueue provisioning task", err)
 	}
 
 	return cluster, nil
@@ -166,7 +176,7 @@ func (s *ClusterService) GetKubeconfig(ctx context.Context, id uuid.UUID, role s
 		decrypted, err := s.secretSvc.Decrypt(ctx, cluster.UserID, cluster.Kubeconfig)
 		if err != nil {
 			s.logger.Error("failed to decrypt kubeconfig", "cluster_id", cluster.ID, "error", err)
-			return cluster.Kubeconfig, nil
+			return "", errors.Wrap(errors.Internal, "failed to decrypt kubeconfig", err)
 		}
 		return decrypted, nil
 	}

@@ -241,7 +241,12 @@ func TestKubeadmProvisionerProvisionHA(t *testing.T) {
 	repo.On("GetNodes", mock.Anything, cluster.ID).Return(allNodes, nil).Maybe()
 
 	// General Exec matches
-	instSvc.On("Exec", mock.Anything, mock.Anything, mock.Anything).Return("kubeadm join 10.0.0.100:6443 --token abc --control-plane --certificate-key xyz", nil).Maybe()
+	kubeadmOutput := `
+kubeadm join 10.0.0.100:6443 --token abc --discovery-token-ca-cert-hash sha256:123
+
+kubeadm join 10.0.0.100:6443 --token abc --discovery-token-ca-cert-hash sha256:123 --control-plane --certificate-key xyz
+`
+	instSvc.On("Exec", mock.Anything, mock.Anything, mock.Anything).Return(kubeadmOutput, nil).Maybe()
 
 	err := p.Provision(ctx, cluster)
 

@@ -19,12 +19,20 @@ func (p *KubeadmProvisioner) provisionHAControlPlane(ctx context.Context, cluste
 		return "", p.failCluster(ctx, cluster, "failed to create control plane load balancer", err)
 	}
 
-	lbIP := lb.IP
-	if lbIP == "" {
-		time.Sleep(5 * time.Second)
-		if lbNew, err := p.lbSvc.Get(ctx, lb.ID); err == nil {
-			lbIP = lbNew.IP
+	lbIP := ""
+	for i := 0; i < 5; i++ {
+		lbIP = lb.IP
+		if lbIP != "" {
+			break
 		}
+		time.Sleep(2 * time.Second)
+		if lbNew, err := p.lbSvc.Get(ctx, lb.ID); err == nil {
+			lb = lbNew
+		}
+	}
+
+	if lbIP == "" {
+		return "", p.failCluster(ctx, cluster, "load balancer IP never assigned", fmt.Errorf("lb %s has no IP", lb.ID))
 	}
 
 	cluster.APIServerLBAddress = &lbIP
@@ -48,6 +56,10 @@ func (p *KubeadmProvisioner) provisionHAControlPlane(ctx context.Context, cluste
 	joinCmd, cpJoinCmd, kubeconfig, err := p.initKubeadmHA(ctx, cluster, masterIPs[0], lbIP)
 	if err != nil {
 		return "", p.failCluster(ctx, cluster, "failed to init primary master", err)
+	}
+
+	if joinCmd == "" || cpJoinCmd == "" {
+		return "", p.failCluster(ctx, cluster, "failed to parse join commands from kubeadm init", fmt.Errorf("empty join commands"))
 	}
 
 	// 4. Join master-1 and master-2 to control plane
@@ -75,13 +87,14 @@ func (p *KubeadmProvisioner) provisionHAMasters(ctx context.Context, cluster *do
 		}
 		ip := p.waitForIP(ctx, node.ID)
 		if ip == "" {
-			return nil, nil, p.failCluster(ctx, cluster, "timeout waiting for IP for master "+name, nil)
+			err := fmt.Errorf("missing master IP for node %s", node.ID)
+			return nil, nil, p.failCluster(ctx, cluster, "timeout waiting for IP for master "+name, err)
 		}
 		masters = append(masters, node)
 		masterIPs = append(masterIPs, ip)
 
 		if err := p.lbSvc.AddTarget(ctx, lb.ID, node.ID, 6443, 10); err != nil {
-			p.logger.Warn("failed to add master to LB rotation", "node_id", node.ID, "error", err)
+			return nil, nil, p.failCluster(ctx, cluster, fmt.Sprintf("failed to add master %s to LB %s", node.ID, lb.ID), err)
 		}
 	}
 

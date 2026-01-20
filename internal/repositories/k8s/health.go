@@ -113,8 +113,12 @@ func (p *KubeadmProvisioner) provisionSingleScaleNode(ctx context.Context, clust
 	}
 
 	if err := p.bootstrapNode(ctx, cluster, ip, cluster.Version, false); err != nil {
-		_ = p.instSvc.TerminateInstance(ctx, worker.ID.String())
-		_ = p.repo.DeleteNode(ctx, worker.ID)
+		if termErr := p.instSvc.TerminateInstance(ctx, worker.ID.String()); termErr != nil {
+			p.logger.Error("failed to terminate instance after bootstrap error", "instance_id", worker.ID, "error", termErr)
+		}
+		if delErr := p.repo.DeleteNode(ctx, worker.ID); delErr != nil {
+			p.logger.Error("failed to delete node record after bootstrap error", "node_id", worker.ID, "error", delErr)
+		}
 		return fmt.Errorf("failed to bootstrap node %s (%s): %w", workerName, ip, err)
 	}
 

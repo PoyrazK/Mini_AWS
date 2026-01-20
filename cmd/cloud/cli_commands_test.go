@@ -332,12 +332,14 @@ func handleNotify(w http.ResponseWriter, r *http.Request) bool {
 		resp := sdk.Response[sdk.Subscription]{
 			Data: sdk.Subscription{
 				ID:       "sub-1",
-				TopicID:  "testTopicID",
+				TopicID:  testTopicID,
 				Protocol: "webhook",
 				Endpoint: "https://example.com",
 			},
 		}
-		_ = json.NewEncoder(w).Encode(resp)
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+		}
 		return true
 	case r.Method == http.MethodPost && r.URL.Path == pathNotify+testTopicID+"/publish":
 		return respondNoContent(w)

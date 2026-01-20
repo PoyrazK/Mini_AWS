@@ -3670,19 +3670,11 @@ const docTemplate = `{
                 "job_id": {
                     "type": "string"
                 },
-                "kubeconfig": {
-                    "description": "Encrypted",
-                    "type": "string"
-                },
                 "name": {
                     "type": "string"
                 },
                 "network_isolation": {
                     "type": "boolean"
-                },
-                "ssh_key": {
-                    "description": "Base64 encoded private key",
-                    "type": "string"
                 },
                 "status": {
                     "$ref": "#/definitions/domain.ClusterStatus"

@@ -41,8 +41,8 @@ type Cluster struct {
 	ControlPlaneIPs    []string      `json:"control_plane_ips"`
 	WorkerCount        int           `json:"worker_count"`
 	Status             ClusterStatus `json:"status"`
-	SSHKey             string        `json:"ssh_key,omitempty"`    // Base64 encoded private key
-	Kubeconfig         string        `json:"kubeconfig,omitempty"` // Encrypted
+	SSHKey             string        `json:"-"` // Base64 encoded private key
+	Kubeconfig         string        `json:"-"` // Encrypted
 	NetworkIsolation   bool          `json:"network_isolation"`
 	HAEnabled          bool          `json:"ha_enabled"`
 	APIServerLBAddress *string       `json:"api_server_lb_address,omitempty"`
