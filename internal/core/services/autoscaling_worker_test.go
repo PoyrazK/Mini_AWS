@@ -223,10 +223,11 @@ func TestAutoScalingWorkerRecordFailure(t *testing.T) {
 	userID := uuid.New()
 	now := time.Now()
 
+	const testGroupName = "test-group"
 	group := &domain.ScalingGroup{
 		ID:           groupID,
 		UserID:       userID,
-		Name:         "test-group",
+		Name:         testGroupName,
 		MinInstances: 1,
 		MaxInstances: 5,
 		DesiredCount: 2,

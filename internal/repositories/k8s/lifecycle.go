@@ -14,7 +14,7 @@ import (
 
 func (p *KubeadmProvisioner) Upgrade(ctx context.Context, cluster *domain.Cluster, version string) error {
 	if len(cluster.ControlPlaneIPs) == 0 {
-		return fmt.Errorf("cluster %s has no control plane IPs", cluster.ID)
+		return fmt.Errorf(errNoControlPlaneIPs, cluster.ID)
 	}
 	masterIP := cluster.ControlPlaneIPs[0]
 	p.logger.Info("starting Kubernetes upgrade", "cluster_id", cluster.ID, "target_version", version)
@@ -24,7 +24,15 @@ func (p *KubeadmProvisioner) Upgrade(ctx context.Context, cluster *domain.Cluste
 		return fmt.Errorf("control plane upgrade failed: %w", err)
 	}
 
-	// 2. Upgrade Worker Nodes
+	if err := p.upgradeWorkerNodes(ctx, cluster, version); err != nil {
+		return err
+	}
+
+	p.logger.Info("Kubernetes upgrade completed", "cluster_id", cluster.ID, "version", version)
+	return nil
+}
+
+func (p *KubeadmProvisioner) upgradeWorkerNodes(ctx context.Context, cluster *domain.Cluster, version string) error {
 	nodes, err := p.repo.GetNodes(ctx, cluster.ID)
 	if err != nil {
 		return err
@@ -33,23 +41,8 @@ func (p *KubeadmProvisioner) Upgrade(ctx context.Context, cluster *domain.Cluste
 	var upgradeErrs []error
 	for _, node := range nodes {
 		if node.Role == domain.NodeRoleWorker {
-			inst, err := p.instSvc.GetInstance(ctx, node.InstanceID.String())
-			if err != nil {
-				p.logger.Error("failed to get worker instance for upgrade", "instance_id", node.InstanceID, "error", err)
-				upgradeErrs = append(upgradeErrs, fmt.Errorf("failed to get instance for node %s: %w", node.ID, err))
-				continue
-			}
-
-			ip := inst.PrivateIP
-			if idx := strings.Index(ip, "/"); idx != -1 {
-				ip = ip[:idx]
-			}
-
-			p.logger.Info("upgrading worker node", "ip", ip)
-			if err := p.upgradeWorkerNode(ctx, cluster, ip, version); err != nil {
-				p.logger.Error("worker upgrade failed", "ip", ip, "error", err)
-				upgradeErrs = append(upgradeErrs, fmt.Errorf("failed to upgrade node %s (%s): %w", node.ID, ip, err))
-				continue
+			if err := p.upgradeSingleWorkerNode(ctx, cluster, node, version); err != nil {
+				upgradeErrs = append(upgradeErrs, err)
 			}
 		}
 	}
@@ -58,7 +51,26 @@ func (p *KubeadmProvisioner) Upgrade(ctx context.Context, cluster *domain.Cluste
 		return fmt.Errorf("upgrade completed with errors: %v", upgradeErrs)
 	}
 
-	p.logger.Info("Kubernetes upgrade completed", "cluster_id", cluster.ID, "version", version)
+	return nil
+}
+
+func (p *KubeadmProvisioner) upgradeSingleWorkerNode(ctx context.Context, cluster *domain.Cluster, node *domain.ClusterNode, version string) error {
+	inst, err := p.instSvc.GetInstance(ctx, node.InstanceID.String())
+	if err != nil {
+		p.logger.Error("failed to get worker instance for upgrade", "instance_id", node.InstanceID, "error", err)
+		return fmt.Errorf("failed to get instance for node %s: %w", node.ID, err)
+	}
+
+	ip := inst.PrivateIP
+	if idx := strings.Index(ip, "/"); idx != -1 {
+		ip = ip[:idx]
+	}
+
+	p.logger.Info("upgrading worker node", "ip", ip)
+	if err := p.upgradeWorkerNode(ctx, cluster, ip, version); err != nil {
+		p.logger.Error("worker upgrade failed", "ip", ip, "error", err)
+		return fmt.Errorf("failed to upgrade node %s (%s): %w", node.ID, ip, err)
+	}
 	return nil
 }
 
@@ -130,7 +142,7 @@ systemctl restart kubelet
 
 func (p *KubeadmProvisioner) RotateSecrets(ctx context.Context, cluster *domain.Cluster) error {
 	if len(cluster.ControlPlaneIPs) == 0 {
-		return fmt.Errorf("cluster %s has no control plane IPs", cluster.ID)
+		return fmt.Errorf(errNoControlPlaneIPs, cluster.ID)
 	}
 	masterIP := cluster.ControlPlaneIPs[0]
 	exec, err := p.getExecutor(ctx, cluster, masterIP)
@@ -167,7 +179,7 @@ func (p *KubeadmProvisioner) RotateSecrets(ctx context.Context, cluster *domain.
 
 func (p *KubeadmProvisioner) CreateBackup(ctx context.Context, cluster *domain.Cluster) error {
 	if len(cluster.ControlPlaneIPs) == 0 {
-		return fmt.Errorf("cluster %s has no control plane IPs", cluster.ID)
+		return fmt.Errorf(errNoControlPlaneIPs, cluster.ID)
 	}
 	masterIP := cluster.ControlPlaneIPs[0]
 	exec, err := p.getExecutor(ctx, cluster, masterIP)
@@ -215,7 +227,7 @@ func (p *KubeadmProvisioner) CreateBackup(ctx context.Context, cluster *domain.C
 
 func (p *KubeadmProvisioner) Restore(ctx context.Context, cluster *domain.Cluster, backupPath string) error {
 	if len(cluster.ControlPlaneIPs) == 0 {
-		return fmt.Errorf("cluster %s has no control plane IPs", cluster.ID)
+		return fmt.Errorf(errNoControlPlaneIPs, cluster.ID)
 	}
 	masterIP := cluster.ControlPlaneIPs[0]
 	exec, err := p.getExecutor(ctx, cluster, masterIP)

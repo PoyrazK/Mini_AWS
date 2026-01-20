@@ -192,7 +192,7 @@ func TestKubeadmProvisionerDeprovision(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestKubeadmProvisioner_ProvisionHA(t *testing.T) {
+func TestKubeadmProvisionerProvisionHA(t *testing.T) {
 	ctx := context.Background()
 	instSvc := new(MockInstanceService)
 	repo := new(MockClusterRepo)

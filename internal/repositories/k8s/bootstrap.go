@@ -94,7 +94,7 @@ func (p *KubeadmProvisioner) waitForAPIServer(ctx context.Context, cluster *doma
 	return fmt.Errorf("timeout waiting for API server health: %w", lastErr)
 }
 
-func (p *KubeadmProvisioner) bootstrapNode(ctx context.Context, cluster *domain.Cluster, ip, version string, isMaster bool) error {
+func (p *KubeadmProvisioner) bootstrapNode(ctx context.Context, cluster *domain.Cluster, ip, _ string, _ bool) error {
 	exec, err := p.getExecutor(ctx, cluster, ip)
 	if err != nil {
 		return err

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
@@ -11,11 +12,9 @@ import (
 )
 
 const (
-	defaultUser            = "ubuntu"
-	sshKeyName             = "k8s-provisioning-key"
-	errFailedSSHClient     = "failed to create ssh client: %w"
-	errFailedBootstrapNode = "failed to bootstrap node: %w"
-	podCIDR                = "192.168.0.0/16" // Calico default
+	defaultUser          = "ubuntu"
+	errNoControlPlaneIPs = "cluster %s has no control plane IPs"
+	podCIDR              = "192.168.0.0/16" // Calico default
 	// AnyCIDR represents all IPv4 addresses.
 	AnyCIDR = "0.0.0.0/0"
 	// adminKubeconfig is the default path for kubeconfig on control plane nodes.
@@ -214,7 +213,7 @@ func (p *KubeadmProvisioner) getExecutor(ctx context.Context, cluster *domain.Cl
 			if err == nil {
 				// Match by IP (strip CIDR suffix for comparison)
 				instIP := inst.PrivateIP
-				if idx := mathStringsIndex(instIP, "/"); idx != -1 {
+				if idx := strings.Index(instIP, "/"); idx != -1 {
 					instIP = instIP[:idx]
 				}
 				if instIP == ip {
@@ -226,15 +225,6 @@ func (p *KubeadmProvisioner) getExecutor(ctx context.Context, cluster *domain.Cl
 
 	// Fallback to SSH
 	return NewSSHExecutor(ip, defaultUser, cluster.SSHKey), nil
-}
-
-func mathStringsIndex(s, substr string) int {
-	for i := 0; i < len(s)-len(substr)+1; i++ {
-		if s[i:i+len(substr)] == substr {
-			return i
-		}
-	}
-	return -1
 }
 
 func (p *KubeadmProvisioner) Deprovision(ctx context.Context, cluster *domain.Cluster) error {

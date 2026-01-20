@@ -16,7 +16,7 @@ func (p *KubeadmProvisioner) GetStatus(ctx context.Context, cluster *domain.Clus
 
 func (p *KubeadmProvisioner) Repair(ctx context.Context, cluster *domain.Cluster) error {
 	if len(cluster.ControlPlaneIPs) == 0 {
-		return fmt.Errorf("cluster %s has no control plane IPs", cluster.ID)
+		return fmt.Errorf(errNoControlPlaneIPs, cluster.ID)
 	}
 	masterIP := cluster.ControlPlaneIPs[0]
 	p.logger.Info("repairing cluster components", "cluster_id", cluster.ID, "ip", masterIP)
@@ -65,7 +65,7 @@ func (p *KubeadmProvisioner) Scale(ctx context.Context, cluster *domain.Cluster)
 
 func (p *KubeadmProvisioner) scaleUp(ctx context.Context, cluster *domain.Cluster, currentCount int) error {
 	if len(cluster.ControlPlaneIPs) == 0 {
-		return fmt.Errorf("cluster %s has no control plane IPs", cluster.ID)
+		return fmt.Errorf(errNoControlPlaneIPs, cluster.ID)
 	}
 	masterIP := cluster.ControlPlaneIPs[0]
 	exec, err := p.getExecutor(ctx, cluster, masterIP)
@@ -73,60 +73,62 @@ func (p *KubeadmProvisioner) scaleUp(ctx context.Context, cluster *domain.Cluste
 		return err
 	}
 
-	// Generate new join token
 	joinCmd, err := exec.Run(ctx, "kubeadm token create --print-join-command --ttl=1h")
 	if err != nil {
 		return fmt.Errorf("failed to generate join token: %w", err)
 	}
 	joinCmd = strings.TrimSpace(joinCmd)
 
+	return p.provisionScaleUpNodes(ctx, cluster, currentCount, joinCmd)
+}
+
+func (p *KubeadmProvisioner) provisionScaleUpNodes(ctx context.Context, cluster *domain.Cluster, currentCount int, joinCmd string) error {
 	needed := cluster.WorkerCount - currentCount
 	var errs []error
 	for i := 0; i < needed; i++ {
 		workerName := fmt.Sprintf("worker-scale-%d", time.Now().UnixNano())
-		worker, err := p.createNode(ctx, cluster, workerName, domain.NodeRoleWorker)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("failed to create node %s: %w", workerName, err))
-			continue
-		}
-
-		ip := p.waitForIP(ctx, worker.ID)
-		if ip == "" {
-			errs = append(errs, fmt.Errorf("node %s failed to get IP", workerName))
-			// Cleanup orphaned node
-			if delErr := p.repo.DeleteNode(ctx, worker.ID); delErr != nil {
-				p.logger.Error("failed to cleanup orphaned node", "node_id", worker.ID, "error", delErr)
-			}
-			continue
-		}
-
-		if err := p.bootstrapNode(ctx, cluster, ip, cluster.Version, false); err != nil {
-			errs = append(errs, fmt.Errorf("failed to bootstrap node %s (%s): %w", workerName, ip, err))
-			if termErr := p.instSvc.TerminateInstance(ctx, worker.ID.String()); termErr != nil {
-				p.logger.Error("failed to terminate failed bootstrap instance", "instance_id", worker.ID, "error", termErr)
-			}
-			if delErr := p.repo.DeleteNode(ctx, worker.ID); delErr != nil {
-				p.logger.Error("failed to delete failed bootstrap node", "node_id", worker.ID, "error", delErr)
-			}
-			continue
-		}
-
-		if err := p.joinCluster(ctx, cluster, ip, joinCmd); err != nil {
-			errs = append(errs, fmt.Errorf("failed to join node %s to cluster: %w", workerName, err))
-			_ = p.updateNodeStatus(ctx, cluster.ID, worker.ID, "failed")
-			continue
-		}
-		if err := p.updateNodeStatus(ctx, cluster.ID, worker.ID, "active"); err != nil {
-			p.logger.Error("failed to update node status to active", "node_id", worker.ID, "error", err)
-			// Not a fatal error for the node itself, but worth noting
-			errs = append(errs, fmt.Errorf("node %s active but status update failed: %w", workerName, err))
+		if err := p.provisionSingleScaleNode(ctx, cluster, workerName, joinCmd); err != nil {
+			errs = append(errs, err)
 		}
 	}
 
 	if len(errs) > 0 {
 		return fmt.Errorf("scale up encountered errors: %v", errs)
 	}
+	return nil
+}
 
+func (p *KubeadmProvisioner) provisionSingleScaleNode(ctx context.Context, cluster *domain.Cluster, workerName, joinCmd string) error {
+	worker, err := p.createNode(ctx, cluster, workerName, domain.NodeRoleWorker)
+	if err != nil {
+		return fmt.Errorf("failed to create node %s: %w", workerName, err)
+	}
+
+	ip := p.waitForIP(ctx, worker.ID)
+	if ip == "" {
+		if delErr := p.repo.DeleteNode(ctx, worker.ID); delErr != nil {
+			p.logger.Error("failed to cleanup orphaned node", "node_id", worker.ID, "error", delErr)
+		}
+		return fmt.Errorf("node %s failed to get IP", workerName)
+	}
+
+	if err := p.bootstrapNode(ctx, cluster, ip, cluster.Version, false); err != nil {
+		_ = p.instSvc.TerminateInstance(ctx, worker.ID.String())
+		_ = p.repo.DeleteNode(ctx, worker.ID)
+		return fmt.Errorf("failed to bootstrap node %s (%s): %w", workerName, ip, err)
+	}
+
+	if err := p.joinCluster(ctx, cluster, ip, joinCmd); err != nil {
+		if err := p.updateNodeStatus(ctx, cluster.ID, worker.ID, "failed"); err != nil {
+			p.logger.Error("failed to update node status to failed", "node_id", worker.ID, "error", err)
+		}
+		return fmt.Errorf("failed to join node %s to cluster: %w", workerName, err)
+	}
+
+	if err := p.updateNodeStatus(ctx, cluster.ID, worker.ID, "active"); err != nil {
+		p.logger.Error("failed to update node status to active", "node_id", worker.ID, "error", err)
+		return fmt.Errorf("node %s active but status update failed: %w", workerName, err)
+	}
 	return nil
 }
 
@@ -158,7 +160,7 @@ func (p *KubeadmProvisioner) scaleDown(ctx context.Context, cluster *domain.Clus
 
 func (p *KubeadmProvisioner) GetKubeconfig(ctx context.Context, cluster *domain.Cluster, role string) (string, error) {
 	if len(cluster.ControlPlaneIPs) == 0 {
-		return "", fmt.Errorf("cluster %s has no control plane IPs", cluster.ID)
+		return "", fmt.Errorf(errNoControlPlaneIPs, cluster.ID)
 	}
 	masterIP := cluster.ControlPlaneIPs[0]
 	exec, err := p.getExecutor(ctx, cluster, masterIP)
@@ -177,7 +179,7 @@ func (p *KubeadmProvisioner) GetKubeconfig(ctx context.Context, cluster *domain.
 
 func (p *KubeadmProvisioner) GetHealth(ctx context.Context, cluster *domain.Cluster) (*ports.ClusterHealth, error) {
 	if len(cluster.ControlPlaneIPs) == 0 {
-		return nil, fmt.Errorf("cluster %s has no control plane IPs", cluster.ID)
+		return nil, fmt.Errorf(errNoControlPlaneIPs, cluster.ID)
 	}
 	masterIP := cluster.ControlPlaneIPs[0]
 	exec, err := p.getExecutor(ctx, cluster, masterIP)

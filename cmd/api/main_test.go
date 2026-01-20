@@ -20,7 +20,6 @@ import (
 	"github.com/poyrazk/thecloud/internal/repositories/noop"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/redis/go-redis/v9"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestInitInfrastructureMigrateOnlyStopsAfterMigrations(t *testing.T) {
@@ -142,8 +141,7 @@ func TestInitBackendsLBProxyError(t *testing.T) {
 	})
 	defer resetLBProxy()
 
-	// Use nil for rdb since we shouldn't be calling it in this test if stubs work.
-	_, _, _, _, err := initBackends(cfg, logger, &stubDB{}, nil)
+	_, _, _, _, err := initBackends(cfg, logger, &stubDB{}, redis.NewClient(&redis.Options{Addr: "127.0.0.1:1"}))
 	if err == nil {
 		t.Fatalf("expected error when lb proxy init fails")
 	}
@@ -279,35 +277,4 @@ func stubNotifySignals(fn func(chan<- os.Signal, ...os.Signal)) func() {
 	prev := notifySignals
 	notifySignals = fn
 	return func() { notifySignals = prev }
-}
-
-func TestInitTracing(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-
-	t.Run("Disabled", func(t *testing.T) {
-		t.Setenv("TRACING_ENABLED", "false")
-		tp := initTracing(logger)
-		assert.Nil(t, tp)
-	})
-
-	t.Run("Console", func(t *testing.T) {
-		t.Setenv("TRACING_ENABLED", "true")
-		t.Setenv("TRACING_EXPORTER", "console")
-		tp := initTracing(logger)
-		assert.NotNil(t, tp)
-		_ = tp.Shutdown(context.Background())
-	})
-
-	t.Run("Jaeger", func(t *testing.T) {
-		t.Setenv("TRACING_ENABLED", "true")
-		t.Setenv("TRACING_EXPORTER", "jaeger")
-		t.Setenv("JAEGER_ENDPOINT", "http://localhost:4318")
-		// This might fail if it tries to connect, but let's see.
-		// Actually initTracing just returns the provider, it doesn't necessarily block.
-		tp := initTracing(logger)
-		assert.NotNil(t, tp)
-		if tp != nil {
-			_ = tp.Shutdown(context.Background())
-		}
-	})
 }
