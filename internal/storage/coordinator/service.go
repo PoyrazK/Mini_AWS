@@ -10,6 +10,7 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/poyrazk/thecloud/internal/core/domain"
 	pb "github.com/poyrazk/thecloud/internal/storage/protocol"
 )
 
@@ -20,6 +21,8 @@ type Coordinator struct {
 	replicaCount int
 	writeQuorum  int
 	stopCh       chan struct{}
+	lastStatus   *domain.StorageCluster
+	mu           sync.RWMutex
 }
 
 // NewCoordinator creates a new distributed storage coordinator.
@@ -75,18 +78,36 @@ func (c *Coordinator) SyncClusterState() {
 	}
 
 	// Update Ring based on status
+	nodes := make([]domain.StorageNode, 0, len(resp.Members))
 	for id, m := range resp.Members {
 		if m.Status == "dead" {
 			c.ring.RemoveNode(id)
-			// Idea: If we implement dynamic client pool, we would remove from c.clients too.
-		} else if m.Status == "alive" {
-			// Ensure it's in the ring.
-			// Currently our AddNode just appends, so we don't want to add if already there.
-			// Since we don't have HasNode efficient check exposed, let's assume static membership for now
-			// except for removing dead nodes.
-			// Getting this right requires better Ring implementation (idempotent Add).
 		}
+		nodes = append(nodes, domain.StorageNode{
+			ID:       id,
+			Address:  m.Addr,
+			Status:   m.Status,
+			LastSeen: time.Unix(m.LastSeen, 0),
+		})
 	}
+
+	c.mu.Lock()
+	c.lastStatus = &domain.StorageCluster{Nodes: nodes}
+	c.mu.Unlock()
+}
+
+func (c *Coordinator) GetClusterStatus(ctx context.Context) (*domain.StorageCluster, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.lastStatus == nil {
+		return &domain.StorageCluster{Nodes: []domain.StorageNode{}}, nil
+	}
+	return c.lastStatus, nil
+}
+
+func (c *Coordinator) Assemble(ctx context.Context, bucket, key string, parts []string) (int64, error) {
+	// TODO: Implement distributed assembly or proxy to primary node
+	return 0, fmt.Errorf("assemble not implemented in coordinator")
 }
 
 func (c *Coordinator) Stop() {
