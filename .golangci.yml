@@ -2,6 +2,11 @@ run:
   timeout: 5m
 
 linters-settings:
+  gocyclo:
+    min-complexity: 15
+  goconst:
+    min-len: 3
+    min-occurrences: 3
   errcheck:
     exclude-functions:
       - fmt.Fprintln
@@ -24,6 +29,10 @@ linters:
     - staticcheck
     - unused
     - ineffassign
+    - gocyclo
+    - goconst
+    - misspell
+    - revive
 
 issues:
   exclude-rules:
@@ -36,3 +45,8 @@ issues:
     - path: internal/handlers/ws
       linters:
         - errcheck
+    # Test files: allow repeated strings (test fixtures) and higher complexity
+    - path: _test\.go
+      linters:
+        - goconst
+        - gocyclo
