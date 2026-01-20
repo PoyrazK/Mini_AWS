@@ -19,11 +19,41 @@ var storageCmd = &cobra.Command{
 
 var storageListCmd = &cobra.Command{
 	Use:   "list [bucket]",
-	Short: "List objects in a bucket",
-	Args:  cobra.ExactArgs(1),
+	Short: "List buckets or objects in a bucket",
+	Args:  cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		bucket := args[0]
 		client := getClient()
+
+		// List Buckets
+		if len(args) == 0 {
+			buckets, err := client.ListBuckets()
+			if err != nil {
+				fmt.Printf(errFmt, err)
+				return
+			}
+
+			if outputJSON {
+				data, _ := json.MarshalIndent(buckets, "", "  ")
+				fmt.Println(string(data))
+				return
+			}
+
+			table := tablewriter.NewWriter(os.Stdout)
+			table.Header([]string{"NAME", "PUBLIC", "CREATED AT"})
+
+			for _, b := range buckets {
+				table.Append([]string{
+					b.Name,
+					fmt.Sprintf("%v", b.IsPublic),
+					b.CreatedAt.Format(time.RFC3339),
+				})
+			}
+			table.Render()
+			return
+		}
+
+		// List Objects
+		bucket := args[0]
 		objects, err := client.ListObjects(bucket)
 		if err != nil {
 			fmt.Printf(errFmt, err)
@@ -132,11 +162,90 @@ var storageDeleteCmd = &cobra.Command{
 	},
 }
 
+var createBucketCmd = &cobra.Command{
+	Use:   "create-bucket [name]",
+	Short: "Create a new storage bucket",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		name := args[0]
+		public, _ := cmd.Flags().GetBool("public")
+
+		client := getClient()
+		bucket, err := client.CreateBucket(name, public)
+		if err != nil {
+			fmt.Printf(errFmt, err)
+			return
+		}
+
+		if outputJSON {
+			data, _ := json.MarshalIndent(bucket, "", "  ")
+			fmt.Println(string(data))
+			return
+		}
+
+		fmt.Printf("[SUCCESS] Created bucket %s (Public: %v)\n", bucket.Name, bucket.IsPublic)
+	},
+}
+
+var deleteBucketCmd = &cobra.Command{
+	Use:   "delete-bucket [name]",
+	Short: "Delete a storage bucket",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		name := args[0]
+
+		client := getClient()
+		if err := client.DeleteBucket(name); err != nil {
+			fmt.Printf(errFmt, err)
+			return
+		}
+
+		fmt.Printf("[SUCCESS] Deleted bucket %s\n", name)
+	},
+}
+
+var storageClusterStatusCmd = &cobra.Command{
+	Use:   "cluster-status",
+	Short: "Get storage cluster status",
+	Run: func(cmd *cobra.Command, args []string) {
+		client := getClient()
+		status, err := client.GetStorageClusterStatus()
+		if err != nil {
+			fmt.Printf(errFmt, err)
+			return
+		}
+
+		if outputJSON {
+			data, _ := json.MarshalIndent(status, "", "  ")
+			fmt.Println(string(data))
+			return
+		}
+
+		table := tablewriter.NewWriter(os.Stdout)
+		table.Header([]string{"NODE ID", "ADDRESS", "STATUS", "LAST SEEN"})
+
+		for _, n := range status.Nodes {
+			table.Append([]string{
+				n.ID,
+				n.Address,
+				n.Status,
+				n.LastSeen.Format(time.RFC3339),
+			})
+		}
+		table.Render()
+	},
+}
+
 func init() {
 	storageCmd.AddCommand(storageListCmd)
 	storageCmd.AddCommand(storageUploadCmd)
 	storageCmd.AddCommand(storageDownloadCmd)
 	storageCmd.AddCommand(storageDeleteCmd)
+	storageCmd.AddCommand(createBucketCmd)
+	storageCmd.AddCommand(deleteBucketCmd)
+	storageCmd.AddCommand(storageClusterStatusCmd)
+
+	createBucketCmd.Flags().Bool("public", false, "Make bucket public")
 
 	storageUploadCmd.Flags().String("key", "", "Custom key for the object")
 }
