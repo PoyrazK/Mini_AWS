@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/poyrazk/thecloud/pkg/httputil"
@@ -23,6 +25,8 @@ func NewStorageHandler(svc ports.StorageService) *StorageHandler {
 		svc: svc,
 	}
 }
+
+const errInvalidUploadID = "invalid upload id"
 
 // Upload uploads an object to a bucket
 // @Summary Upload an object
@@ -220,4 +224,113 @@ func (h *StorageHandler) GetClusterStatus(c *gin.Context) {
 		return
 	}
 	httputil.Success(c, http.StatusOK, status)
+}
+
+// InitiateMultipartUpload initiates a new multipart upload
+// @Summary Initiate multipart upload
+// @Description Creates a new multipart upload session for a bucket and key
+// @Tags storage
+// @Produce json
+// @Security APIKeyAuth
+// @Param bucket path string true "Bucket name"
+// @Param key path string true "Object key"
+// @Success 201 {object} domain.MultipartUpload
+// @Router /storage/{bucket}/{key}/multipart [post]
+func (h *StorageHandler) InitiateMultipartUpload(c *gin.Context) {
+	bucket := c.Param("bucket")
+	key := c.Param("key")
+
+	upload, err := h.svc.CreateMultipartUpload(c.Request.Context(), bucket, key)
+	if err != nil {
+		httputil.Error(c, err)
+		return
+	}
+
+	httputil.Success(c, http.StatusCreated, upload)
+}
+
+// UploadPart uploads a single part of an ongoing multipart upload
+// @Summary Upload a part
+// @Description Uploads a data chunk (part) for the specified multipart upload
+// @Tags storage
+// @Accept octet-stream
+// @Produce json
+// @Security APIKeyAuth
+// @Param id path string true "Upload ID"
+// @Param part query int true "Part number"
+// @Success 200 {object} domain.Part
+// @Router /storage/multipart/:id/parts [put]
+func (h *StorageHandler) UploadPart(c *gin.Context) {
+	idStr := c.Param("id")
+	uploadID, err := uuid.Parse(idStr)
+	if err != nil {
+		httputil.Error(c, errors.New(errors.InvalidInput, errInvalidUploadID))
+		return
+	}
+
+	partNumStr := c.Query("part")
+	partNumber, err := strconv.Atoi(partNumStr)
+	if err != nil {
+		httputil.Error(c, errors.New(errors.InvalidInput, "invalid part number"))
+		return
+	}
+
+	part, err := h.svc.UploadPart(c.Request.Context(), uploadID, partNumber, c.Request.Body)
+	if err != nil {
+		httputil.Error(c, err)
+		return
+	}
+
+	httputil.Success(c, http.StatusOK, part)
+}
+
+// CompleteMultipartUpload completes a multipart upload
+// @Summary Complete multipart upload
+// @Description Assembles all uploaded parts into the final object
+// @Tags storage
+// @Produce json
+// @Security APIKeyAuth
+// @Param id path string true "Upload ID"
+// @Success 200 {object} domain.Object
+// @Router /storage/multipart/:id/complete [post]
+func (h *StorageHandler) CompleteMultipartUpload(c *gin.Context) {
+	idStr := c.Param("id")
+	uploadID, err := uuid.Parse(idStr)
+	if err != nil {
+		httputil.Error(c, errors.New(errors.InvalidInput, errInvalidUploadID))
+		return
+	}
+
+	obj, err := h.svc.CompleteMultipartUpload(c.Request.Context(), uploadID)
+	if err != nil {
+		httputil.Error(c, err)
+		return
+	}
+
+	httputil.Success(c, http.StatusOK, obj)
+}
+
+// AbortMultipartUpload aborts a multipart upload
+// @Summary Abort multipart upload
+// @Description Cancels the upload and deletes all uploaded parts
+// @Tags storage
+// @Produce json
+// @Security APIKeyAuth
+// @Param id path string true "Upload ID"
+// @Success 204
+// @Router /storage/multipart/:id [delete]
+func (h *StorageHandler) AbortMultipartUpload(c *gin.Context) {
+	idStr := c.Param("id")
+	uploadID, err := uuid.Parse(idStr)
+	if err != nil {
+		httputil.Error(c, errors.New(errors.InvalidInput, errInvalidUploadID))
+		return
+	}
+
+	if err := h.svc.AbortMultipartUpload(c.Request.Context(), uploadID); err != nil {
+		httputil.Error(c, err)
+		return
+	}
+
+	httputil.Success(c, http.StatusNoContent, nil)
 }

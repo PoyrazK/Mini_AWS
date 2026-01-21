@@ -302,6 +302,12 @@ func registerDataRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 		storageGroup.GET("/:bucket", handlers.Storage.List)
 		storageGroup.DELETE(bucketKeyRoute, handlers.Storage.Delete)
 		storageGroup.GET("/cluster/status", handlers.Storage.GetClusterStatus)
+
+		// Multipart
+		storageGroup.POST(bucketKeyRoute+"/multipart", handlers.Storage.InitiateMultipartUpload)
+		storageGroup.PUT("/multipart/:id/parts", handlers.Storage.UploadPart)
+		storageGroup.POST("/multipart/:id/complete", handlers.Storage.CompleteMultipartUpload)
+		storageGroup.DELETE("/multipart/:id", handlers.Storage.AbortMultipartUpload)
 	}
 
 	volumeGroup := r.Group("/volumes")

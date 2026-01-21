@@ -11,7 +11,13 @@ import (
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
+	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/poyrazk/thecloud/internal/platform"
+)
+
+const (
+	errMultipartNotFound = "multipart upload not found"
+	partPathFormat       = ".uploads/%s/part-%d"
 )
 
 // StorageService manages object storage metadata and files.
@@ -152,18 +158,151 @@ func (s *StorageService) GetClusterStatus(ctx context.Context) (*domain.StorageC
 	return s.store.GetClusterStatus(ctx)
 }
 
+// CreateMultipartUpload initiates a new multipart upload session.
 func (s *StorageService) CreateMultipartUpload(ctx context.Context, bucket, key string) (*domain.MultipartUpload, error) {
-	return nil, fmt.Errorf("not implemented")
+	// 1. Verify bucket exists
+	if _, err := s.repo.GetBucket(ctx, bucket); err != nil {
+		return nil, err
+	}
+
+	// 2. Create upload metadata
+	upload := &domain.MultipartUpload{
+		ID:        uuid.New(),
+		UserID:    appcontext.UserIDFromContext(ctx),
+		Bucket:    bucket,
+		Key:       key,
+		CreatedAt: time.Now(),
+	}
+
+	// 3. Save to repo
+	if err := s.repo.SaveMultipartUpload(ctx, upload); err != nil {
+		return nil, errors.Wrap(errors.Internal, "failed to initiate multipart upload", err)
+	}
+
+	_ = s.auditSvc.Log(ctx, upload.UserID, "storage.multipart_init", "storage", upload.ID.String(), map[string]interface{}{
+		"bucket": bucket,
+		"key":    key,
+	})
+
+	return upload, nil
 }
 
+// UploadPart uploads a single part of a multipart upload.
 func (s *StorageService) UploadPart(ctx context.Context, uploadID uuid.UUID, partNumber int, r io.Reader) (*domain.Part, error) {
-	return nil, fmt.Errorf("not implemented")
+	// 1. Get upload metadata
+	upload, err := s.repo.GetMultipartUpload(ctx, uploadID)
+	if err != nil {
+		return nil, errors.Wrap(errors.NotFound, errMultipartNotFound, err)
+	}
+
+	// 2. Generate unique key for the part
+	partKey := fmt.Sprintf(partPathFormat, upload.ID.String(), partNumber)
+
+	// 3. Write data to store
+	size, err := s.store.Write(ctx, upload.Bucket, partKey, r)
+	if err != nil {
+		return nil, errors.Wrap(errors.Internal, "failed to write part data", err)
+	}
+
+	// 4. Create part metadata
+	part := &domain.Part{
+		UploadID:   uploadID,
+		PartNumber: partNumber,
+		SizeBytes:  size,
+		ETag:       uuid.New().String(), // In a real system we'd use MD5
+	}
+
+	// 5. Save part to repo
+	if err := s.repo.SavePart(ctx, part); err != nil {
+		return nil, errors.Wrap(errors.Internal, "failed to save part metadata", err)
+	}
+
+	return part, nil
 }
 
+// CompleteMultipartUpload assembles all parts and completes the upload.
 func (s *StorageService) CompleteMultipartUpload(ctx context.Context, uploadID uuid.UUID) (*domain.Object, error) {
-	return nil, fmt.Errorf("not implemented")
+	// 1. Get upload metadata
+	upload, err := s.repo.GetMultipartUpload(ctx, uploadID)
+	if err != nil {
+		return nil, errors.Wrap(errors.NotFound, errMultipartNotFound, err)
+	}
+
+	// 2. List all parts
+	parts, err := s.repo.ListParts(ctx, uploadID)
+	if err != nil {
+		return nil, errors.Wrap(errors.Internal, "failed to list parts", err)
+	}
+
+	if len(parts) == 0 {
+		return nil, errors.New(errors.InvalidInput, "no parts found for upload")
+	}
+
+	// 3. Prepare part keys for assembly
+	partKeys := make([]string, len(parts))
+	for i, p := range parts {
+		partKeys[i] = fmt.Sprintf(partPathFormat, upload.ID.String(), p.PartNumber)
+	}
+
+	// 4. Assemble in store
+	actualSize, err := s.store.Assemble(ctx, upload.Bucket, upload.Key, partKeys)
+	if err != nil {
+		return nil, errors.Wrap(errors.Internal, "failed to assemble object", err)
+	}
+
+	// 5. Create final object metadata
+	obj := &domain.Object{
+		ID:          uuid.New(),
+		UserID:      upload.UserID,
+		Bucket:      upload.Bucket,
+		Key:         upload.Key,
+		SizeBytes:   actualSize,
+		ContentType: "application/octet-stream",
+		CreatedAt:   time.Now(),
+		ARN:         fmt.Sprintf("arn:thecloud:storage:local:default:object/%s/%s", upload.Bucket, upload.Key),
+	}
+
+	// 6. Save metadata
+	if err := s.repo.SaveMeta(ctx, obj); err != nil {
+		return nil, errors.Wrap(errors.Internal, "failed to save object metadata", err)
+	}
+
+	// 7. Cleanup multipart records
+	_ = s.repo.DeleteMultipartUpload(ctx, uploadID)
+
+	_ = s.auditSvc.Log(ctx, obj.UserID, "storage.multipart_complete", "storage", obj.ID.String(), map[string]interface{}{
+		"bucket": obj.Bucket,
+		"key":    obj.Key,
+		"size":   obj.SizeBytes,
+	})
+
+	return obj, nil
 }
 
+// AbortMultipartUpload cancels a multipart upload and cleans up parts.
 func (s *StorageService) AbortMultipartUpload(ctx context.Context, uploadID uuid.UUID) error {
-	return fmt.Errorf("not implemented")
+	// 1. Get upload
+	upload, err := s.repo.GetMultipartUpload(ctx, uploadID)
+	if err != nil {
+		return errors.Wrap(errors.NotFound, errMultipartNotFound, err)
+	}
+
+	// 2. List parts
+	parts, err := s.repo.ListParts(ctx, uploadID)
+	if err == nil {
+		// 3. Delete each part from store
+		for _, p := range parts {
+			partKey := fmt.Sprintf(partPathFormat, upload.ID.String(), p.PartNumber)
+			_ = s.store.Delete(ctx, upload.Bucket, partKey)
+		}
+	}
+
+	// 4. Delete from repo
+	if err := s.repo.DeleteMultipartUpload(ctx, uploadID); err != nil {
+		return errors.Wrap(errors.Internal, "failed to delete multipart upload", err)
+	}
+
+	_ = s.auditSvc.Log(ctx, appcontext.UserIDFromContext(ctx), "storage.multipart_abort", "storage", uploadID.String(), nil)
+
+	return nil
 }
