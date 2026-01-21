@@ -58,3 +58,10 @@ type Part struct {
 	SizeBytes  int64     `json:"size_bytes"`
 	ETag       string    `json:"etag"`
 }
+
+// PresignedURL represents a generated signed URL for temporary access.
+type PresignedURL struct {
+	URL       string    `json:"url"`
+	Method    string    `json:"method"`     // GET or PUT
+	ExpiresAt time.Time `json:"expires_at"` // Timestamp when URL expires
+}

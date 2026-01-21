@@ -4,6 +4,7 @@ package ports
 import (
 	"context"
 	"io"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
@@ -72,4 +73,7 @@ type StorageService interface {
 	UploadPart(ctx context.Context, uploadID uuid.UUID, partNumber int, r io.Reader) (*domain.Part, error)
 	CompleteMultipartUpload(ctx context.Context, uploadID uuid.UUID) (*domain.Object, error)
 	AbortMultipartUpload(ctx context.Context, uploadID uuid.UUID) error
+
+	// Presigned URLs
+	GeneratePresignedURL(ctx context.Context, bucket, key, method string, expiry time.Duration) (*domain.PresignedURL, error)
 }

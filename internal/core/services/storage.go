@@ -13,6 +13,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/poyrazk/thecloud/internal/platform"
+	"github.com/poyrazk/thecloud/pkg/crypto"
 )
 
 const (
@@ -305,4 +306,35 @@ func (s *StorageService) AbortMultipartUpload(ctx context.Context, uploadID uuid
 	_ = s.auditSvc.Log(ctx, appcontext.UserIDFromContext(ctx), "storage.multipart_abort", "storage", uploadID.String(), nil)
 
 	return nil
+}
+
+// GeneratePresignedURL generates a temporary signed URL for an object.
+func (s *StorageService) GeneratePresignedURL(ctx context.Context, bucket, key, method string, expiry time.Duration) (*domain.PresignedURL, error) {
+	// 1. Verify bucket exists
+	if _, err := s.repo.GetBucket(ctx, bucket); err != nil {
+		return nil, errors.Wrap(errors.NotFound, "bucket not found", err)
+	}
+
+	if expiry == 0 {
+		expiry = 15 * time.Minute
+	}
+
+	expiresAt := time.Now().Add(expiry)
+
+	// Use dependency injected config secret if available, else a hardcoded one for now
+	secret := "storage-secret-key" // In real world use injected config
+
+	// Hardcoded base URL for now - in production this comes from config
+	baseURL := "http://localhost:8080"
+
+	urlStr, err := crypto.SignURL(secret, baseURL, method, bucket, key, expiresAt)
+	if err != nil {
+		return nil, errors.Wrap(errors.Internal, "failed to sign URL", err)
+	}
+
+	return &domain.PresignedURL{
+		URL:       urlStr,
+		Method:    method,
+		ExpiresAt: expiresAt,
+	}, nil
 }
