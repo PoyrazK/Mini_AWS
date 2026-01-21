@@ -71,3 +71,11 @@ func (s *RPCServer) GetClusterStatus(ctx context.Context, req *pb.Empty) (*pb.Cl
 
 	return &pb.ClusterStatusResponse{Members: members}, nil
 }
+
+func (s *RPCServer) Assemble(ctx context.Context, req *pb.AssembleRequest) (*pb.AssembleResponse, error) {
+	size, err := s.store.Assemble(req.Bucket, req.Key, req.Parts)
+	if err != nil {
+		return &pb.AssembleResponse{Error: err.Error()}, nil
+	}
+	return &pb.AssembleResponse{Size: size}, nil
+}

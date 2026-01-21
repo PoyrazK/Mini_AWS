@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 )
 
 // LocalStore manages file storage on the local disk.
@@ -77,6 +78,47 @@ func (s *LocalStore) Delete(bucket, key string) error {
 	path := s.getObjectPath(bucket, key)
 	_ = os.Remove(path + ".meta")
 	return os.Remove(path)
+}
+
+// Assemble combines multiple parts into a single object.
+func (s *LocalStore) Assemble(bucket, key string, parts []string) (int64, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	destPath := s.getObjectPath(bucket, key)
+	if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
+		return 0, err
+	}
+
+	f, err := os.Create(destPath)
+	if err != nil {
+		return 0, err
+	}
+	defer f.Close()
+
+	var totalSize int64
+	for _, partKey := range parts {
+		partPath := s.getObjectPath(bucket, partKey)
+		data, err := os.ReadFile(partPath)
+		if err != nil {
+			return 0, err
+		}
+		n, err := f.Write(data)
+		if err != nil {
+			return 0, err
+		}
+		totalSize += int64(n)
+		_ = os.Remove(partPath)
+		_ = os.Remove(partPath + ".meta")
+	}
+
+	// Write final meta with current timestamp
+	metaPath := destPath + ".meta"
+	buf := make([]byte, 8)
+	binary.LittleEndian.PutUint64(buf, uint64(time.Now().UnixNano()))
+	_ = os.WriteFile(metaPath, buf, 0644)
+
+	return totalSize, nil
 }
 
 func (s *LocalStore) getObjectPath(bucket, key string) string {
