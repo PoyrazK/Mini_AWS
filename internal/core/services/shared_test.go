@@ -1881,3 +1881,51 @@ func (m *MockLifecycleRepository) GetEnabledRules(ctx context.Context) ([]*domai
 	}
 	return args.Get(0).([]*domain.LifecycleRule), args.Error(1)
 }
+
+// MockEncryptionRepository
+type MockEncryptionRepository struct {
+	mock.Mock
+}
+
+func (m *MockEncryptionRepository) SaveKey(ctx context.Context, key ports.EncryptionKey) error {
+	return m.Called(ctx, key).Error(0)
+}
+
+func (m *MockEncryptionRepository) GetKey(ctx context.Context, bucketName string) (*ports.EncryptionKey, error) {
+	args := m.Called(ctx, bucketName)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*ports.EncryptionKey), args.Error(1)
+}
+
+// MockEncryptionService
+type MockEncryptionService struct {
+	mock.Mock
+}
+
+func (m *MockEncryptionService) Encrypt(ctx context.Context, bucket string, data []byte) ([]byte, error) {
+	args := m.Called(ctx, bucket, data)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]byte), args.Error(1)
+}
+
+func (m *MockEncryptionService) Decrypt(ctx context.Context, bucket string, encryptedData []byte) ([]byte, error) {
+	args := m.Called(ctx, bucket, encryptedData)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]byte), args.Error(1)
+}
+
+func (m *MockEncryptionService) CreateKey(ctx context.Context, bucket string) (string, error) {
+	args := m.Called(ctx, bucket)
+	return args.String(0), args.Error(1)
+}
+
+func (m *MockEncryptionService) RotateKey(ctx context.Context, bucket string) (string, error) {
+	args := m.Called(ctx, bucket)
+	return args.String(0), args.Error(1)
+}

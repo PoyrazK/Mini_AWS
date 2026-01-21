@@ -174,3 +174,61 @@ func TestCoordinatorReadRepair(t *testing.T) {
 	c2.AssertCalled(t, "Store", mock.Anything, mock.Anything)
 	c3.AssertCalled(t, "Store", mock.Anything, mock.Anything)
 }
+
+func TestCoordinatorDelete(t *testing.T) {
+	ring := NewConsistentHashRing(10)
+	ring.AddNode(node1)
+	ring.AddNode(node2)
+	ring.AddNode(node3)
+
+	c1 := new(MockStorageNodeClient)
+	c2 := new(MockStorageNodeClient)
+	c3 := new(MockStorageNodeClient)
+
+	clients := map[string]pb.StorageNodeClient{node1: c1, node2: c2, node3: c3}
+	coord := NewCoordinator(ring, clients, 3)
+	defer coord.Stop()
+
+	// All nodes success
+	c1.On("Delete", mock.Anything, mock.Anything).Return(&pb.DeleteResponse{Success: true}, nil)
+	c2.On("Delete", mock.Anything, mock.Anything).Return(&pb.DeleteResponse{Success: true}, nil)
+	c3.On("Delete", mock.Anything, mock.Anything).Return(&pb.DeleteResponse{Success: true}, nil)
+
+	err := coord.Delete(context.Background(), "b", "k")
+	assert.NoError(t, err)
+}
+
+func TestCoordinatorAssemble(t *testing.T) {
+	ring := NewConsistentHashRing(10)
+	ring.AddNode(node1)
+	ring.AddNode(node2)
+	ring.AddNode(node3)
+
+	c1 := new(MockStorageNodeClient)
+	c2 := new(MockStorageNodeClient)
+	c3 := new(MockStorageNodeClient)
+
+	clients := map[string]pb.StorageNodeClient{node1: c1, node2: c2, node3: c3}
+	coord := NewCoordinator(ring, clients, 3)
+	defer coord.Stop()
+
+	// Mock assembly on nodes
+	c1.On("Assemble", mock.Anything, mock.Anything).Return(&pb.AssembleResponse{Size: 100}, nil)
+	c2.On("Assemble", mock.Anything, mock.Anything).Return(&pb.AssembleResponse{Size: 100}, nil)
+	c3.On("Assemble", mock.Anything, mock.Anything).Return(&pb.AssembleResponse{Size: 100}, nil)
+
+	size, err := coord.Assemble(context.Background(), "b", "k", []string{"p1", "p2"})
+	assert.NoError(t, err)
+	assert.Equal(t, int64(100), size)
+}
+
+func TestCoordinatorGetClusterStatus(t *testing.T) {
+	ring := NewConsistentHashRing(10)
+	clients := make(map[string]pb.StorageNodeClient)
+	coord := NewCoordinator(ring, clients, 3)
+	defer coord.Stop()
+
+	status, err := coord.GetClusterStatus(context.Background())
+	assert.NoError(t, err)
+	assert.NotNil(t, status)
+}

@@ -9,17 +9,17 @@ import (
 	"io"
 
 	"github.com/google/uuid"
+	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/errors"
-	"github.com/poyrazk/thecloud/internal/repositories/postgres" // for model, ideally move to domain
 )
 
 // EncryptionService implements ports.EncryptionService
 type EncryptionService struct {
-	repo      *postgres.EncryptionRepository // Should rely on interface in real injection but for now struct
-	masterKey []byte                         // 32-bytes
+	repo      ports.EncryptionRepository
+	masterKey []byte // 32-bytes
 }
 
-func NewEncryptionService(repo *postgres.EncryptionRepository, masterKeyHex string) (*EncryptionService, error) {
+func NewEncryptionService(repo ports.EncryptionRepository, masterKeyHex string) (*EncryptionService, error) {
 	key, err := hex.DecodeString(masterKeyHex)
 	if err != nil {
 		return nil, errors.New(errors.Internal, "invalid master key hex")
@@ -48,7 +48,7 @@ func (s *EncryptionService) CreateKey(ctx context.Context, bucket string) (strin
 	}
 
 	keyID := uuid.New().String()
-	err = s.repo.SaveKey(ctx, postgres.EncryptionKey{
+	err = s.repo.SaveKey(ctx, ports.EncryptionKey{
 		ID:           keyID,
 		BucketName:   bucket,
 		EncryptedKey: encryptedDEK,

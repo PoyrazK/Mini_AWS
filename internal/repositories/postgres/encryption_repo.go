@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/poyrazk/thecloud/internal/core/ports"
 	cerr "github.com/poyrazk/thecloud/internal/errors"
 )
 
@@ -16,14 +17,7 @@ func NewEncryptionRepository(db DB) *EncryptionRepository {
 	return &EncryptionRepository{db: db}
 }
 
-type EncryptionKey struct {
-	ID           string
-	BucketName   string
-	EncryptedKey []byte
-	Algorithm    string
-}
-
-func (r *EncryptionRepository) SaveKey(ctx context.Context, key EncryptionKey) error {
+func (r *EncryptionRepository) SaveKey(ctx context.Context, key ports.EncryptionKey) error {
 	query := `
 		INSERT INTO encryption_keys (id, bucket_name, encrypted_key, algorithm)
 		VALUES ($1, $2, $3, $4)
@@ -38,9 +32,9 @@ func (r *EncryptionRepository) SaveKey(ctx context.Context, key EncryptionKey) e
 	return nil
 }
 
-func (r *EncryptionRepository) GetKey(ctx context.Context, bucketName string) (*EncryptionKey, error) {
+func (r *EncryptionRepository) GetKey(ctx context.Context, bucketName string) (*ports.EncryptionKey, error) {
 	query := `SELECT id, bucket_name, encrypted_key, algorithm FROM encryption_keys WHERE bucket_name = $1`
-	var k EncryptionKey
+	var k ports.EncryptionKey
 	err := r.db.QueryRow(ctx, query, bucketName).Scan(&k.ID, &k.BucketName, &k.EncryptedKey, &k.Algorithm)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

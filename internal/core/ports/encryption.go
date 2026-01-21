@@ -16,3 +16,15 @@ type EncryptionService interface {
 	// RotateKey rotates the key for a bucket (re-encryption is separate process)
 	RotateKey(ctx context.Context, bucket string) (string, error)
 }
+
+type EncryptionKey struct {
+	ID           string
+	BucketName   string
+	EncryptedKey []byte
+	Algorithm    string
+}
+
+type EncryptionRepository interface {
+	SaveKey(ctx context.Context, key EncryptionKey) error
+	GetKey(ctx context.Context, bucketName string) (*EncryptionKey, error)
+}
