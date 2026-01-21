@@ -15,6 +15,8 @@ type Object struct {
 	ARN         string     `json:"arn"`
 	Bucket      string     `json:"bucket"`
 	Key         string     `json:"key"`
+	VersionID   string     `json:"version_id"`
+	IsLatest    bool       `json:"is_latest"`
 	SizeBytes   int64      `json:"size_bytes"`
 	ContentType string     `json:"content_type"`
 	CreatedAt   time.Time  `json:"created_at"`
@@ -23,11 +25,12 @@ type Object struct {
 }
 
 type Bucket struct {
-	ID        uuid.UUID `json:"id"`
-	Name      string    `json:"name"`
-	UserID    uuid.UUID `json:"user_id"`
-	IsPublic  bool      `json:"is_public"`
-	CreatedAt time.Time `json:"created_at"`
+	ID                uuid.UUID `json:"id"`
+	Name              string    `json:"name"`
+	UserID            uuid.UUID `json:"user_id"`
+	IsPublic          bool      `json:"is_public"`
+	VersioningEnabled bool      `json:"versioning_enabled"`
+	CreatedAt         time.Time `json:"created_at"`
 }
 
 type StorageNode struct {

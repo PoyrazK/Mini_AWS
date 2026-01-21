@@ -384,6 +384,24 @@ func (m *MockStorageRepo) SoftDelete(ctx context.Context, bucket, key string) er
 	args := m.Called(ctx, bucket, key)
 	return args.Error(0)
 }
+func (m *MockStorageRepo) DeleteVersion(ctx context.Context, bucket, key, versionID string) error {
+	args := m.Called(ctx, bucket, key, versionID)
+	return args.Error(0)
+}
+func (m *MockStorageRepo) GetMetaByVersion(ctx context.Context, bucket, key, versionID string) (*domain.Object, error) {
+	args := m.Called(ctx, bucket, key, versionID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Object), args.Error(1)
+}
+func (m *MockStorageRepo) ListVersions(ctx context.Context, bucket, key string) ([]*domain.Object, error) {
+	args := m.Called(ctx, bucket, key)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Object), args.Error(1)
+}
 
 func (m *MockStorageRepo) CreateBucket(ctx context.Context, bucket *domain.Bucket) error {
 	return m.Called(ctx, bucket).Error(0)
@@ -404,6 +422,9 @@ func (m *MockStorageRepo) ListBuckets(ctx context.Context, userID string) ([]*do
 		return nil, args.Error(1)
 	}
 	return args.Get(0).([]*domain.Bucket), args.Error(1)
+}
+func (m *MockStorageRepo) SetBucketVersioning(ctx context.Context, name string, enabled bool) error {
+	return m.Called(ctx, name, enabled).Error(0)
 }
 
 func (m *MockStorageRepo) SaveMultipartUpload(ctx context.Context, upload *domain.MultipartUpload) error {

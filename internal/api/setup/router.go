@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	bucketKeyRoute = "/:bucket/:key"
+	bucketKeyRoute = "/:bucket/*key"
 	roleIDRoute    = "/roles/:id"
 )
 
@@ -299,23 +299,32 @@ func registerDataRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 	{
 		storageGroup.PUT(bucketKeyRoute, handlers.Storage.Upload)
 		storageGroup.GET(bucketKeyRoute, handlers.Storage.Download)
-		storageGroup.GET("/:bucket", handlers.Storage.List)
 		storageGroup.DELETE(bucketKeyRoute, handlers.Storage.Delete)
+		storageGroup.GET("/:bucket", handlers.Storage.List)
 		storageGroup.GET("/cluster/status", handlers.Storage.GetClusterStatus)
 
+		// Bucket Management
+		storageGroup.POST("/buckets", handlers.Storage.CreateBucket)
+		storageGroup.GET("/buckets", handlers.Storage.ListBuckets)
+		storageGroup.DELETE("/buckets/:bucket", handlers.Storage.DeleteBucket)
+		storageGroup.PATCH("/buckets/:bucket/versioning", handlers.Storage.SetBucketVersioning)
+
+		// Versioning
+		storageGroup.GET("/versions/:bucket/*key", handlers.Storage.ListVersions)
+
 		// Multipart
-		storageGroup.POST(bucketKeyRoute+"/multipart", handlers.Storage.InitiateMultipartUpload)
+		storageGroup.POST("/multipart/:bucket/*key", handlers.Storage.InitiateMultipartUpload)
 		storageGroup.PUT("/multipart/:id/parts", handlers.Storage.UploadPart)
 		storageGroup.POST("/multipart/:id/complete", handlers.Storage.CompleteMultipartUpload)
 		storageGroup.DELETE("/multipart/:id", handlers.Storage.AbortMultipartUpload)
 
 		// Presigned Generation (Auth Required)
-		storageGroup.POST("/presign/:bucket/*key", handlers.Storage.GeneratePresignedURL)
+		storageGroup.POST("/presign"+bucketKeyRoute, handlers.Storage.GeneratePresignedURL)
 	}
 
 	// Public Routes for Presigned Access (No Auth Middleware)
-	r.GET("/storage/presigned/:bucket/*key", handlers.Storage.ServePresignedDownload)
-	r.PUT("/storage/presigned/:bucket/*key", handlers.Storage.ServePresignedUpload)
+	r.GET("/storage/presigned"+bucketKeyRoute, handlers.Storage.ServePresignedDownload)
+	r.PUT("/storage/presigned"+bucketKeyRoute, handlers.Storage.ServePresignedUpload)
 
 	volumeGroup := r.Group("/volumes")
 	volumeGroup.Use(httputil.Auth(svcs.Identity))

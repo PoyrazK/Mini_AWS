@@ -101,12 +101,13 @@ var storageUploadCmd = &cobra.Command{
 		defer func() { _ = f.Close() }()
 
 		client := getClient()
-		if err := client.UploadObject(bucket, key, f); err != nil {
+		obj, err := client.UploadObject(bucket, key, f)
+		if err != nil {
 			fmt.Printf(errFmt, err)
 			return
 		}
 
-		fmt.Printf("[SUCCESS] Uploaded %s to bucket %s\n", key, bucket)
+		fmt.Printf("[SUCCESS] Uploaded %s to bucket %s (VersionID: %s)\n", key, bucket, obj.VersionID)
 	},
 }
 
@@ -119,8 +120,16 @@ var storageDownloadCmd = &cobra.Command{
 		key := args[1]
 		dest := args[2]
 
+		versionID, _ := cmd.Flags().GetString("version")
+
 		client := getClient()
-		body, err := client.DownloadObject(bucket, key)
+		var body io.ReadCloser
+		var err error
+		if versionID != "" {
+			body, err = client.DownloadObject(bucket, key, versionID)
+		} else {
+			body, err = client.DownloadObject(bucket, key)
+		}
 		if err != nil {
 			fmt.Printf(errFmt, err)
 			return
@@ -152,13 +161,26 @@ var storageDeleteCmd = &cobra.Command{
 		bucket := args[0]
 		key := args[1]
 
+		versionID, _ := cmd.Flags().GetString("version")
+
 		client := getClient()
-		if err := client.DeleteObject(bucket, key); err != nil {
+		var err error
+		if versionID != "" {
+			err = client.DeleteObject(bucket, key, versionID)
+		} else {
+			err = client.DeleteObject(bucket, key)
+		}
+
+		if err != nil {
 			fmt.Printf(errFmt, err)
 			return
 		}
 
-		fmt.Printf("[SUCCESS] Deleted %s from bucket %s\n", key, bucket)
+		msg := fmt.Sprintf("Deleted %s from bucket %s", key, bucket)
+		if versionID != "" {
+			msg += fmt.Sprintf(" (Version: %s)", versionID)
+		}
+		fmt.Printf("[SUCCESS] %s\n", msg)
 	},
 }
 
@@ -241,6 +263,8 @@ func init() {
 	storageCmd.AddCommand(storageUploadCmd)
 	storageCmd.AddCommand(storageDownloadCmd)
 	storageCmd.AddCommand(storageDeleteCmd)
+	storageCmd.AddCommand(storageVersionsCmd)
+	storageCmd.AddCommand(storageVersioningCmd)
 	storageCmd.AddCommand(createBucketCmd)
 	storageCmd.AddCommand(deleteBucketCmd)
 	storageCmd.AddCommand(storageClusterStatusCmd)
@@ -249,8 +273,75 @@ func init() {
 	createBucketCmd.Flags().Bool("public", false, "Make bucket public")
 
 	storageUploadCmd.Flags().String("key", "", "Custom key for the object")
+	storageDownloadCmd.Flags().String("version", "", "Specific version to download")
+	storageDeleteCmd.Flags().String("version", "", "Specific version to delete")
 	storagePresignCmd.Flags().String("method", "GET", "HTTP method (GET or PUT)")
 	storagePresignCmd.Flags().Int("expires", 900, "Expiration in seconds (default 15 mins)")
+}
+
+var storageVersionsCmd = &cobra.Command{
+	Use:   "versions [bucket] [key]",
+	Short: "List all versions of an object",
+	Args:  cobra.ExactArgs(2),
+	Run: func(cmd *cobra.Command, args []string) {
+		bucket := args[0]
+		key := args[1]
+
+		client := getClient()
+		versions, err := client.ListVersions(bucket, key)
+		if err != nil {
+			fmt.Printf(errFmt, err)
+			return
+		}
+
+		if outputJSON {
+			data, _ := json.MarshalIndent(versions, "", "  ")
+			fmt.Println(string(data))
+			return
+		}
+
+		table := tablewriter.NewWriter(os.Stdout)
+		table.Header([]string{"VERSION ID", "LATEST", "SIZE", "CREATED AT"})
+
+		for _, v := range versions {
+			table.Append([]string{
+				v.VersionID,
+				fmt.Sprintf("%v", v.IsLatest),
+				fmt.Sprintf("%d", v.SizeBytes),
+				v.CreatedAt.Format(time.RFC3339),
+			})
+		}
+		table.Render()
+	},
+}
+
+var storageVersioningCmd = &cobra.Command{
+	Use:   "versioning [bucket] [status]",
+	Short: "Enable or disable versioning for a bucket",
+	Long:  "status can be 'on' or 'off'",
+	Args:  cobra.ExactArgs(2),
+	Run: func(cmd *cobra.Command, args []string) {
+		bucket := args[0]
+		status := args[1]
+
+		enabled := false
+		if status == "on" || status == "enabled" || status == "true" {
+			enabled = true
+		} else if status == "off" || status == "disabled" || status == "false" {
+			enabled = false
+		} else {
+			fmt.Printf("Invalid status: %s. Use 'on' or 'off'.\n", status)
+			return
+		}
+
+		client := getClient()
+		if err := client.SetBucketVersioning(bucket, enabled); err != nil {
+			fmt.Printf(errFmt, err)
+			return
+		}
+
+		fmt.Printf("[SUCCESS] Versioning for bucket %s is now %s\n", bucket, status)
+	},
 }
 
 var storagePresignCmd = &cobra.Command{

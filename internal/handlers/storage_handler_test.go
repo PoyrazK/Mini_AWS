@@ -87,6 +87,27 @@ func (m *mockStorageService) DeleteObject(ctx context.Context, bucket, key strin
 	return args.Error(0)
 }
 
+func (m *mockStorageService) DownloadVersion(ctx context.Context, bucket, key, versionID string) (io.ReadCloser, *domain.Object, error) {
+	args := m.Called(ctx, bucket, key, versionID)
+	if args.Get(0) == nil {
+		return nil, nil, args.Error(2)
+	}
+	return args.Get(0).(io.ReadCloser), args.Get(1).(*domain.Object), args.Error(2)
+}
+
+func (m *mockStorageService) ListVersions(ctx context.Context, bucket, key string) ([]*domain.Object, error) {
+	args := m.Called(ctx, bucket, key)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Object), args.Error(1)
+}
+
+func (m *mockStorageService) DeleteVersion(ctx context.Context, bucket, key, versionID string) error {
+	args := m.Called(ctx, bucket, key, versionID)
+	return args.Error(0)
+}
+
 func (m *mockStorageService) GetObject(ctx context.Context, bucket, key string) (*domain.Object, error) {
 	args := m.Called(ctx, bucket, key)
 	if args.Get(0) == nil {
@@ -101,6 +122,11 @@ func (m *mockStorageService) GetClusterStatus(ctx context.Context) (*domain.Stor
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*domain.StorageCluster), args.Error(1)
+}
+
+func (m *mockStorageService) SetBucketVersioning(ctx context.Context, name string, enabled bool) error {
+	args := m.Called(ctx, name, enabled)
+	return args.Error(0)
 }
 
 func (m *mockStorageService) CreateMultipartUpload(ctx context.Context, bucket, key string) (*domain.MultipartUpload, error) {

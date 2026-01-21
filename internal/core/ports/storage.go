@@ -20,12 +20,20 @@ type StorageRepository interface {
 	List(ctx context.Context, bucket string) ([]*domain.Object, error)
 	// SoftDelete marks an object as deleted without immediately removing its underlying binary data.
 	SoftDelete(ctx context.Context, bucket, key string) error
+	// DeleteVersion permanently deletes a specific version's metadata.
+	DeleteVersion(ctx context.Context, bucket, key, versionID string) error
+	// GetMetaByVersion retrieves metadata for a specific version of an object.
+	GetMetaByVersion(ctx context.Context, bucket, key, versionID string) (*domain.Object, error)
+	// ListVersions returns all versions of a specific object.
+	ListVersions(ctx context.Context, bucket, key string) ([]*domain.Object, error)
 
 	// Bucket operations
 	CreateBucket(ctx context.Context, bucket *domain.Bucket) error
 	GetBucket(ctx context.Context, name string) (*domain.Bucket, error)
 	DeleteBucket(ctx context.Context, name string) error
 	ListBuckets(ctx context.Context, userID string) ([]*domain.Bucket, error)
+	// SetBucketVersioning enables or disables versioning for a bucket.
+	SetBucketVersioning(ctx context.Context, name string, enabled bool) error
 
 	// Multipart operations
 	SaveMultipartUpload(ctx context.Context, upload *domain.MultipartUpload) error
@@ -59,12 +67,20 @@ type StorageService interface {
 	ListObjects(ctx context.Context, bucket string) ([]*domain.Object, error)
 	// DeleteObject manages the coordinated removal of an object's metadata and its binary data.
 	DeleteObject(ctx context.Context, bucket, key string) error
+	// DownloadVersion retrieves both the binary content and metadata for a specific version of an object.
+	DownloadVersion(ctx context.Context, bucket, key, versionID string) (io.ReadCloser, *domain.Object, error)
+	// ListVersions returns all versions for a specific object.
+	ListVersions(ctx context.Context, bucket, key string) ([]*domain.Object, error)
+	// DeleteVersion removes a specific version of an object.
+	DeleteVersion(ctx context.Context, bucket, key, versionID string) error
 
 	// Bucket operations
 	CreateBucket(ctx context.Context, name string, isPublic bool) (*domain.Bucket, error)
 	GetBucket(ctx context.Context, name string) (*domain.Bucket, error)
 	DeleteBucket(ctx context.Context, name string) error
 	ListBuckets(ctx context.Context) ([]*domain.Bucket, error)
+	// SetBucketVersioning enables or disables versioning for a bucket.
+	SetBucketVersioning(ctx context.Context, name string, enabled bool) error
 	// GetClusterStatus returns the current state of the storage cluster.
 	GetClusterStatus(ctx context.Context) (*domain.StorageCluster, error)
 

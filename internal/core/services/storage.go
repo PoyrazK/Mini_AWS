@@ -19,6 +19,7 @@ import (
 const (
 	errMultipartNotFound = "multipart upload not found"
 	partPathFormat       = ".uploads/%s/part-%d"
+	versionQueryFormat   = "%s?versionId=%s"
 )
 
 // StorageService manages object storage metadata and files.
@@ -39,39 +40,63 @@ func NewStorageService(repo ports.StorageRepository, store ports.FileStore, audi
 	}
 }
 
-func (s *StorageService) Upload(ctx context.Context, bucket, key string, r io.Reader) (*domain.Object, error) {
-	// 1. Write file to store
-	size, err := s.store.Write(ctx, bucket, key, r)
+func (s *StorageService) Upload(ctx context.Context, bucketName, key string, r io.Reader) (*domain.Object, error) {
+	// 1. Check bucket versioning status
+	bucket, err := s.repo.GetBucket(ctx, bucketName)
 	if err != nil {
 		return nil, err
 	}
 
-	// 2. Prepare metadata
+	versionID := "null" // Default version ID when versioning is disabled
+	if bucket.VersioningEnabled {
+		// Generate a timestamp-based version ID (reverse chronological)
+		// 1<<62 is large enough to keep the result positive for a long time
+		versionID = fmt.Sprintf("%d", (1<<62)-time.Now().UnixNano())
+	}
+
+	// 2. Write file to store
+	// In the store, we'll prefix versions with versionID to avoid overwrites
+	storeKey := key
+	if bucket.VersioningEnabled {
+		storeKey = fmt.Sprintf(versionQueryFormat, key, versionID)
+	}
+
+	size, err := s.store.Write(ctx, bucketName, storeKey, r)
+	if err != nil {
+		return nil, err
+	}
+
+	// 3. Prepare metadata
 	obj := &domain.Object{
-		ID:        uuid.New(),
-		UserID:    appcontext.UserIDFromContext(ctx),
-		Bucket:    bucket,
-		Key:       key,
-		SizeBytes: size,
-		// In a real system we'd detect Content-Type
-		ContentType: "application/octet-stream",
+		ID:          uuid.New(),
+		UserID:      appcontext.UserIDFromContext(ctx),
+		Bucket:      bucketName,
+		Key:         key,
+		VersionID:   versionID,
+		IsLatest:    true,
+		SizeBytes:   size,
+		ContentType: "application/octet-stream", // In a real system we'd detect Content-Type
 		CreatedAt:   time.Now(),
 	}
 
 	// Generate ARN
-	// arn:thecloud:storage:local:default:object/<bucket>/<key>
-	obj.ARN = fmt.Sprintf("arn:thecloud:storage:local:default:object/%s/%s", bucket, key)
+	// arn:thecloud:storage:local:default:object/<bucket>/<key>?versionId=<versionID>
+	obj.ARN = fmt.Sprintf("arn:thecloud:storage:local:default:object/%s/%s", bucketName, key)
+	if bucket.VersioningEnabled {
+		obj.ARN += fmt.Sprintf("?versionId=%s", versionID)
+	}
 
-	// 3. Save metadata
+	// 4. Save metadata
 	if err := s.repo.SaveMeta(ctx, obj); err != nil {
 		// Cleanup file if DB save fails
-		_ = s.store.Delete(ctx, bucket, key)
+		_ = s.store.Delete(ctx, bucketName, storeKey)
 		return nil, err
 	}
 
 	_ = s.auditSvc.Log(ctx, obj.UserID, "storage.object_upload", "storage", obj.ID.String(), map[string]interface{}{
-		"bucket": obj.Bucket,
-		"key":    obj.Key,
+		"bucket":     obj.Bucket,
+		"key":        obj.Key,
+		"version_id": obj.VersionID,
 	})
 
 	platform.StorageOperationsTotal.WithLabelValues("object_upload").Inc()
@@ -97,6 +122,51 @@ func (s *StorageService) Download(ctx context.Context, bucket, key string) (io.R
 
 func (s *StorageService) ListObjects(ctx context.Context, bucket string) ([]*domain.Object, error) {
 	return s.repo.List(ctx, bucket)
+}
+
+func (s *StorageService) DownloadVersion(ctx context.Context, bucket, key, versionID string) (io.ReadCloser, *domain.Object, error) {
+	// 1. Get metadata
+	obj, err := s.repo.GetMetaByVersion(ctx, bucket, key, versionID)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// 2. Open file
+	storeKey := key
+	if obj.VersionID != "null" {
+		storeKey = fmt.Sprintf(versionQueryFormat, key, obj.VersionID)
+	}
+
+	reader, err := s.store.Read(ctx, bucket, storeKey)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return reader, obj, nil
+}
+
+func (s *StorageService) ListVersions(ctx context.Context, bucket, key string) ([]*domain.Object, error) {
+	return s.repo.ListVersions(ctx, bucket, key)
+}
+
+func (s *StorageService) DeleteVersion(ctx context.Context, bucket, key, versionID string) error {
+	// 1. Get meta to verify ownership/existence
+	if _, err := s.repo.GetMetaByVersion(ctx, bucket, key, versionID); err != nil {
+		return err
+	}
+
+	// 2. Delete from store
+	storeKey := key
+	if versionID != "null" {
+		storeKey = fmt.Sprintf(versionQueryFormat, key, versionID)
+	}
+
+	if err := s.store.Delete(ctx, bucket, storeKey); err != nil {
+		return err
+	}
+
+	// 3. Delete meta (hard delete for specific version)
+	return s.repo.DeleteVersion(ctx, bucket, key, versionID)
 }
 
 func (s *StorageService) DeleteObject(ctx context.Context, bucket, key string) error {
@@ -151,6 +221,10 @@ func (s *StorageService) DeleteBucket(ctx context.Context, name string) error {
 }
 
 // ListBuckets list buckets for the current user.
+func (s *StorageService) SetBucketVersioning(ctx context.Context, name string, enabled bool) error {
+	return s.repo.SetBucketVersioning(ctx, name, enabled)
+}
+
 func (s *StorageService) ListBuckets(ctx context.Context) ([]*domain.Bucket, error) {
 	userID := appcontext.UserIDFromContext(ctx)
 	return s.repo.ListBuckets(ctx, userID.String())

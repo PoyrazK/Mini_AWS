@@ -23,18 +23,28 @@ func NewStorageRepository(db DB) *StorageRepository {
 }
 
 func (r *StorageRepository) SaveMeta(ctx context.Context, obj *domain.Object) error {
+	// If this is the new latest version, mark previous one as not latest
+	if obj.IsLatest {
+		updateQuery := `UPDATE objects SET is_latest = FALSE WHERE bucket = $1 AND key = $2 AND is_latest = TRUE`
+		_, err := r.db.Exec(ctx, updateQuery, obj.Bucket, obj.Key)
+		if err != nil {
+			return errors.Wrap(errors.Internal, "failed to update previous latest", err)
+		}
+	}
+
 	query := `
-		INSERT INTO objects (id, user_id, arn, bucket, key, size_bytes, content_type, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-		ON CONFLICT (bucket, key) DO UPDATE SET
+		INSERT INTO objects (id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		ON CONFLICT (bucket, key, version_id) DO UPDATE SET
 			size_bytes = EXCLUDED.size_bytes,
 			content_type = EXCLUDED.content_type,
 			created_at = EXCLUDED.created_at,
 			deleted_at = NULL,
+			is_latest = EXCLUDED.is_latest,
 			user_id = EXCLUDED.user_id
 	`
 	_, err := r.db.Exec(ctx, query,
-		obj.ID, obj.UserID, obj.ARN, obj.Bucket, obj.Key, obj.SizeBytes, obj.ContentType, obj.CreatedAt,
+		obj.ID, obj.UserID, obj.ARN, obj.Bucket, obj.Key, obj.VersionID, obj.IsLatest, obj.SizeBytes, obj.ContentType, obj.CreatedAt,
 	)
 	if err != nil {
 		return errors.Wrap(errors.Internal, "failed to save object metadata", err)
@@ -45,19 +55,42 @@ func (r *StorageRepository) SaveMeta(ctx context.Context, obj *domain.Object) er
 func (r *StorageRepository) GetMeta(ctx context.Context, bucket, key string) (*domain.Object, error) {
 	userID := appcontext.UserIDFromContext(ctx)
 	query := `
-		SELECT id, user_id, arn, bucket, key, size_bytes, content_type, created_at
+		SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, created_at
 		FROM objects
-		WHERE bucket = $1 AND key = $2 AND deleted_at IS NULL AND user_id = $3
+		WHERE bucket = $1 AND key = $2 AND deleted_at IS NULL AND user_id = $3 AND is_latest = TRUE
 	`
 	return r.scanObject(r.db.QueryRow(ctx, query, bucket, key, userID))
+}
+
+func (r *StorageRepository) DeleteVersion(ctx context.Context, bucket, key, versionID string) error {
+	userID := appcontext.UserIDFromContext(ctx)
+	query := `DELETE FROM objects WHERE bucket = $1 AND key = $2 AND version_id = $3 AND user_id = $4`
+	cmd, err := r.db.Exec(ctx, query, bucket, key, versionID, userID)
+	if err != nil {
+		return errors.Wrap(errors.Internal, "failed to delete object version", err)
+	}
+	if cmd.RowsAffected() == 0 {
+		return errors.New(errors.ObjectNotFound, "object version not found")
+	}
+	return nil
+}
+
+func (r *StorageRepository) GetMetaByVersion(ctx context.Context, bucket, key, versionID string) (*domain.Object, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	query := `
+		SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, created_at
+		FROM objects
+		WHERE bucket = $1 AND key = $2 AND version_id = $3 AND deleted_at IS NULL AND user_id = $4
+	`
+	return r.scanObject(r.db.QueryRow(ctx, query, bucket, key, versionID, userID))
 }
 
 func (r *StorageRepository) List(ctx context.Context, bucket string) ([]*domain.Object, error) {
 	userID := appcontext.UserIDFromContext(ctx)
 	query := `
-		SELECT id, user_id, arn, bucket, key, size_bytes, content_type, created_at
+		SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, created_at
 		FROM objects
-		WHERE bucket = $1 AND deleted_at IS NULL AND user_id = $2
+		WHERE bucket = $1 AND deleted_at IS NULL AND user_id = $2 AND is_latest = TRUE
 		ORDER BY created_at DESC
 	`
 	rows, err := r.db.Query(ctx, query, bucket, userID)
@@ -67,10 +100,25 @@ func (r *StorageRepository) List(ctx context.Context, bucket string) ([]*domain.
 	return r.scanObjects(rows)
 }
 
+func (r *StorageRepository) ListVersions(ctx context.Context, bucket, key string) ([]*domain.Object, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	query := `
+		SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, created_at
+		FROM objects
+		WHERE bucket = $1 AND key = $2 AND deleted_at IS NULL AND user_id = $3
+		ORDER BY created_at DESC
+	`
+	rows, err := r.db.Query(ctx, query, bucket, key, userID)
+	if err != nil {
+		return nil, errors.Wrap(errors.Internal, "failed to list versions", err)
+	}
+	return r.scanObjects(rows)
+}
+
 func (r *StorageRepository) scanObject(row pgx.Row) (*domain.Object, error) {
 	var obj domain.Object
 	err := row.Scan(
-		&obj.ID, &obj.UserID, &obj.ARN, &obj.Bucket, &obj.Key, &obj.SizeBytes, &obj.ContentType, &obj.CreatedAt,
+		&obj.ID, &obj.UserID, &obj.ARN, &obj.Bucket, &obj.Key, &obj.VersionID, &obj.IsLatest, &obj.SizeBytes, &obj.ContentType, &obj.CreatedAt,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -132,7 +180,7 @@ func (r *StorageRepository) GetBucket(ctx context.Context, name string) (*domain
 		WHERE name = $1
 	`
 	var bucket domain.Bucket
-	err := r.db.QueryRow(ctx, query, name).Scan(&bucket.ID, &bucket.Name, &bucket.UserID, &bucket.IsPublic, &bucket.CreatedAt)
+	err := r.db.QueryRow(ctx, query, name).Scan(&bucket.ID, &bucket.Name, &bucket.UserID, &bucket.IsPublic, &bucket.VersioningEnabled, &bucket.CreatedAt)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, errors.New(errors.ObjectNotFound, "bucket not found")
@@ -140,6 +188,15 @@ func (r *StorageRepository) GetBucket(ctx context.Context, name string) (*domain
 		return nil, errors.Wrap(errors.Internal, "failed to get bucket", err)
 	}
 	return &bucket, nil
+}
+
+func (r *StorageRepository) SetBucketVersioning(ctx context.Context, name string, enabled bool) error {
+	query := `UPDATE buckets SET versioning_enabled = $1 WHERE name = $2`
+	_, err := r.db.Exec(ctx, query, enabled, name)
+	if err != nil {
+		return errors.Wrap(errors.Internal, "failed to set bucket versioning", err)
+	}
+	return nil
 }
 
 // DeleteBucket deletes a bucket by name.
@@ -158,7 +215,7 @@ func (r *StorageRepository) DeleteBucket(ctx context.Context, name string) error
 // ListBuckets list buckets for a user.
 func (r *StorageRepository) ListBuckets(ctx context.Context, userID string) ([]*domain.Bucket, error) {
 	query := `
-		SELECT id, name, user_id, is_public, created_at
+		SELECT id, name, user_id, is_public, versioning_enabled, created_at
 		FROM buckets
 		WHERE user_id = $1
 		ORDER BY created_at DESC
@@ -172,7 +229,7 @@ func (r *StorageRepository) ListBuckets(ctx context.Context, userID string) ([]*
 	var buckets []*domain.Bucket
 	for rows.Next() {
 		var b domain.Bucket
-		if err := rows.Scan(&b.ID, &b.Name, &b.UserID, &b.IsPublic, &b.CreatedAt); err != nil {
+		if err := rows.Scan(&b.ID, &b.Name, &b.UserID, &b.IsPublic, &b.VersioningEnabled, &b.CreatedAt); err != nil {
 			return nil, err
 		}
 		buckets = append(buckets, &b)

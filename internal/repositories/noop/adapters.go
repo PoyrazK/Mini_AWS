@@ -207,6 +207,15 @@ func (r *NoopStorageRepository) List(ctx context.Context, bucket string) ([]*dom
 	return []*domain.Object{}, nil
 }
 func (r *NoopStorageRepository) SoftDelete(ctx context.Context, bucket, key string) error { return nil }
+func (r *NoopStorageRepository) DeleteVersion(ctx context.Context, bucket, key, versionID string) error {
+	return nil
+}
+func (r *NoopStorageRepository) GetMetaByVersion(ctx context.Context, bucket, key, versionID string) (*domain.Object, error) {
+	return &domain.Object{Bucket: bucket, Key: key, VersionID: versionID}, nil
+}
+func (r *NoopStorageRepository) ListVersions(ctx context.Context, bucket, key string) ([]*domain.Object, error) {
+	return []*domain.Object{}, nil
+}
 
 // Bucket operations
 func (r *NoopStorageRepository) CreateBucket(ctx context.Context, bucket *domain.Bucket) error {
@@ -220,6 +229,9 @@ func (r *NoopStorageRepository) DeleteBucket(ctx context.Context, name string) e
 }
 func (r *NoopStorageRepository) ListBuckets(ctx context.Context, userID string) ([]*domain.Bucket, error) {
 	return []*domain.Bucket{}, nil
+}
+func (r *NoopStorageRepository) SetBucketVersioning(ctx context.Context, name string, enabled bool) error {
+	return nil
 }
 
 // Multipart operations

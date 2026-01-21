@@ -9,6 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/poyrazk/thecloud/internal/platform"
@@ -30,7 +31,10 @@ func NewStorageHandler(svc ports.StorageService, cfg *platform.Config) *StorageH
 	}
 }
 
-const errInvalidUploadID = "invalid upload id"
+const (
+	errInvalidUploadID    = "invalid upload id"
+	errInvalidRequestBody = "invalid request body"
+)
 
 // Upload uploads an object to a bucket
 // @Summary Upload an object
@@ -78,8 +82,18 @@ func (h *StorageHandler) Upload(c *gin.Context) {
 func (h *StorageHandler) Download(c *gin.Context) {
 	bucket := c.Param("bucket")
 	key := c.Param("key")
+	versionID := c.Query("versionId")
 
-	reader, obj, err := h.svc.Download(c.Request.Context(), bucket, key)
+	var reader io.ReadCloser
+	var obj *domain.Object
+	var err error
+
+	if versionID != "" {
+		reader, obj, err = h.svc.DownloadVersion(c.Request.Context(), bucket, key, versionID)
+	} else {
+		reader, obj, err = h.svc.Download(c.Request.Context(), bucket, key)
+	}
+
 	if err != nil {
 		httputil.Error(c, err)
 		return
@@ -131,8 +145,16 @@ func (h *StorageHandler) List(c *gin.Context) {
 func (h *StorageHandler) Delete(c *gin.Context) {
 	bucket := c.Param("bucket")
 	key := c.Param("key")
+	versionID := c.Query("versionId")
 
-	if err := h.svc.DeleteObject(c.Request.Context(), bucket, key); err != nil {
+	var err error
+	if versionID != "" {
+		err = h.svc.DeleteVersion(c.Request.Context(), bucket, key, versionID)
+	} else {
+		err = h.svc.DeleteObject(c.Request.Context(), bucket, key)
+	}
+
+	if err != nil {
 		httputil.Error(c, err)
 		return
 	}
@@ -157,7 +179,7 @@ func (h *StorageHandler) CreateBucket(c *gin.Context) {
 		IsPublic bool   `json:"is_public"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		httputil.Error(c, errors.New(errors.InvalidInput, "invalid request body"))
+		httputil.Error(c, errors.New(errors.InvalidInput, errInvalidRequestBody))
 		return
 	}
 
@@ -349,7 +371,7 @@ func (h *StorageHandler) GeneratePresignedURL(c *gin.Context) {
 		ExpirySec int    `json:"expiry_seconds"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		httputil.Error(c, errors.New(errors.InvalidInput, "invalid request body"))
+		httputil.Error(c, errors.New(errors.InvalidInput, errInvalidRequestBody))
 		return
 	}
 
@@ -446,4 +468,56 @@ func (h *StorageHandler) ServePresignedUpload(c *gin.Context) {
 	}
 
 	httputil.Success(c, http.StatusCreated, obj)
+}
+
+// SetBucketVersioning toggles versioning for a bucket
+// @Summary Set bucket versioning
+// @Description Enables or disables object versioning for the specified bucket
+// @Tags storage
+// @Accept json
+// @Produce json
+// @Security APIKeyAuth
+// @Param bucket path string true "Bucket name"
+// @Param request body object true "Versioning request"
+// @Success 200
+// @Router /storage/buckets/{bucket}/versioning [patch]
+func (h *StorageHandler) SetBucketVersioning(c *gin.Context) {
+	bucket := c.Param("bucket")
+	var req struct {
+		Enabled bool `json:"enabled"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		httputil.Error(c, errors.New(errors.InvalidInput, "invalid request body"))
+		return
+	}
+
+	if err := h.svc.SetBucketVersioning(c.Request.Context(), bucket, req.Enabled); err != nil {
+		httputil.Error(c, err)
+		return
+	}
+
+	httputil.Success(c, http.StatusOK, gin.H{"status": "updated"})
+}
+
+// ListVersions returns all versions of an object
+// @Summary List object versions
+// @Description Gets a list of all versions of a specific object
+// @Tags storage
+// @Produce json
+// @Security APIKeyAuth
+// @Param bucket path string true "Bucket name"
+// @Param key path string true "Object key"
+// @Success 200 {array} domain.Object
+// @Router /storage/versions/{bucket}/{key} [get]
+func (h *StorageHandler) ListVersions(c *gin.Context) {
+	bucket := c.Param("bucket")
+	key := c.Param("key")
+
+	versions, err := h.svc.ListVersions(c.Request.Context(), bucket, key)
+	if err != nil {
+		httputil.Error(c, err)
+		return
+	}
+
+	httputil.Success(c, http.StatusOK, versions)
 }

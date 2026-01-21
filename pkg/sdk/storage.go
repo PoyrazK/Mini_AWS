@@ -13,6 +13,8 @@ type Object struct {
 	ARN         string    `json:"arn"`
 	Bucket      string    `json:"bucket"`
 	Key         string    `json:"key"`
+	VersionID   string    `json:"version_id"`
+	IsLatest    bool      `json:"is_latest"`
 	SizeBytes   int64     `json:"size_bytes"`
 	ContentType string    `json:"content_type"`
 	CreatedAt   time.Time `json:"created_at"`
@@ -20,10 +22,11 @@ type Object struct {
 
 // Bucket describes a storage bucket.
 type Bucket struct {
-	ID        string    `json:"id"`
-	Name      string    `json:"name"`
-	IsPublic  bool      `json:"is_public"`
-	CreatedAt time.Time `json:"created_at"`
+	ID                string    `json:"id"`
+	Name              string    `json:"name"`
+	IsPublic          bool      `json:"is_public"`
+	VersioningEnabled bool      `json:"versioning_enabled"`
+	CreatedAt         time.Time `json:"created_at"`
 }
 
 type StorageNode struct {
@@ -45,24 +48,37 @@ func (c *Client) ListObjects(bucket string) ([]Object, error) {
 	return res.Data, nil
 }
 
-func (c *Client) UploadObject(bucket, key string, body io.Reader) error {
+func (c *Client) UploadObject(bucket, key string, body io.Reader) (*Object, error) {
+	var res Response[Object]
 	resp, err := c.resty.R().
 		SetBody(body).
+		SetResult(&res).
 		Put(fmt.Sprintf("%s/storage/%s/%s", c.apiURL, bucket, key))
 
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if resp.IsError() {
-		return fmt.Errorf("api error: %s", resp.String())
+		return nil, fmt.Errorf("api error: %s", resp.String())
 	}
-	return nil
+	return &res.Data, nil
 }
 
-func (c *Client) DownloadObject(bucket, key string) (io.ReadCloser, error) {
-	resp, err := c.resty.R().
-		SetDoNotParseResponse(true).
-		Get(fmt.Sprintf("%s/storage/%s/%s", c.apiURL, bucket, key))
+func (c *Client) ListVersions(bucket, key string) ([]Object, error) {
+	var res Response[[]Object]
+	if err := c.get(fmt.Sprintf("/storage/versions/%s/%s", bucket, key), &res); err != nil {
+		return nil, err
+	}
+	return res.Data, nil
+}
+
+func (c *Client) DownloadObject(bucket, key string, versionID ...string) (io.ReadCloser, error) {
+	req := c.resty.R().SetDoNotParseResponse(true)
+	if len(versionID) > 0 {
+		req.SetQueryParam("versionId", versionID[0])
+	}
+
+	resp, err := req.Get(fmt.Sprintf("%s/storage/%s/%s", c.apiURL, bucket, key))
 
 	if err != nil {
 		return nil, err
@@ -74,8 +90,12 @@ func (c *Client) DownloadObject(bucket, key string) (io.ReadCloser, error) {
 	return resp.RawBody(), nil
 }
 
-func (c *Client) DeleteObject(bucket, key string) error {
-	return c.delete(fmt.Sprintf("/storage/%s/%s", bucket, key), nil)
+func (c *Client) DeleteObject(bucket, key string, versionID ...string) error {
+	path := fmt.Sprintf("/storage/%s/%s", bucket, key)
+	if len(versionID) > 0 {
+		path += "?versionId=" + versionID[0]
+	}
+	return c.delete(path, nil)
 }
 
 func (c *Client) CreateBucket(name string, isPublic bool) (*Bucket, error) {
@@ -103,6 +123,15 @@ func (c *Client) ListBuckets() ([]Bucket, error) {
 
 func (c *Client) DeleteBucket(name string) error {
 	return c.delete(fmt.Sprintf("/storage/buckets/%s", name), nil)
+}
+
+func (c *Client) SetBucketVersioning(name string, enabled bool) error {
+	req := struct {
+		Enabled bool `json:"enabled"`
+	}{
+		Enabled: enabled,
+	}
+	return c.patch(fmt.Sprintf("/storage/buckets/%s/versioning", name), req, nil)
 }
 
 func (c *Client) GetStorageClusterStatus() (*StorageCluster, error) {
