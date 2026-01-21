@@ -28,17 +28,33 @@ type mockStorageService struct {
 	mock.Mock
 }
 
-func (m *mockStorageService) CreateBucket(ctx context.Context, name string) error {
-	args := m.Called(ctx, name)
-	return args.Error(0)
+func (m *mockStorageService) CreateBucket(ctx context.Context, name string, isPublic bool) (*domain.Bucket, error) {
+	args := m.Called(ctx, name, isPublic)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Bucket), args.Error(1)
 }
 
-func (m *mockStorageService) ListBuckets(ctx context.Context) ([]string, error) {
+func (m *mockStorageService) ListBuckets(ctx context.Context) ([]*domain.Bucket, error) {
 	args := m.Called(ctx)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]string), args.Error(1)
+	return args.Get(0).([]*domain.Bucket), args.Error(1)
+}
+
+func (m *mockStorageService) GetBucket(ctx context.Context, name string) (*domain.Bucket, error) {
+	args := m.Called(ctx, name)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Bucket), args.Error(1)
+}
+
+func (m *mockStorageService) DeleteBucket(ctx context.Context, name string) error {
+	args := m.Called(ctx, name)
+	return args.Error(0)
 }
 
 func (m *mockStorageService) Upload(ctx context.Context, bucket, key string, content io.Reader) (*domain.Object, error) {

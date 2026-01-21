@@ -15,6 +15,12 @@ import (
 	"google.golang.org/grpc"
 )
 
+const (
+	node1 = "node-1"
+	node2 = "node-2"
+	node3 = "node-3"
+)
+
 // MockStorageNodeClient
 type MockStorageNodeClient struct {
 	mock.Mock
@@ -45,20 +51,25 @@ func (m *MockStorageNodeClient) GetClusterStatus(ctx context.Context, in *pb.Emp
 	return args.Get(0).(*pb.ClusterStatusResponse), args.Error(1)
 }
 
-func TestCoordinator_Write_Quorum(t *testing.T) {
+func (m *MockStorageNodeClient) Assemble(ctx context.Context, in *pb.AssembleRequest, opts ...grpc.CallOption) (*pb.AssembleResponse, error) {
+	args := m.Called(ctx, in)
+	return args.Get(0).(*pb.AssembleResponse), args.Error(1)
+}
+
+func TestCoordinatorWriteQuorum(t *testing.T) {
 	ring := NewConsistentHashRing(10)
-	ring.AddNode("node-1")
-	ring.AddNode("node-2")
-	ring.AddNode("node-3")
+	ring.AddNode(node1)
+	ring.AddNode(node2)
+	ring.AddNode(node3)
 
 	client1 := new(MockStorageNodeClient)
 	client2 := new(MockStorageNodeClient)
 	client3 := new(MockStorageNodeClient)
 
 	clients := map[string]pb.StorageNodeClient{
-		"node-1": client1,
-		"node-2": client2,
-		"node-3": client3,
+		node1: client1,
+		node2: client2,
+		node3: client3,
 	}
 
 	coord := NewCoordinator(ring, clients, 3)
@@ -82,20 +93,20 @@ func TestCoordinator_Write_Quorum(t *testing.T) {
 	assert.Equal(t, int64(5), n)
 }
 
-func TestCoordinator_Write_QuorumFailure(t *testing.T) {
+func TestCoordinatorWriteQuorumFailure(t *testing.T) {
 	ring := NewConsistentHashRing(10)
-	ring.AddNode("node-1")
-	ring.AddNode("node-2")
-	ring.AddNode("node-3")
+	ring.AddNode(node1)
+	ring.AddNode(node2)
+	ring.AddNode(node3)
 
 	client1 := new(MockStorageNodeClient)
 	client2 := new(MockStorageNodeClient)
 	client3 := new(MockStorageNodeClient)
 
 	clients := map[string]pb.StorageNodeClient{
-		"node-1": client1,
-		"node-2": client2,
-		"node-3": client3,
+		node1: client1,
+		node2: client2,
+		node3: client3,
 	}
 
 	coord := NewCoordinator(ring, clients, 3) // W=2
@@ -111,17 +122,17 @@ func TestCoordinator_Write_QuorumFailure(t *testing.T) {
 	assert.Contains(t, err.Error(), "write quorum failed")
 }
 
-func TestCoordinator_Read_Repair(t *testing.T) {
+func TestCoordinatorReadRepair(t *testing.T) {
 	ring := NewConsistentHashRing(10)
-	ring.AddNode("node-1")
-	ring.AddNode("node-2")
-	ring.AddNode("node-3")
+	ring.AddNode(node1)
+	ring.AddNode(node2)
+	ring.AddNode(node3)
 
 	c1 := new(MockStorageNodeClient)
 	c2 := new(MockStorageNodeClient)
 	c3 := new(MockStorageNodeClient)
 
-	clients := map[string]pb.StorageNodeClient{"node-1": c1, "node-2": c2, "node-3": c3}
+	clients := map[string]pb.StorageNodeClient{node1: c1, node2: c2, node3: c3}
 	coord := NewCoordinator(ring, clients, 3)
 	defer coord.Stop()
 

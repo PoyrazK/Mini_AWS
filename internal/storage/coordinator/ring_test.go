@@ -10,18 +10,24 @@ import (
 func TestConsistentHashRing(t *testing.T) {
 	ring := NewConsistentHashRing(10) // Small virtual nodes for predictable testing
 
+	const (
+		nodeA = "node-A"
+		nodeB = "node-B"
+		nodeC = "node-C"
+	)
+
 	// 1. Add Nodes
-	ring.AddNode("node-A")
-	ring.AddNode("node-B")
-	ring.AddNode("node-C")
+	ring.AddNode(nodeA)
+	ring.AddNode(nodeB)
+	ring.AddNode(nodeC)
 
 	// 2. Test GetNodes distribution
 	key1 := "bucket1/object1"
 	nodes1 := ring.GetNodes(key1, 3)
 	assert.Len(t, nodes1, 3)
-	assert.Contains(t, nodes1, "node-A")
-	assert.Contains(t, nodes1, "node-B")
-	assert.Contains(t, nodes1, "node-C")
+	assert.Contains(t, nodes1, nodeA)
+	assert.Contains(t, nodes1, nodeB)
+	assert.Contains(t, nodes1, nodeC)
 
 	// 3. Test Consistency (Same key -> Same nodes)
 	nodes2 := ring.GetNodes(key1, 3)
@@ -32,10 +38,10 @@ func TestConsistentHashRing(t *testing.T) {
 	assert.Len(t, primary, 1)
 
 	// 5. Remove Node
-	ring.RemoveNode("node-B")
+	ring.RemoveNode(nodeB)
 	nodesAfterRemoval := ring.GetNodes(key1, 3)
 	assert.Len(t, nodesAfterRemoval, 2) // Only A and C left
-	assert.NotContains(t, nodesAfterRemoval, "node-B")
+	assert.NotContains(t, nodesAfterRemoval, nodeB)
 }
 
 func TestRingDistribution(t *testing.T) {

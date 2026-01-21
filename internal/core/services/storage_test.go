@@ -15,6 +15,11 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+const (
+	testBucket = "test-bucket"
+	testKey    = "test-key"
+)
+
 func setupStorageServiceTest(_ *testing.T) (*MockStorageRepo, *MockFileStore, *MockAuditService, ports.StorageService) {
 	repo := new(MockStorageRepo)
 	store := new(MockFileStore)
@@ -23,7 +28,7 @@ func setupStorageServiceTest(_ *testing.T) (*MockStorageRepo, *MockFileStore, *M
 	return repo, store, auditSvc, svc
 }
 
-func TestStorageUpload_Success(t *testing.T) {
+func TestStorageUploadSuccess(t *testing.T) {
 	repo, store, auditSvc, svc := setupStorageServiceTest(t)
 	defer repo.AssertExpectations(t)
 	defer store.AssertExpectations(t)
@@ -31,8 +36,8 @@ func TestStorageUpload_Success(t *testing.T) {
 
 	userID := uuid.New()
 	ctx := appcontext.WithUserID(context.Background(), userID)
-	bucket := "test-bucket"
-	key := "test-key"
+	bucket := testBucket
+	key := testKey
 	content := "hello world"
 	reader := strings.NewReader(content)
 
@@ -49,7 +54,7 @@ func TestStorageUpload_Success(t *testing.T) {
 	assert.Equal(t, int64(len(content)), obj.SizeBytes)
 }
 
-func TestStorageDownload_Success(t *testing.T) {
+func TestStorageDownloadSuccess(t *testing.T) {
 	repo, store, auditSvc, svc := setupStorageServiceTest(t)
 	defer repo.AssertExpectations(t)
 	defer store.AssertExpectations(t)
@@ -57,8 +62,8 @@ func TestStorageDownload_Success(t *testing.T) {
 
 	userID := uuid.New()
 	ctx := appcontext.WithUserID(context.Background(), userID)
-	bucket := "test-bucket"
-	key := "test-key"
+	bucket := testBucket
+	key := testKey
 	meta := &domain.Object{Bucket: bucket, Key: key}
 	content := io.NopCloser(strings.NewReader("data"))
 
@@ -72,15 +77,15 @@ func TestStorageDownload_Success(t *testing.T) {
 	assert.NotNil(t, r)
 }
 
-func TestStorageDelete_Success(t *testing.T) {
+func TestStorageDeleteSuccess(t *testing.T) {
 	repo, _, auditSvc, svc := setupStorageServiceTest(t)
 	defer repo.AssertExpectations(t)
 	defer auditSvc.AssertExpectations(t)
 
 	userID := uuid.New()
 	ctx := appcontext.WithUserID(context.Background(), userID)
-	bucket := "test-bucket"
-	key := "test-key"
+	bucket := testBucket
+	key := testKey
 
 	repo.On("SoftDelete", ctx, bucket, key).Return(nil)
 	auditSvc.On("Log", ctx, userID, "storage.object_delete", "storage", mock.Anything, mock.Anything).Return(nil)
@@ -90,12 +95,12 @@ func TestStorageDelete_Success(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestStorageList_Success(t *testing.T) {
+func TestStorageListSuccess(t *testing.T) {
 	repo, _, _, svc := setupStorageServiceTest(t)
 	defer repo.AssertExpectations(t)
 
 	ctx := context.Background()
-	bucket := "test-bucket"
+	bucket := testBucket
 	expected := []*domain.Object{{Key: "k1"}, {Key: "k2"}}
 
 	repo.On("List", ctx, bucket).Return(expected, nil)
