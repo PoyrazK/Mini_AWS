@@ -100,7 +100,8 @@ func (g *GossipProtocol) detectFailures() {
 		} else if m.Status == "suspect" && now.Sub(m.LastSeen) > 3*timeout {
 			m.Status = "dead"
 			g.logger.Error("node flagged as dead", "id", id, "last_seen", m.LastSeen)
-			// TODO: Trigger reconfiguration
+			// Reconfiguration is handled asynchronously by the Coordinator
+			// seeing the updated status via GetClusterStatus.
 		}
 	}
 }
