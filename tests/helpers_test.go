@@ -14,11 +14,14 @@ import (
 )
 
 func waitForServer() error {
+	client := &http.Client{Timeout: 5 * time.Second}
 	for i := 0; i < 30; i++ {
-		resp, err := http.Get(testutil.TestBaseURL + "/health")
-		if err == nil && resp.StatusCode == 200 {
-			_ = resp.Body.Close()
-			return nil
+		resp, err := client.Get(testutil.TestBaseURL + "/health")
+		if err == nil {
+			resp.Body.Close()
+			if resp.StatusCode == 200 {
+				return nil
+			}
 		}
 		time.Sleep(1 * time.Second)
 	}
