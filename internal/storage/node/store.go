@@ -150,11 +150,12 @@ func (s *LocalStore) getObjectPath(bucket, key string) (string, error) {
 		return "", os.ErrInvalid
 	}
 
-	fullPath := filepath.Join(s.rootDir, cleanBucket, cleanKey)
+	bucketDir := filepath.Join(s.rootDir, cleanBucket)
+	fullPath := filepath.Join(bucketDir, cleanKey)
 
-	// Verify it's within rootDir
-	rel, err := filepath.Rel(s.rootDir, fullPath)
-	if err != nil || len(rel) < 2 || rel[:2] == ".." {
+	// Verify it's within bucketDir (strict isolation)
+	rel, err := filepath.Rel(bucketDir, fullPath)
+	if err != nil || len(rel) < 2 && rel == ".." || (len(rel) >= 2 && rel[:2] == "..") {
 		return "", os.ErrPermission
 	}
 
