@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -24,7 +25,7 @@ func TestSnapshotE2E(t *testing.T) {
 
 	var volumeID string
 	var snapshotID string
-	volName := fmt.Sprintf("e2e-vol-%d", time.Now().UnixNano()%1000)
+	volName := fmt.Sprintf("e2e-vol-%s", uuid.New().String())
 
 	// 1. Create Volume
 	t.Run("CreateVolume", func(t *testing.T) {
@@ -95,11 +96,16 @@ func TestSnapshotE2E(t *testing.T) {
 	// 4. Restore Snapshot
 	t.Run("RestoreSnapshot", func(t *testing.T) {
 		payload := map[string]string{
-			"new_volume_name": fmt.Sprintf("restored-vol-%d", time.Now().UnixNano()%10000),
+			"new_volume_name": fmt.Sprintf("restored-vol-%s", uuid.New().String()),
 		}
 		resp := postRequest(t, client, fmt.Sprintf("%s/snapshots/%s/restore", testutil.TestBaseURL, snapshotID), token, payload)
 		defer resp.Body.Close()
 
+		if resp.StatusCode != http.StatusCreated {
+			var body map[string]interface{}
+			_ = json.NewDecoder(resp.Body).Decode(&body)
+			t.Logf("RestoreSnapshot failed with %d: %v", resp.StatusCode, body)
+		}
 		assert.Equal(t, http.StatusCreated, resp.StatusCode)
 	})
 
