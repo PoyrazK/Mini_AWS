@@ -3,7 +3,8 @@ module github.com/poyrazk/thecloud
 go 1.24.0
 
 require (
-	github.com/alicebob/miniredis/v2 v2.35.0
+	github.com/Masterminds/semver/v3 v3.4.0
+	github.com/alicebob/miniredis/v2 v2.36.1
 	github.com/containerd/errdefs v1.0.0
 	github.com/digitalocean/go-libvirt v0.0.0-20260106181248-56be673cd6a5
 	github.com/docker/docker v28.5.2+incompatible
@@ -40,7 +41,6 @@ require (
 
 require (
 	github.com/KyleBanks/depth v1.2.1 // indirect
-	github.com/Masterminds/semver/v3 v3.4.0 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bytedance/gopkg v0.1.3 // indirect
