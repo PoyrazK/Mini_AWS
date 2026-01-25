@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"regexp"
 	"time"
 
 	"github.com/google/uuid"
@@ -244,6 +245,9 @@ func (s *StorageService) DeleteObject(ctx context.Context, bucket, key string) e
 
 // CreateBucket creates a new storage bucket.
 func (s *StorageService) CreateBucket(ctx context.Context, name string, isPublic bool) (*domain.Bucket, error) {
+	if err := validateBucketName(name); err != nil {
+		return nil, err
+	}
 	bucket := &domain.Bucket{
 		ID:        uuid.New(),
 		Name:      name,
@@ -474,4 +478,17 @@ func (s *StorageService) GeneratePresignedURL(ctx context.Context, bucket, key, 
 		Method:    method,
 		ExpiresAt: expiresAt,
 	}, nil
+}
+
+func validateBucketName(name string) error {
+	if len(name) == 0 || len(name) > 63 {
+		return errors.New(errors.InvalidInput, "bucket name must be 1-63 characters")
+	}
+	// Only allow alphanumeric, hyphens, and periods.
+	// Must start and end with alphanumeric.
+	var bucketRegex = regexp.MustCompile(`^[a-z0-9][a-z0-9.\-]*[a-z0-9]$`)
+	if !bucketRegex.MatchString(name) {
+		return errors.New(errors.InvalidInput, "bucket name must contain only lowercase letters, numbers, hyphens, and periods")
+	}
+	return nil
 }

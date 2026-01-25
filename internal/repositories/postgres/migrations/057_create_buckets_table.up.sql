@@ -12,6 +12,3 @@ CREATE TABLE IF NOT EXISTS buckets (
 -- We use TEXT/VARCHAR for bucket name in objects table, so we can link it
 -- ALTER TABLE objects ADD CONSTRAINT fk_objects_bucket FOREIGN KEY (bucket) REFERENCES buckets(name) ON DELETE RESTRICT;
 -- Actually, let's just make sure the table exists for now to satisfy the repo queries.
-
--- +goose Down
-DROP TABLE IF EXISTS buckets;
