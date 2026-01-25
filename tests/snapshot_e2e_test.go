@@ -64,10 +64,38 @@ func TestSnapshotE2E(t *testing.T) {
 		assert.NotEmpty(t, snapshotID)
 	})
 
-	// 3. Restore Snapshot
+	// 3. Wait for Snapshot to be AVAILABLE
+	t.Run("WaitAvailable", func(t *testing.T) {
+		timeout := time.After(30 * time.Second)
+		ticker := time.NewTicker(2 * time.Second)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-timeout:
+				t.Fatal("Timeout waiting for snapshot to be available")
+			case <-ticker.C:
+				resp := getRequest(t, client, fmt.Sprintf("%s/snapshots/%s", testutil.TestBaseURL, snapshotID), token)
+				var res struct {
+					Data domain.Snapshot `json:"data"`
+				}
+				json.NewDecoder(resp.Body).Decode(&res)
+				resp.Body.Close()
+
+				if res.Data.Status == domain.SnapshotStatusAvailable {
+					return
+				}
+				if res.Data.Status == domain.SnapshotStatusError {
+					t.Fatal("Snapshot creation failed with error status")
+				}
+			}
+		}
+	})
+
+	// 4. Restore Snapshot
 	t.Run("RestoreSnapshot", func(t *testing.T) {
 		payload := map[string]string{
-			"new_volume_name": "restored-vol",
+			"new_volume_name": fmt.Sprintf("restored-vol-%d", time.Now().UnixNano()%10000),
 		}
 		resp := postRequest(t, client, fmt.Sprintf("%s/snapshots/%s/restore", testutil.TestBaseURL, snapshotID), token, payload)
 		defer resp.Body.Close()

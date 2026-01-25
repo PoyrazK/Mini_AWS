@@ -20,10 +20,11 @@ func TestRBACE2E(t *testing.T) {
 	}
 
 	client := &http.Client{Timeout: 10 * time.Second}
-	token := registerAndLogin(t, client, "rbac-tester@thecloud.local", "RBAC Tester")
+	mainUserEmail := fmt.Sprintf("rbac-tester-%d@thecloud.local", time.Now().UnixNano()%10000)
+	token := registerAndLogin(t, client, mainUserEmail, "RBAC Tester")
 
 	var roleID string
-	roleName := fmt.Sprintf("e2e-role-%d", time.Now().UnixNano()%1000)
+	roleName := fmt.Sprintf("e2e-role-%d", time.Now().UnixNano())
 
 	// 1. Create Role
 	t.Run("CreateRole", func(t *testing.T) {
@@ -70,12 +71,17 @@ func TestRBACE2E(t *testing.T) {
 		assert.Equal(t, http.StatusNoContent, resp.StatusCode)
 	})
 
-	// 4. Bind Role to User
+	// 4. Bind Role to a second User
 	t.Run("BindRole", func(t *testing.T) {
+		// Register a second user to bind the role to, so we don't lose permissions for the main user
+		secondUserEmail := fmt.Sprintf("rbac-secondary-%d@thecloud.local", time.Now().UnixNano()%10000)
+		_ = registerAndLogin(t, client, secondUserEmail, "RBAC Secondary")
+
 		payload := map[string]string{
-			"user_identifier": "rbac-tester@thecloud.local",
+			"user_identifier": secondUserEmail,
 			"role_name":       roleName,
 		}
+		// Still use the primary token which has management permissions
 		resp := postRequest(t, client, testutil.TestBaseURL+"/rbac/bindings", token, payload)
 		defer resp.Body.Close()
 
