@@ -299,13 +299,10 @@ func registerDataRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 	storageGroup := r.Group("/storage")
 	storageGroup.Use(httputil.Auth(svcs.Identity))
 	{
-		storageGroup.PUT(bucketKeyRoute, handlers.Storage.Upload)
-		storageGroup.GET(bucketKeyRoute, handlers.Storage.Download)
-		storageGroup.DELETE(bucketKeyRoute, handlers.Storage.Delete)
-		storageGroup.GET("/:bucket", handlers.Storage.List)
+		// explicitly registered static paths first
 		storageGroup.GET("/cluster/status", handlers.Storage.GetClusterStatus)
 
-		// Bucket Management
+		// Bucket Management (static/specific)
 		storageGroup.POST("/buckets", handlers.Storage.CreateBucket)
 		storageGroup.GET("/buckets", handlers.Storage.ListBuckets)
 		storageGroup.DELETE("/buckets/:bucket", handlers.Storage.DeleteBucket)
@@ -327,6 +324,12 @@ func registerDataRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 
 		// Presigned Generation (Auth Required)
 		storageGroup.POST("/presign"+bucketKeyRoute, handlers.Storage.GeneratePresignedURL)
+
+		// Parameterized object routes last
+		storageGroup.PUT(bucketKeyRoute, handlers.Storage.Upload)
+		storageGroup.GET(bucketKeyRoute, handlers.Storage.Download)
+		storageGroup.DELETE(bucketKeyRoute, handlers.Storage.Delete)
+		storageGroup.GET("/:bucket", handlers.Storage.List)
 	}
 
 	// Public Routes for Presigned Access (No Auth Middleware)

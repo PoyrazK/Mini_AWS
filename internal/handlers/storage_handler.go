@@ -405,7 +405,11 @@ func (h *StorageHandler) ServePresignedDownload(c *gin.Context) {
 	// Ideally the service handles verification, but the domain model is cleaner if we verify here
 	// OR delegate to a service method `VerifyPresignedAccess`.
 	// For now, let's verify using the shared secret.
-	secret := "storage-secret-key" // Matches service
+	secret := h.cfg.StorageSecret // Use configured secret
+	if secret == "" {
+		httputil.Error(c, errors.New(errors.Internal, "storage secret not configured"))
+		return
+	}
 	path := fmt.Sprintf("/storage/presigned/%s/%s", bucket, key)
 
 	if err := crypto.VerifyURL(secret, http.MethodGet, path, expires, signature); err != nil {
@@ -440,7 +444,11 @@ func (h *StorageHandler) ServePresignedUpload(c *gin.Context) {
 	expires := c.Query("expires")
 	signature := c.Query("signature")
 
-	secret := "storage-secret-key"
+	secret := h.cfg.StorageSecret
+	if secret == "" {
+		httputil.Error(c, errors.New(errors.Internal, "storage secret not configured"))
+		return
+	}
 	path := fmt.Sprintf("/storage/presigned/%s/%s", bucket, key)
 
 	if err := crypto.VerifyURL(secret, http.MethodPut, path, expires, signature); err != nil {

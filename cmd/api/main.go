@@ -264,13 +264,36 @@ func runApplication(deps AppDeps, cfg *platform.Config, logger *slog.Logger, r *
 }
 
 func runWorkers(ctx context.Context, wg *sync.WaitGroup, workers *setup.Workers) {
-	wg.Add(8)
-	go workers.LB.Run(ctx, wg)
-	go workers.AutoScaling.Run(ctx, wg)
-	go workers.Cron.Run(ctx, wg)
-	go workers.Container.Run(ctx, wg)
-	go workers.Provision.Run(ctx, wg)
-	go workers.Accounting.Run(ctx, wg)
-	go workers.Cluster.Run(ctx, wg)
-	go workers.Lifecycle.Run(ctx, wg)
+	if workers.LB != nil {
+		wg.Add(1)
+		go workers.LB.Run(ctx, wg)
+	}
+	if workers.AutoScaling != nil {
+		wg.Add(1)
+		go workers.AutoScaling.Run(ctx, wg)
+	}
+	if workers.Cron != nil {
+		wg.Add(1)
+		go workers.Cron.Run(ctx, wg)
+	}
+	if workers.Container != nil {
+		wg.Add(1)
+		go workers.Container.Run(ctx, wg)
+	}
+	if workers.Provision != nil {
+		wg.Add(1)
+		go workers.Provision.Run(ctx, wg)
+	}
+	if workers.Accounting != nil {
+		wg.Add(1)
+		go workers.Accounting.Run(ctx, wg)
+	}
+	if workers.Cluster != nil {
+		wg.Add(1)
+		go workers.Cluster.Run(ctx, wg)
+	}
+	if workers.Lifecycle != nil {
+		wg.Add(1)
+		go workers.Lifecycle.Run(ctx, wg)
+	}
 }

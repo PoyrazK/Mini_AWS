@@ -27,7 +27,11 @@ func (s *LocalStore) Write(bucket, key string, data []byte, timestamp int64) err
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	path := s.getObjectPath(bucket, key)
+	path, err := s.getObjectPath(bucket, key)
+	if err != nil {
+		return err
+	}
+
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return err
 	}
@@ -48,7 +52,11 @@ func (s *LocalStore) Read(bucket, key string) ([]byte, int64, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	path := s.getObjectPath(bucket, key)
+	path, err := s.getObjectPath(bucket, key)
+	if err != nil {
+		return nil, 0, err
+	}
+
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, 0, err
@@ -75,7 +83,11 @@ func (s *LocalStore) Delete(bucket, key string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	path := s.getObjectPath(bucket, key)
+	path, err := s.getObjectPath(bucket, key)
+	if err != nil {
+		return err
+	}
+
 	_ = os.Remove(path + ".meta")
 	return os.Remove(path)
 }
@@ -85,7 +97,11 @@ func (s *LocalStore) Assemble(bucket, key string, parts []string) (int64, error)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	destPath := s.getObjectPath(bucket, key)
+	destPath, err := s.getObjectPath(bucket, key)
+	if err != nil {
+		return 0, err
+	}
+
 	if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
 		return 0, err
 	}
@@ -98,7 +114,11 @@ func (s *LocalStore) Assemble(bucket, key string, parts []string) (int64, error)
 
 	var totalSize int64
 	for _, partKey := range parts {
-		partPath := s.getObjectPath(bucket, partKey)
+		partPath, err := s.getObjectPath(bucket, partKey)
+		if err != nil {
+			return 0, err
+		}
+
 		data, err := os.ReadFile(partPath)
 		if err != nil {
 			return 0, err
@@ -121,6 +141,22 @@ func (s *LocalStore) Assemble(bucket, key string, parts []string) (int64, error)
 	return totalSize, nil
 }
 
-func (s *LocalStore) getObjectPath(bucket, key string) string {
-	return filepath.Join(s.rootDir, bucket, key)
+func (s *LocalStore) getObjectPath(bucket, key string) (string, error) {
+	// Clean the inputs
+	cleanBucket := filepath.Base(filepath.Clean(bucket))
+	cleanKey := filepath.Clean(key)
+
+	if filepath.IsAbs(cleanKey) {
+		return "", os.ErrInvalid
+	}
+
+	fullPath := filepath.Join(s.rootDir, cleanBucket, cleanKey)
+
+	// Verify it's within rootDir
+	rel, err := filepath.Rel(s.rootDir, fullPath)
+	if err != nil || len(rel) < 2 || rel[:2] == ".." {
+		return "", os.ErrPermission
+	}
+
+	return fullPath, nil
 }

@@ -25,9 +25,11 @@ type Config struct {
 	RateLimitGlobal      string
 	RateLimitAuth        string
 	StorageBackend       string
-	LvmVgName            string
-	ObjectStorageMode    string
-	ObjectStorageNodes   string
+	// StorageSecret is the secret key used for signing presigned URLs
+	StorageSecret      string
+	LvmVgName          string
+	ObjectStorageMode  string
+	ObjectStorageNodes string
 }
 
 // NewConfig loads configuration from the environment with defaults.
@@ -51,6 +53,7 @@ func NewConfig() (*Config, error) {
 		RateLimitGlobal:      getEnv("RATE_LIMIT_GLOBAL", "100"),
 		RateLimitAuth:        getEnv("RATE_LIMIT_AUTH", "10"),
 		StorageBackend:       getEnv("STORAGE_BACKEND", "noop"),
+		StorageSecret:        getEnv("STORAGE_SECRET", "storage-secret-key"),
 		LvmVgName:            getEnv("LVM_VG_NAME", "thecloud-vg"),
 		ObjectStorageMode:    getEnv("OBJECT_STORAGE_MODE", "local"),
 		ObjectStorageNodes:   getEnv("OBJECT_STORAGE_NODES", ""),
