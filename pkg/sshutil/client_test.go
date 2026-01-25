@@ -88,3 +88,12 @@ func TestRun_ConnectionRefused(t *testing.T) {
 
 // TODO: A full SSH server mock for Run and WriteFile would be better but significantly more complex.
 // For "Phase 1 Quick Wins", validating the Client logic, Key parsing, and Network dialing is a good start.
+
+func TestWriteFile_ConnectionRefused(t *testing.T) {
+	// Pick a random port (hopefully unused)
+	client := &Client{Host: "127.0.0.1:0"}
+
+	err := client.WriteFile(context.Background(), "/tmp/test", []byte("data"), "0644")
+	require.Error(t, err)
+	// Expect dial error
+}
