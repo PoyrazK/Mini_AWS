@@ -70,6 +70,20 @@ func TestVpcServiceCreateDBFailureRollsBackBridge(t *testing.T) {
 	network.AssertCalled(t, "DeleteBridge", mock.Anything, mock.Anything)
 }
 
+func TestVpcServiceCreateBridgeError(t *testing.T) {
+	vpcRepo, network, _, svc := setupVpcServiceTest(testutil.TestCIDR)
+	defer vpcRepo.AssertExpectations(t)
+	defer network.AssertExpectations(t)
+
+	network.On("CreateBridge", mock.Anything, mock.Anything, mock.Anything).Return(assert.AnError)
+
+	vpc, err := svc.CreateVPC(context.Background(), "bad-bridge", "")
+
+	assert.Error(t, err)
+	assert.Nil(t, vpc)
+	vpcRepo.AssertNotCalled(t, "Create", mock.Anything, mock.Anything)
+}
+
 func TestVpcServiceCreateDefaultCIDR(t *testing.T) {
 	vpcRepo, network, auditSvc, svc := setupVpcServiceTest("")
 	defer vpcRepo.AssertExpectations(t)

@@ -74,6 +74,21 @@ func TestSubnetServiceCreateSubnetInvalidCIDR(t *testing.T) {
 	assert.Contains(t, err.Error(), "within VPC CIDR range")
 }
 
+func TestSubnetServiceCreateSubnetVpcRepoError(t *testing.T) {
+	repo, vpcRepo, _, svc := setupSubnetServiceTest(t)
+	defer repo.AssertExpectations(t)
+	defer vpcRepo.AssertExpectations(t)
+
+	ctx := context.Background()
+	vpcID := uuid.New()
+
+	vpcRepo.On("GetByID", ctx, vpcID).Return(nil, assert.AnError)
+
+	subnet, err := svc.CreateSubnet(ctx, vpcID, "bad-vpc", testutil.TestSubnetCIDR, "us-east-1a")
+	assert.Error(t, err)
+	assert.Nil(t, subnet)
+}
+
 func TestSubnetServiceCreateSubnetInvalidSubnetCIDRFormat(t *testing.T) {
 	repo, vpcRepo, _, svc := setupSubnetServiceTest(t)
 	defer repo.AssertExpectations(t)
