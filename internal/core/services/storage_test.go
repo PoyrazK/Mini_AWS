@@ -207,6 +207,66 @@ func TestStorageVersioning(t *testing.T) {
 	})
 }
 
+func TestStorageListVersions(t *testing.T) {
+	repo, _, _, svc := setupStorageServiceTest(t)
+	defer repo.AssertExpectations(t)
+
+	ctx := context.Background()
+	versions := []*domain.Object{{Key: "v1"}, {Key: "v2"}}
+	repo.On("ListVersions", ctx, testBucket, testKey).Return(versions, nil)
+
+	result, err := svc.ListVersions(ctx, testBucket, testKey)
+	assert.NoError(t, err)
+	assert.Len(t, result, 2)
+}
+
+func TestStorageDeleteVersion(t *testing.T) {
+	repo, store, _, svc := setupStorageServiceTest(t)
+	defer repo.AssertExpectations(t)
+	defer store.AssertExpectations(t)
+
+	ctx := context.Background()
+	versionID := "v1"
+	obj := &domain.Object{Bucket: testBucket, Key: testKey, VersionID: versionID}
+
+	repo.On("GetMetaByVersion", ctx, testBucket, testKey, versionID).Return(obj, nil)
+	store.On("Delete", ctx, testBucket, mock.Anything).Return(nil)
+	repo.On("DeleteVersion", ctx, testBucket, testKey, versionID).Return(nil)
+
+	err := svc.DeleteVersion(ctx, testBucket, testKey, versionID)
+	assert.NoError(t, err)
+}
+
+func TestStorageDeleteVersionNull(t *testing.T) {
+	repo, store, _, svc := setupStorageServiceTest(t)
+	defer repo.AssertExpectations(t)
+	defer store.AssertExpectations(t)
+
+	ctx := context.Background()
+	versionID := "null"
+	obj := &domain.Object{Bucket: testBucket, Key: testKey, VersionID: versionID}
+
+	repo.On("GetMetaByVersion", ctx, testBucket, testKey, versionID).Return(obj, nil)
+	store.On("Delete", ctx, testBucket, testKey).Return(nil)
+	repo.On("DeleteVersion", ctx, testBucket, testKey, versionID).Return(nil)
+
+	err := svc.DeleteVersion(ctx, testBucket, testKey, versionID)
+	assert.NoError(t, err)
+}
+
+func TestStorageGetBucket(t *testing.T) {
+	repo, _, _, svc := setupStorageServiceTest(t)
+	defer repo.AssertExpectations(t)
+
+	ctx := context.Background()
+	bucket := &domain.Bucket{Name: testBucket}
+	repo.On("GetBucket", ctx, testBucket).Return(bucket, nil)
+
+	result, err := svc.GetBucket(ctx, testBucket)
+	assert.NoError(t, err)
+	assert.Equal(t, testBucket, result.Name)
+}
+
 func TestStorageMultipart(t *testing.T) {
 	repo, store, auditSvc, svc := setupStorageServiceTest(t)
 	defer repo.AssertExpectations(t)
