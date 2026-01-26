@@ -169,3 +169,44 @@ func TestClientAttachSecurityGroup(t *testing.T) {
 
 	assert.NoError(t, err)
 }
+
+func TestClientRemoveSecurityRule(t *testing.T) {
+	ruleID := "rule-123"
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/security-groups/rules/"+ruleID, r.URL.Path)
+		assert.Equal(t, http.MethodDelete, r.Method)
+
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, testAPIKey)
+	err := client.RemoveSecurityRule(ruleID)
+
+	assert.NoError(t, err)
+}
+
+func TestClientDetachSecurityGroup(t *testing.T) {
+	instanceID := "inst-123"
+	groupID := sg123
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/security-groups/detach", r.URL.Path)
+		assert.Equal(t, http.MethodPost, r.Method)
+
+		var req map[string]string
+		err := json.NewDecoder(r.Body).Decode(&req)
+		assert.NoError(t, err)
+		assert.Equal(t, instanceID, req["instance_id"])
+		assert.Equal(t, groupID, req["group_id"])
+
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, testAPIKey)
+	err := client.DetachSecurityGroup(instanceID, groupID)
+
+	assert.NoError(t, err)
+}
