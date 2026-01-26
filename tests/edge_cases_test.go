@@ -24,7 +24,7 @@ func TestEdgeCases(t *testing.T) {
 			"name":  "",
 			"image": "alpine",
 		}
-		resp := postRequest(t, client, testutil.TestBaseURL+"/instances", token, payload)
+		resp := postRequest(t, client, testutil.TestBaseURL+testutil.TestRouteInstances, token, payload)
 		defer resp.Body.Close()
 		helpers.AssertErrorCode(t, resp, http.StatusBadRequest)
 
@@ -33,7 +33,7 @@ func TestEdgeCases(t *testing.T) {
 			"name":       "",
 			"cidr_block": "10.0.0.0/16",
 		}
-		resp = postRequest(t, client, testutil.TestBaseURL+"/vpcs", token, vpcPayload)
+		resp = postRequest(t, client, testutil.TestBaseURL+testutil.TestRouteVpcs, token, vpcPayload)
 		defer resp.Body.Close()
 		helpers.AssertErrorCode(t, resp, http.StatusBadRequest)
 	})
@@ -48,7 +48,7 @@ func TestEdgeCases(t *testing.T) {
 			"name":  longName,
 			"image": "alpine",
 		}
-		resp := postRequest(t, client, testutil.TestBaseURL+"/instances", token, payload)
+		resp := postRequest(t, client, testutil.TestBaseURL+testutil.TestRouteInstances, token, payload)
 		defer resp.Body.Close()
 		// Depending on implementation, 255 might be OK or redirected to async launch (202)
 		assert.Contains(t, []int{http.StatusCreated, http.StatusAccepted}, resp.StatusCode)
@@ -56,7 +56,7 @@ func TestEdgeCases(t *testing.T) {
 		// 2. Instance name 256 chars (overflow)
 		tooLongName := longName + "a"
 		payload["name"] = tooLongName
-		resp = postRequest(t, client, testutil.TestBaseURL+"/instances", token, payload)
+		resp = postRequest(t, client, testutil.TestBaseURL+testutil.TestRouteInstances, token, payload)
 		defer resp.Body.Close()
 		helpers.AssertErrorCode(t, resp, http.StatusBadRequest)
 	})
@@ -67,7 +67,7 @@ func TestEdgeCases(t *testing.T) {
 			"name":  "test-🚀-instance",
 			"image": "alpine",
 		}
-		resp := postRequest(t, client, testutil.TestBaseURL+"/instances", token, payload)
+		resp := postRequest(t, client, testutil.TestBaseURL+testutil.TestRouteInstances, token, payload)
 		defer resp.Body.Close()
 		assert.Contains(t, []int{http.StatusCreated, http.StatusAccepted}, resp.StatusCode)
 
@@ -75,7 +75,7 @@ func TestEdgeCases(t *testing.T) {
 		bucketPayload := map[string]string{
 			"name": "bucket'; DROP TABLE users;--",
 		}
-		resp = postRequest(t, client, testutil.TestBaseURL+"/storage/buckets", token, bucketPayload)
+		resp = postRequest(t, client, testutil.TestBaseURL+testutil.TestRouteStorageBuckets, token, bucketPayload)
 		defer resp.Body.Close()
 
 		// If it returns 500, it might be vulnerable to SQL injection or at least unhandled database error
@@ -87,7 +87,7 @@ func TestEdgeCases(t *testing.T) {
 	})
 
 	t.Run("Malformed JSON", func(t *testing.T) {
-		resp := helpers.SendMalformedJSON(t, client, testutil.TestBaseURL+"/instances", "POST", token)
+		resp := helpers.SendMalformedJSON(t, client, testutil.TestBaseURL+testutil.TestRouteInstances, "POST", token)
 		defer resp.Body.Close()
 		helpers.AssertErrorCode(t, resp, http.StatusBadRequest)
 	})

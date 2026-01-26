@@ -32,7 +32,7 @@ func TestComputeE2E(t *testing.T) {
 			"image": "nginx:alpine",
 			"ports": "80:80",
 		}
-		resp := postRequest(t, client, testutil.TestBaseURL+"/instances", token, payload)
+		resp := postRequest(t, client, testutil.TestBaseURL+testutil.TestRouteInstances, token, payload)
 		defer resp.Body.Close()
 
 		require.Equal(t, http.StatusAccepted, resp.StatusCode)
@@ -49,7 +49,7 @@ func TestComputeE2E(t *testing.T) {
 
 	// 2. Get Instance Details
 	t.Run("GetInstance", func(t *testing.T) {
-		resp := getRequest(t, client, fmt.Sprintf("%s/instances/%s", testutil.TestBaseURL, instanceID), token)
+		resp := getRequest(t, client, fmt.Sprintf(testutil.TestRouteFormat, testutil.TestBaseURL, testutil.TestRouteInstances, instanceID), token)
 		defer resp.Body.Close()
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
@@ -61,9 +61,32 @@ func TestComputeE2E(t *testing.T) {
 		assert.Equal(t, instanceName, res.Data.Name)
 	})
 
+	// 2.5 Wait for Instance to be Running
+	t.Run("WaitForRunning", func(t *testing.T) {
+		timeout := 2 * time.Minute
+		start := time.Now()
+		for time.Since(start) < timeout {
+			resp := getRequest(t, client, fmt.Sprintf(testutil.TestRouteFormat, testutil.TestBaseURL, testutil.TestRouteInstances, instanceID), token)
+			var res struct {
+				Data domain.Instance `json:"data"`
+			}
+			require.NoError(t, json.NewDecoder(resp.Body).Decode(&res))
+			resp.Body.Close()
+
+			if res.Data.Status == domain.StatusRunning {
+				return
+			}
+			if res.Data.Status == domain.StatusError {
+				t.Fatal("Instance entered error state")
+			}
+			time.Sleep(2 * time.Second)
+		}
+		t.Fatal("Timeout waiting for instance to be running")
+	})
+
 	// 3. List Instances
 	t.Run("ListInstances", func(t *testing.T) {
-		resp := getRequest(t, client, testutil.TestBaseURL+"/instances", token)
+		resp := getRequest(t, client, testutil.TestBaseURL+testutil.TestRouteInstances, token)
 		defer resp.Body.Close()
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
@@ -86,7 +109,7 @@ func TestComputeE2E(t *testing.T) {
 	// 4. Get Logs
 	t.Run("GetLogs", func(t *testing.T) {
 		// Might be empty initially but endpoint should work
-		resp := getRequest(t, client, fmt.Sprintf("%s/instances/%s/logs", testutil.TestBaseURL, instanceID), token)
+		resp := getRequest(t, client, fmt.Sprintf("%s%s/%s/logs", testutil.TestBaseURL, testutil.TestRouteInstances, instanceID), token)
 		defer resp.Body.Close()
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
@@ -94,7 +117,7 @@ func TestComputeE2E(t *testing.T) {
 
 	// 5. Stop Instance
 	t.Run("StopInstance", func(t *testing.T) {
-		resp := postRequest(t, client, fmt.Sprintf("%s/instances/%s/stop", testutil.TestBaseURL, instanceID), token, nil)
+		resp := postRequest(t, client, fmt.Sprintf("%s%s/%s/stop", testutil.TestBaseURL, testutil.TestRouteInstances, instanceID), token, nil)
 		defer resp.Body.Close()
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
@@ -102,7 +125,7 @@ func TestComputeE2E(t *testing.T) {
 
 	// 6. Terminate Instance
 	t.Run("TerminateInstance", func(t *testing.T) {
-		resp := deleteRequest(t, client, fmt.Sprintf("%s/instances/%s", testutil.TestBaseURL, instanceID), token)
+		resp := deleteRequest(t, client, fmt.Sprintf(testutil.TestRouteFormat, testutil.TestBaseURL, testutil.TestRouteInstances, instanceID), token)
 		defer resp.Body.Close()
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)

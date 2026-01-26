@@ -81,4 +81,15 @@ const (
 	TestQueueID = "queue-1"
 	// TestTopicID is a default topic ID used in tests.
 	TestTopicID = "topic-1"
+
+	// TestRouteInstances is the endpoint for instances.
+	TestRouteInstances = "/instances"
+	// TestRouteVpcs is the endpoint for VPCs.
+	TestRouteVpcs = "/vpcs"
+	// TestRouteSnapshots is the endpoint for snapshots.
+	TestRouteSnapshots = "/snapshots"
+	// TestRouteStorageBuckets is the endpoint for storage buckets.
+	TestRouteStorageBuckets = "/storage/buckets"
+	// TestRouteFormat is the default template for specific resource routes.
+	TestRouteFormat = "%s%s/%s"
 )
