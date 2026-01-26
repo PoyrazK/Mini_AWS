@@ -456,6 +456,13 @@ func TestStorageMultipart(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
+	t.Run("AbortMultipartGetError", func(t *testing.T) {
+		repo.On("GetMultipartUpload", ctx, uploadID).Return(nil, assert.AnError).Once()
+
+		err := svc.AbortMultipartUpload(ctx, uploadID)
+		assert.Error(t, err)
+	})
+
 	t.Run("UploadPartNotFound", func(t *testing.T) {
 		repo.On("GetMultipartUpload", ctx, uploadID).Return(nil, errors.New(errors.NotFound, "not found")).Once()
 		_, err := svc.UploadPart(ctx, uploadID, 1, nil)
@@ -523,6 +530,21 @@ func TestStorageBucketOps(t *testing.T) {
 
 	t.Run("CreateBucketInvalidName", func(t *testing.T) {
 		_, err := svc.CreateBucket(ctx, "Invalid_Name", false)
+		assert.Error(t, err)
+	})
+
+	t.Run("CreateBucketInvalidLength", func(t *testing.T) {
+		_, err := svc.CreateBucket(ctx, "", false)
+		assert.Error(t, err)
+	})
+
+	t.Run("CreateBucketInvalidStartChar", func(t *testing.T) {
+		_, err := svc.CreateBucket(ctx, "-bad", false)
+		assert.Error(t, err)
+	})
+
+	t.Run("CreateBucketInvalidEndChar", func(t *testing.T) {
+		_, err := svc.CreateBucket(ctx, "bad-", false)
 		assert.Error(t, err)
 	})
 
