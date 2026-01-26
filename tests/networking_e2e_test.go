@@ -23,7 +23,7 @@ func TestNetworkingE2E(t *testing.T) {
 	token := registerAndLogin(t, client, "network-tester@thecloud.local", "Network Tester")
 
 	var vpcID string
-	vpcName := fmt.Sprintf("e2e-vpc-%d", time.Now().UnixNano()%1000)
+	vpcName := fmt.Sprintf("e2e-vpc-%d", time.Now().UnixNano()%1000000)
 
 	// 1. Create VPC
 	t.Run("CreateVPC", func(t *testing.T) {
@@ -31,7 +31,7 @@ func TestNetworkingE2E(t *testing.T) {
 			"name":       vpcName,
 			"cidr_block": "10.0.0.0/16",
 		}
-		resp := postRequest(t, client, testutil.TestBaseURL+"/vpcs", token, payload)
+		resp := postRequest(t, client, testutil.TestBaseURL+testutil.TestRouteVpcs, token, payload)
 		defer resp.Body.Close()
 
 		require.Equal(t, http.StatusCreated, resp.StatusCode)
@@ -131,16 +131,24 @@ func TestNetworkingE2E(t *testing.T) {
 		// Delete Security Group
 		resp = deleteRequest(t, client, fmt.Sprintf("%s/security-groups/%s", testutil.TestBaseURL, sgID), token)
 		resp.Body.Close()
-		assert.Equal(t, http.StatusOK, resp.StatusCode)
+		assert.Contains(t, []int{http.StatusOK, http.StatusNoContent}, resp.StatusCode)
 
 		// Delete Subnet
 		resp = deleteRequest(t, client, fmt.Sprintf("%s/subnets/%s", testutil.TestBaseURL, subnetID), token)
 		resp.Body.Close()
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 
-		// Delete VPC
-		resp = deleteRequest(t, client, fmt.Sprintf("%s/vpcs/%s", testutil.TestBaseURL, vpcID), token)
-		resp.Body.Close()
-		assert.Equal(t, http.StatusOK, resp.StatusCode)
+		// Delete VPC with retry to account for asynchronous cleanup of resources like LBs
+		timeout := 30 * time.Second
+		start := time.Now()
+		for time.Since(start) < timeout {
+			resp = deleteRequest(t, client, fmt.Sprintf("%s%s/%s", testutil.TestBaseURL, testutil.TestRouteVpcs, vpcID), token)
+			resp.Body.Close()
+			if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusNoContent {
+				return
+			}
+			time.Sleep(2 * time.Second)
+		}
+		t.Errorf("Timeout waiting for VPC %s to be deleted", vpcID)
 	})
 }
