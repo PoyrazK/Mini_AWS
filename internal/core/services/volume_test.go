@@ -181,6 +181,27 @@ func TestVolumeServiceDeleteVolumeRepoError(t *testing.T) {
 
 	assert.Error(t, err)
 }
+
+func TestVolumeServiceDeleteVolumeByName(t *testing.T) {
+	repo, storage, eventSvc, auditSvc, svc := setupVolumeServiceTest(t)
+	defer repo.AssertExpectations(t)
+	defer storage.AssertExpectations(t)
+	defer eventSvc.AssertExpectations(t)
+	defer auditSvc.AssertExpectations(t)
+
+	ctx := context.Background()
+	volID := uuid.New()
+	vol := &domain.Volume{ID: volID, Name: testVolName, Status: domain.VolumeStatusAvailable}
+
+	repo.On("GetByName", mock.Anything, testVolName).Return(vol, nil)
+	storage.On("DeleteVolume", mock.Anything, mock.Anything).Return(nil)
+	repo.On("Delete", mock.Anything, volID).Return(nil)
+	eventSvc.On("RecordEvent", mock.Anything, "VOLUME_DELETE", volID.String(), "VOLUME", mock.Anything).Return(nil)
+	auditSvc.On("Log", mock.Anything, mock.Anything, "volume.delete", "volume", mock.Anything, mock.Anything).Return(nil)
+
+	err := svc.DeleteVolume(ctx, testVolName)
+	assert.NoError(t, err)
+}
 func TestVolumeServiceListVolumesSuccess(t *testing.T) {
 	repo, _, _, _, svc := setupVolumeServiceTest(t)
 	defer repo.AssertExpectations(t)

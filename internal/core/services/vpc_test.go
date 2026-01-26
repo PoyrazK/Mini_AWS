@@ -169,6 +169,25 @@ func TestVpcServiceDeleteRepoError(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestVpcServiceDeleteByName(t *testing.T) {
+	vpcRepo, network, auditSvc, svc := setupVpcServiceTest(testutil.TestCIDR)
+	defer vpcRepo.AssertExpectations(t)
+	defer network.AssertExpectations(t)
+	defer auditSvc.AssertExpectations(t)
+
+	name := "by-name"
+	vpcID := uuid.New()
+	vpc := &domain.VPC{ID: vpcID, Name: name, NetworkID: "br-vpc-name"}
+
+	vpcRepo.On("GetByName", mock.Anything, name).Return(vpc, nil)
+	network.On("DeleteBridge", mock.Anything, "br-vpc-name").Return(nil)
+	vpcRepo.On("Delete", mock.Anything, vpcID).Return(nil)
+	auditSvc.On("Log", mock.Anything, mock.Anything, "vpc.delete", "vpc", mock.Anything, mock.Anything).Return(nil)
+
+	err := svc.DeleteVPC(context.Background(), name)
+	assert.NoError(t, err)
+}
+
 func TestVpcServiceListSuccess(t *testing.T) {
 	vpcRepo, _, _, svc := setupVpcServiceTest(testutil.TestCIDR)
 	defer vpcRepo.AssertExpectations(t)

@@ -6,6 +6,7 @@ import (
 	"io"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
@@ -634,6 +635,18 @@ func TestStoragePresignedURLMissingSecret(t *testing.T) {
 
 	_, err := svc.GeneratePresignedURL(ctx, testBucket, testKey, "GET", 0)
 	assert.Error(t, err)
+}
+
+func TestStoragePresignedURLDefaultBaseURL(t *testing.T) {
+	repo, _, _, svc := setupStorageServiceWithConfig(t, &platform.Config{SecretsEncryptionKey: "test-secret"})
+	defer repo.AssertExpectations(t)
+
+	ctx := context.Background()
+	repo.On("GetBucket", ctx, testBucket).Return(&domain.Bucket{Name: testBucket}, nil).Once()
+
+	url, err := svc.GeneratePresignedURL(ctx, testBucket, testKey, "GET", time.Minute)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, url.URL)
 }
 
 func TestStorageEncryption(t *testing.T) {
