@@ -4,7 +4,8 @@ INSERT INTO tenants (id, name, slug, owner_id, plan, status, created_at, updated
 SELECT 
     gen_random_uuid(), 
     name || '''s Personal Tenant', 
-    'personal-' || LOWER(REPLACE(name, ' ', '-')) || '-' || SUBSTR(id::text, 1, 8),
+    -- Normalize slug: lowercase, replace non-alphanumeric with hyphens, trim, append unique ID suffix
+    'personal-' || trim(both '-' from regexp_replace(lower(name), '[^a-z0-9]+', '-', 'g')) || '-' || SUBSTR(id::text, 1, 8),
     id, 
     'free', 
     'active', 
@@ -17,7 +18,7 @@ WHERE default_tenant_id IS NULL;
 INSERT INTO tenant_members (tenant_id, user_id, role, joined_at)
 SELECT id, owner_id, 'owner', NOW()
 FROM tenants
-ON CONFLICT DO NOTHING;
+ON CONFLICT (tenant_id, user_id) DO NOTHING;
 
 -- 3. Update users table with default_tenant_id
 UPDATE users u
@@ -96,7 +97,7 @@ END $$;
 -- 5. Add default quotas for all tenants
 INSERT INTO tenant_quotas (tenant_id, max_instances, max_vpcs, max_storage_gb, max_memory_gb, max_vcpus)
 SELECT id, 10, 3, 100, 32, 16 FROM tenants
-ON CONFLICT DO NOTHING;
+ON CONFLICT (tenant_id) DO NOTHING;
 
 -- 6. Update API keys with default_tenant_id
 UPDATE api_keys ak
