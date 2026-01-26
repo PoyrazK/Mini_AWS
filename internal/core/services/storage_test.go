@@ -245,6 +245,33 @@ func TestStorageDeleteVersion(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestStorageDeleteVersionStoreError(t *testing.T) {
+	repo, store, _, svc := setupStorageServiceTest(t)
+	defer repo.AssertExpectations(t)
+	defer store.AssertExpectations(t)
+
+	ctx := context.Background()
+	versionID := "v2"
+	obj := &domain.Object{Bucket: testBucket, Key: testKey, VersionID: versionID}
+
+	repo.On("GetMetaByVersion", ctx, testBucket, testKey, versionID).Return(obj, nil)
+	store.On("Delete", ctx, testBucket, mock.Anything).Return(assert.AnError)
+
+	err := svc.DeleteVersion(ctx, testBucket, testKey, versionID)
+	assert.Error(t, err)
+}
+
+func TestStorageDeleteVersionMetaError(t *testing.T) {
+	repo, _, _, svc := setupStorageServiceTest(t)
+	defer repo.AssertExpectations(t)
+
+	ctx := context.Background()
+	repo.On("GetMetaByVersion", ctx, testBucket, testKey, "v3").Return(nil, assert.AnError)
+
+	err := svc.DeleteVersion(ctx, testBucket, testKey, "v3")
+	assert.Error(t, err)
+}
+
 func TestStorageDeleteVersionNull(t *testing.T) {
 	repo, store, _, svc := setupStorageServiceTest(t)
 	defer repo.AssertExpectations(t)
@@ -356,6 +383,17 @@ func TestStorageMultipart(t *testing.T) {
 
 		err := svc.AbortMultipartUpload(ctx, uploadID)
 		assert.Error(t, err)
+	})
+
+	t.Run("AbortMultipartListPartsError", func(t *testing.T) {
+		upload := &domain.MultipartUpload{ID: uploadID, Bucket: bucket, Key: key}
+		repo.On("GetMultipartUpload", ctx, uploadID).Return(upload, nil).Once()
+		repo.On("ListParts", ctx, uploadID).Return(nil, assert.AnError).Once()
+		repo.On("DeleteMultipartUpload", ctx, uploadID).Return(nil).Once()
+		auditSvc.On("Log", ctx, userID, "storage.multipart_abort", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+
+		err := svc.AbortMultipartUpload(ctx, uploadID)
+		assert.NoError(t, err)
 	})
 
 	t.Run("UploadPartNotFound", func(t *testing.T) {
