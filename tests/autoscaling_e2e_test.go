@@ -29,7 +29,7 @@ func TestAutoScalingE2E(t *testing.T) {
 			"name":       "asg-vpc",
 			"cidr_block": "10.10.0.0/16",
 		}
-		resp := postRequest(t, client, testutil.TestBaseURL+"/vpcs", token, payload)
+		resp := postRequest(t, client, testutil.TestBaseURL+testutil.TestRouteVpcs, token, payload)
 		defer resp.Body.Close()
 		require.Equal(t, http.StatusCreated, resp.StatusCode)
 
@@ -39,7 +39,7 @@ func TestAutoScalingE2E(t *testing.T) {
 	})
 
 	var groupID string
-	groupName := fmt.Sprintf("e2e-asg-%d", time.Now().UnixNano()%1000)
+	groupName := fmt.Sprintf("e2e-asg-%d", time.Now().UnixNano()%1000000)
 
 	// 2. Create Scaling Group
 	t.Run("CreateGroup", func(t *testing.T) {
@@ -70,7 +70,7 @@ func TestAutoScalingE2E(t *testing.T) {
 	t.Run("CreatePolicy", func(t *testing.T) {
 		payload := map[string]interface{}{
 			"name":           "scale-up-cpu",
-			"metric_type":    "cpu_utilization",
+			"metric_type":    "cpu",
 			"target_value":   70.0,
 			"scale_out_step": 1,
 			"scale_in_step":  1,
@@ -101,8 +101,17 @@ func TestAutoScalingE2E(t *testing.T) {
 		resp.Body.Close()
 		assert.Equal(t, http.StatusNoContent, resp.StatusCode)
 
-		// Delete VPC
-		resp = deleteRequest(t, client, fmt.Sprintf("%s/vpcs/%s", testutil.TestBaseURL, vpcID), token)
-		resp.Body.Close()
+		// Delete VPC with retry
+		timeout := 30 * time.Second
+		start := time.Now()
+		for time.Since(start) < timeout {
+			resp = deleteRequest(t, client, fmt.Sprintf("%s%s/%s", testutil.TestBaseURL, testutil.TestRouteVpcs, vpcID), token)
+			resp.Body.Close()
+			if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusNoContent {
+				return
+			}
+			time.Sleep(2 * time.Second)
+		}
+		t.Errorf("Timeout waiting for VPC %s to be deleted", vpcID)
 	})
 }
