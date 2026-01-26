@@ -22,9 +22,13 @@ func NewVolumeRepository(db DB) *VolumeRepository {
 }
 
 func (r *VolumeRepository) Create(ctx context.Context, v *domain.Volume) error {
+	tenantID := appcontext.TenantIDFromContext(ctx)
+	if tenantID == uuid.Nil {
+		return errors.New(errors.Unauthorized, "tenant ID required in context")
+	}
 	query := `INSERT INTO volumes (id, user_id, tenant_id, name, size_gb, status, instance_id, backend_path, mount_path, created_at, updated_at) 
               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`
-	_, err := r.db.Exec(ctx, query, v.ID, v.UserID, v.TenantID, v.Name, v.SizeGB, string(v.Status), v.InstanceID, v.BackendPath, v.MountPath, v.CreatedAt, v.UpdatedAt)
+	_, err := r.db.Exec(ctx, query, v.ID, v.UserID, tenantID, v.Name, v.SizeGB, string(v.Status), v.InstanceID, v.BackendPath, v.MountPath, v.CreatedAt, v.UpdatedAt)
 	return err
 }
 
@@ -85,8 +89,12 @@ func (r *VolumeRepository) scanVolumes(rows pgx.Rows) ([]*domain.Volume, error) 
 }
 
 func (r *VolumeRepository) Update(ctx context.Context, v *domain.Volume) error {
+	tenantID := appcontext.TenantIDFromContext(ctx)
+	if tenantID == uuid.Nil {
+		return errors.New(errors.Unauthorized, "tenant ID required in context")
+	}
 	query := `UPDATE volumes SET status = $1, instance_id = $2, backend_path = $3, mount_path = $4, updated_at = $5 WHERE id = $6 AND tenant_id = $7`
-	_, err := r.db.Exec(ctx, query, string(v.Status), v.InstanceID, v.BackendPath, v.MountPath, v.UpdatedAt, v.ID, v.TenantID)
+	_, err := r.db.Exec(ctx, query, string(v.Status), v.InstanceID, v.BackendPath, v.MountPath, v.UpdatedAt, v.ID, tenantID)
 	return err
 }
 
