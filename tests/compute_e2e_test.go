@@ -70,7 +70,7 @@ func TestComputeE2E(t *testing.T) {
 			var res struct {
 				Data domain.Instance `json:"data"`
 			}
-			json.NewDecoder(resp.Body).Decode(&res)
+			require.NoError(t, json.NewDecoder(resp.Body).Decode(&res))
 			resp.Body.Close()
 
 			if res.Data.Status == domain.StatusRunning {
