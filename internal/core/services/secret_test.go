@@ -187,3 +187,23 @@ func TestSecretServiceDecryptInvalidCiphertext(t *testing.T) {
 	_, err := svc.Decrypt(ctx, userID, "not-base64")
 	assert.Error(t, err)
 }
+
+func TestNewSecretServiceDefaultKey(t *testing.T) {
+	repo := new(MockSecretRepo)
+	eventSvc := new(MockEventService)
+	auditSvc := new(MockAuditService)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	svc := services.NewSecretService(repo, eventSvc, auditSvc, logger, "", "development")
+	assert.NotNil(t, svc)
+}
+
+func TestNewSecretServiceShortKey(t *testing.T) {
+	repo := new(MockSecretRepo)
+	eventSvc := new(MockEventService)
+	auditSvc := new(MockAuditService)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	svc := services.NewSecretService(repo, eventSvc, auditSvc, logger, "short", "development")
+	assert.NotNil(t, svc)
+}

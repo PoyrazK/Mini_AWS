@@ -287,6 +287,15 @@ func TestLBWorkerCheckTargetHealthUpdates(t *testing.T) {
 	lbRepo.AssertExpectations(t)
 }
 
+func TestRealDialerDialTimeout(t *testing.T) {
+	d := &realDialer{}
+	conn, err := d.DialTimeout("tcp", "127.0.0.1:0", 10*time.Millisecond)
+	if err == nil {
+		_ = conn.Close()
+	}
+	assert.Error(t, err)
+}
+
 func TestLBWorkerRun(t *testing.T) {
 	lbRepo := new(mockLBRepo)
 	instRepo := new(mockInstRepo)
