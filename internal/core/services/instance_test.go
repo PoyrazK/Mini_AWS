@@ -87,6 +87,31 @@ func TestLaunchInstancePropagatesUserID(t *testing.T) {
 	assert.Equal(t, expectedUserID, inst.UserID)
 }
 
+func TestProvisionInstanceNetworkErrorUpdatesStatus(t *testing.T) {
+	repo, vpcRepo, _, _, compute, _, _, _, _, svc := setupInstanceServiceTest(t)
+	defer repo.AssertExpectations(t)
+	defer vpcRepo.AssertExpectations(t)
+	defer compute.AssertExpectations(t)
+
+	ctx := context.Background()
+	instID := uuid.New()
+	vpcID := uuid.New()
+	inst := &domain.Instance{ID: instID, VpcID: &vpcID}
+
+	repo.On("GetByID", ctx, instID).Return(inst, nil)
+	compute.On("Type").Return("mock")
+	vpcRepo.On("GetByID", ctx, vpcID).Return(nil, assert.AnError)
+	repo.On("Update", ctx, mock.MatchedBy(func(i *domain.Instance) bool {
+		return i.ID == instID && i.Status == domain.StatusError
+	})).Return(nil)
+
+	impl, ok := svc.(*services.InstanceService)
+	assert.True(t, ok)
+
+	err := impl.Provision(ctx, instID, nil)
+	assert.Error(t, err)
+}
+
 func TestTerminateInstanceSuccess(t *testing.T) {
 	repo, _, _, volumeRepo, compute, _, eventSvc, auditSvc, _, svc := setupInstanceServiceTest(t)
 	defer repo.AssertExpectations(t)
