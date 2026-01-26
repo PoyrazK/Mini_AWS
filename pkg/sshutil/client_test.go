@@ -75,6 +75,17 @@ func TestWaitForSSHTimeout(t *testing.T) {
 	assert.Contains(t, err.Error(), "timed out")
 }
 
+func TestWaitForSSHContextCanceled(t *testing.T) {
+	client := &Client{Host: "127.0.0.1:54321"}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err := client.WaitForSSH(ctx, 2*time.Second)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "timed out")
+}
+
 func TestRunConnectionRefused(t *testing.T) {
 	// Ensure we pick a port that rejects connection
 	l, err := net.Listen("tcp", testLoopbackAddr)
@@ -91,6 +102,18 @@ func TestRunConnectionRefused(t *testing.T) {
 	// Error message format depends on OS, usually "connection refused" or "dial tcp"
 }
 
+func TestRunContextTimeout(t *testing.T) {
+	privKey := generateTestKey(t)
+	client, err := NewClientWithKey("127.0.0.1:0", "user", privKey)
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+
+	_, err = client.Run(ctx, "echo hello")
+	require.Error(t, err)
+}
+
 // TODO: A full SSH server mock for Run and WriteFile would be better but significantly more complex.
 // For "Phase 1 Quick Wins", validating the Client logic, Key parsing, and Network dialing is a good start.
 
@@ -101,4 +124,14 @@ func TestWriteFileConnectionRefused(t *testing.T) {
 	err := client.WriteFile(context.Background(), "/tmp/test", []byte("data"), "0644")
 	require.Error(t, err)
 	// Expect dial error
+}
+
+func TestWriteFileContextTimeout(t *testing.T) {
+	client := &Client{Host: "127.0.0.1:0"}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+
+	err := client.WriteFile(ctx, "/tmp/test", []byte("data"), "0644")
+	require.Error(t, err)
 }
