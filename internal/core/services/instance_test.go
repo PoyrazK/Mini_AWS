@@ -126,6 +126,30 @@ func TestTerminateInstanceSuccess(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestTerminateInstanceUpdatesMetricsRunning(t *testing.T) {
+	repo, _, _, volumeRepo, compute, _, eventSvc, auditSvc, _, svc := setupInstanceServiceTest(t)
+	defer repo.AssertExpectations(t)
+	defer volumeRepo.AssertExpectations(t)
+	defer compute.AssertExpectations(t)
+	defer eventSvc.AssertExpectations(t)
+	defer auditSvc.AssertExpectations(t)
+
+	ctx := context.Background()
+	instID := uuid.New()
+	inst := &domain.Instance{ID: instID, Name: "test", ContainerID: "c123", Status: domain.StatusRunning}
+
+	repo.On("GetByID", mock.Anything, instID).Return(inst, nil)
+	compute.On("DeleteInstance", mock.Anything, "c123").Return(nil)
+	compute.On("Type").Return("mock")
+	volumeRepo.On("ListByInstanceID", mock.Anything, instID).Return([]*domain.Volume{}, nil)
+	repo.On("Delete", mock.Anything, instID).Return(nil)
+	eventSvc.On("RecordEvent", mock.Anything, "INSTANCE_TERMINATE", instID.String(), "INSTANCE", mock.Anything).Return(nil)
+	auditSvc.On("Log", mock.Anything, mock.Anything, "instance.terminate", "instance", instID.String(), mock.Anything).Return(nil)
+
+	err := svc.TerminateInstance(ctx, instID.String())
+	assert.NoError(t, err)
+}
+
 func TestTerminateInstanceRemoveContainerFailsDoesNotReleaseVolumes(t *testing.T) {
 	repo, _, _, volumeRepo, compute, _, eventSvc, _, _, svc := setupInstanceServiceTest(t)
 	defer repo.AssertExpectations(t)
