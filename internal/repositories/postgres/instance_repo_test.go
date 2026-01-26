@@ -133,13 +133,14 @@ func TestInstanceRepositoryGetByName(t *testing.T) {
 
 		mock.ExpectQuery(selectQuery).
 			WithArgs(name, userID).
-			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "name", "image", "container_id", "status", "ports", "vpc_id", "subnet_id", "private_ip", "ovs_port", "version", "created_at", "updated_at"}).
-				AddRow(id, userID, name, testInstanceImg, "cid-1", string(domain.StatusRunning), "80:80", nil, nil, testutil.TestIPHost, "ovs-1", 1, now, now))
+			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "tenant_id", "name", "image", "container_id", "status", "ports", "vpc_id", "subnet_id", "private_ip", "ovs_port", "version", "created_at", "updated_at"}).
+				AddRow(id, userID, uuid.New(), name, testInstanceImg, "cid-1", string(domain.StatusRunning), "80:80", nil, nil, testutil.TestIPHost, "ovs-1", 1, now, now))
 
 		inst, err := repo.GetByName(ctx, name)
 		assert.NoError(t, err)
-		assert.NotNil(t, inst)
-		assert.Equal(t, id, inst.ID)
+		if assert.NotNil(t, inst) {
+			assert.Equal(t, id, inst.ID)
+		}
 	})
 
 	t.Run("not found", func(t *testing.T) {
