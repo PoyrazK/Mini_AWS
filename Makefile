@@ -3,6 +3,7 @@
 # Configuration
 PROJECT_PREFIX = cloud-
 COMPOSE_FILES = -f docker-compose.yml
+TEST_TIMEOUT ?= 2m
 
 run: stop
 	docker compose $(COMPOSE_FILES) up -d --build
@@ -35,10 +36,10 @@ reset: clean-docker
 	@echo "System reset complete."
 
 test:
-	go test ./...
+	go test -timeout $(TEST_TIMEOUT) ./...
 
 test-coverage:
-	go test -coverprofile=coverage.out ./...
+	go test -timeout $(TEST_TIMEOUT) -coverprofile=coverage.out ./...
 	go tool cover -func=coverage.out
 	@rm coverage.out
 
