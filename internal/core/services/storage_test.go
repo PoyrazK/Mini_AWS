@@ -13,6 +13,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/poyrazk/thecloud/internal/errors"
+	"github.com/poyrazk/thecloud/internal/platform"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -26,7 +27,8 @@ func setupStorageServiceTest(_ *testing.T) (*MockStorageRepo, *MockFileStore, *M
 	repo := new(MockStorageRepo)
 	store := new(MockFileStore)
 	auditSvc := new(MockAuditService)
-	svc := services.NewStorageService(repo, store, auditSvc, nil, nil)
+	cfg := &platform.Config{SecretsEncryptionKey: "test-secret", Port: "8080"}
+	svc := services.NewStorageService(repo, store, auditSvc, nil, cfg)
 	return repo, store, auditSvc, svc
 }
 
@@ -35,7 +37,8 @@ func setupStorageServiceWithEncryption(_ *testing.T) (*MockStorageRepo, *MockFil
 	store := new(MockFileStore)
 	auditSvc := new(MockAuditService)
 	encryptSvc := new(MockEncryptionService)
-	svc := services.NewStorageService(repo, store, auditSvc, encryptSvc, nil)
+	cfg := &platform.Config{SecretsEncryptionKey: "test-secret", Port: "8080"}
+	svc := services.NewStorageService(repo, store, auditSvc, encryptSvc, cfg)
 	return repo, store, auditSvc, encryptSvc, svc
 }
 
