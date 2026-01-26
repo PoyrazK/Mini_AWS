@@ -637,6 +637,17 @@ func TestStoragePresignedURLMissingSecret(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestStoragePresignedURLInvalidBaseURL(t *testing.T) {
+	repo, _, _, svc := setupStorageServiceWithConfig(t, &platform.Config{SecretsEncryptionKey: "test-secret", Port: "%"})
+	defer repo.AssertExpectations(t)
+
+	ctx := context.Background()
+	repo.On("GetBucket", ctx, testBucket).Return(&domain.Bucket{Name: testBucket}, nil).Once()
+
+	_, err := svc.GeneratePresignedURL(ctx, testBucket, testKey, "GET", time.Minute)
+	assert.Error(t, err)
+}
+
 func TestStoragePresignedURLDefaultBaseURL(t *testing.T) {
 	repo, _, _, svc := setupStorageServiceWithConfig(t, &platform.Config{SecretsEncryptionKey: "test-secret"})
 	defer repo.AssertExpectations(t)

@@ -52,6 +52,23 @@ func TestSubnetServiceCreateSubnetSuccess(t *testing.T) {
 	assert.Equal(t, testutil.TestGatewayIP, subnet.GatewayIP)
 }
 
+func TestSubnetServiceCreateSubnetRepoError(t *testing.T) {
+	repo, vpcRepo, _, svc := setupSubnetServiceTest(t)
+	defer repo.AssertExpectations(t)
+	defer vpcRepo.AssertExpectations(t)
+
+	ctx := appcontext.WithUserID(context.Background(), uuid.New())
+	vpcID := uuid.New()
+	vpc := &domain.VPC{ID: vpcID, CIDRBlock: testutil.TestCIDR}
+
+	vpcRepo.On("GetByID", ctx, vpcID).Return(vpc, nil)
+	repo.On("Create", ctx, mock.Anything).Return(assert.AnError)
+
+	subnet, err := svc.CreateSubnet(ctx, vpcID, "test-subnet", testutil.TestSubnetCIDR, "us-east-1a")
+	assert.Error(t, err)
+	assert.Nil(t, subnet)
+}
+
 func TestSubnetServiceCreateSubnetInvalidCIDR(t *testing.T) {
 	repo, vpcRepo, _, svc := setupSubnetServiceTest(t)
 	defer repo.AssertExpectations(t)
