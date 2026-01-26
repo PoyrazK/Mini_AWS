@@ -59,7 +59,7 @@ func (s *AuthService) Register(ctx context.Context, email, password, name string
 	// Check if user already exists
 	existing, _ := s.userRepo.GetByEmail(ctx, email)
 	if existing != nil {
-		return nil, errors.New(errors.InvalidInput, "user with this email already exists")
+		return nil, errors.New(errors.Conflict, "user with this email already exists")
 	}
 
 	// Hash password

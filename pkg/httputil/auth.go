@@ -2,6 +2,8 @@
 package httputil
 
 import (
+	"context"
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
@@ -30,35 +32,14 @@ func Auth(svc ports.IdentityService, tenantSvc ports.TenantService) gin.HandlerF
 		// Wrap the request context with UserID
 		ctx := appcontext.WithUserID(c.Request.Context(), apiKeyObj.UserID)
 
-		// Resolve active tenant (from header or user default)
-		tenantIDStr := c.GetHeader("X-Tenant-ID")
-		var tenantID uuid.UUID
-		if tenantIDStr != "" {
-			var err error
-			tenantID, err = uuid.Parse(tenantIDStr)
-			if err != nil {
-				Error(c, errors.New(errors.InvalidInput, "invalid tenant ID header"))
-				c.Abort()
-				return
-			}
-		} else if apiKeyObj.DefaultTenantID != nil {
-			tenantID = *apiKeyObj.DefaultTenantID
+		tenantID, err := resolveAndVerifyTenant(ctx, c.GetHeader("X-Tenant-ID"), apiKeyObj.DefaultTenantID, apiKeyObj.UserID, tenantSvc)
+		if err != nil {
+			Error(c, err)
+			c.Abort()
+			return
 		}
 
 		if tenantID != uuid.Nil {
-			// Verify membership
-			member, err := tenantSvc.GetMembership(ctx, tenantID, apiKeyObj.UserID)
-			if err != nil {
-				Error(c, errors.New(errors.Forbidden, "failed to verify tenant membership"))
-				c.Abort()
-				return
-			}
-			if member == nil {
-				Error(c, errors.New(errors.Forbidden, "user is not a member of this tenant"))
-				c.Abort()
-				return
-			}
-
 			ctx = appcontext.WithTenantID(ctx, tenantID)
 			c.Set("tenantID", tenantID)
 		}
@@ -107,11 +88,38 @@ func Permission(rbac ports.RBACService, permission domain.Permission) gin.Handle
 		}
 
 		if err := rbac.Authorize(c.Request.Context(), userID, permission); err != nil {
-			Error(c, err)
+			Error(c, errors.New(errors.Forbidden, "permission denied"))
 			c.Abort()
 			return
 		}
 
 		c.Next()
 	}
+}
+
+func resolveAndVerifyTenant(ctx context.Context, tenantIDStr string, defaultTenantID *uuid.UUID, userID uuid.UUID, tenantSvc ports.TenantService) (uuid.UUID, error) {
+	var tenantID uuid.UUID
+
+	if tenantIDStr != "" {
+		var err error
+		tenantID, err = uuid.Parse(tenantIDStr)
+		if err != nil {
+			return uuid.Nil, errors.New(errors.InvalidInput, "invalid tenant ID header")
+		}
+	} else if defaultTenantID != nil {
+		tenantID = *defaultTenantID
+	}
+
+	if tenantID != uuid.Nil {
+		// Verify membership
+		member, err := tenantSvc.GetMembership(ctx, tenantID, userID)
+		if err != nil {
+			return uuid.Nil, errors.New(errors.Forbidden, "failed to verify tenant membership")
+		}
+		if member == nil {
+			return uuid.Nil, errors.New(errors.Forbidden, "user is not a member of this tenant")
+		}
+	}
+
+	return tenantID, nil
 }
