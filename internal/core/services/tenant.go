@@ -71,7 +71,11 @@ func (s *TenantService) CreateTenant(ctx context.Context, name, slug string, own
 	user, err := s.userRepo.GetByID(ctx, ownerID)
 	if err == nil && user.DefaultTenantID == nil {
 		user.DefaultTenantID = &tenant.ID
-		_ = s.userRepo.Update(ctx, user)
+		if err := s.userRepo.Update(ctx, user); err != nil {
+			s.logger.Error("failed to set default tenant for user", "user_id", ownerID, "tenant_id", tenant.ID, "error", err)
+			// Decide if this should rollback user creation.
+			// Currently opting to log and continue as it is a non-critical preference setting.
+		}
 	}
 
 	return tenant, nil
@@ -150,7 +154,7 @@ func (s *TenantService) CheckQuota(ctx context.Context, tenantID uuid.UUID, reso
 	case "vcpus":
 		current, limit = quota.UsedVCPUs, quota.MaxVCPUs
 	default:
-		return nil // Unknown resource, skip check? Or error?
+		return errors.New(errors.InvalidInput, "unknown resource type for quota check: "+resource)
 	}
 
 	if current+requested > limit {

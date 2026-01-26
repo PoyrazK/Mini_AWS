@@ -160,9 +160,36 @@ func (r *TenantRepo) ListUserTenants(ctx context.Context, userID uuid.UUID) ([]d
 }
 
 func (r *TenantRepo) GetQuota(ctx context.Context, tenantID uuid.UUID) (*domain.TenantQuota, error) {
-	query := `SELECT tenant_id, max_instances, max_vpcs, max_storage_gb, max_memory_gb, max_vcpus FROM tenant_quotas WHERE tenant_id = $1`
+	query := `
+		SELECT 
+			tq.tenant_id, 
+			tq.max_instances, 
+			tq.max_vpcs, 
+			tq.max_storage_gb, 
+			tq.max_memory_gb, 
+			tq.max_vcpus,
+			(SELECT COUNT(*) FROM instances WHERE tenant_id = tq.tenant_id AND status != 'DELETED') as used_instances,
+			(SELECT COUNT(*) FROM vpcs WHERE tenant_id = tq.tenant_id) as used_vpcs,
+			(SELECT COALESCE(SUM(size_gb), 0) FROM volumes WHERE tenant_id = tq.tenant_id AND status != 'deleted') as used_storage_gb,
+			0 as used_memory_gb, -- Placeholder as instance sizing is not yet normalized
+			0 as used_vcpus      -- Placeholder
+		FROM tenant_quotas tq 
+		WHERE tq.tenant_id = $1
+	`
 	var q domain.TenantQuota
-	err := r.db.QueryRow(ctx, query, tenantID).Scan(&q.TenantID, &q.MaxInstances, &q.MaxVPCs, &q.MaxStorageGB, &q.MaxMemoryGB, &q.MaxVCPUs)
+	err := r.db.QueryRow(ctx, query, tenantID).Scan(
+		&q.TenantID,
+		&q.MaxInstances,
+		&q.MaxVPCs,
+		&q.MaxStorageGB,
+		&q.MaxMemoryGB,
+		&q.MaxVCPUs,
+		&q.UsedInstances,
+		&q.UsedVPCs,
+		&q.UsedStorageGB,
+		&q.UsedMemoryGB,
+		&q.UsedVCPUs,
+	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, errors.New(errors.NotFound, "quota not found")
