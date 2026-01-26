@@ -53,6 +53,10 @@ type mockTenantService struct {
 	mock.Mock
 }
 
+type mockRBACService struct {
+	mock.Mock
+}
+
 func (m *mockTenantService) CreateTenant(ctx context.Context, name, slug string, ownerID uuid.UUID) (*domain.Tenant, error) {
 	return nil, nil
 }
@@ -78,6 +82,35 @@ func (m *mockTenantService) GetMembership(ctx context.Context, tenantID, userID 
 	}
 	return args.Get(0).(*domain.TenantMember), args.Error(1)
 }
+
+func (m *mockRBACService) Authorize(ctx context.Context, userID uuid.UUID, permission domain.Permission) error {
+	args := m.Called(ctx, userID, permission)
+	return args.Error(0)
+}
+
+func (m *mockRBACService) HasPermission(ctx context.Context, userID uuid.UUID, permission domain.Permission) (bool, error) {
+	args := m.Called(ctx, userID, permission)
+	return args.Bool(0), args.Error(1)
+}
+
+func (m *mockRBACService) CreateRole(ctx context.Context, role *domain.Role) error { return nil }
+func (m *mockRBACService) GetRoleByID(ctx context.Context, id uuid.UUID) (*domain.Role, error) {
+	return nil, nil
+}
+func (m *mockRBACService) GetRoleByName(ctx context.Context, name string) (*domain.Role, error) {
+	return nil, nil
+}
+func (m *mockRBACService) ListRoles(ctx context.Context) ([]*domain.Role, error) { return nil, nil }
+func (m *mockRBACService) UpdateRole(ctx context.Context, role *domain.Role) error { return nil }
+func (m *mockRBACService) DeleteRole(ctx context.Context, id uuid.UUID) error { return nil }
+func (m *mockRBACService) AddPermissionToRole(ctx context.Context, roleID uuid.UUID, permission domain.Permission) error {
+	return nil
+}
+func (m *mockRBACService) RemovePermissionFromRole(ctx context.Context, roleID uuid.UUID, permission domain.Permission) error {
+	return nil
+}
+func (m *mockRBACService) BindRole(ctx context.Context, userIdentifier string, roleName string) error { return nil }
+func (m *mockRBACService) ListRoleBindings(ctx context.Context) ([]*domain.User, error) { return nil, nil }
 
 func TestAuth_Success(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -138,6 +171,69 @@ func TestAuth_InvalidKey(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
+}
+
+func TestPermission_Unauthenticated(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	rbacSvc := new(mockRBACService)
+
+	r := gin.New()
+	r.Use(Permission(rbacSvc, domain.PermissionInstanceRead))
+	r.GET("/protected", func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodGet, "/protected", nil)
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+}
+
+func TestPermission_Forbidden(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	rbacSvc := new(mockRBACService)
+	userID := uuid.New()
+	rbacSvc.On("Authorize", mock.Anything, userID, domain.PermissionInstanceRead).Return(fmt.Errorf("nope"))
+
+	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		c.Set("userID", userID)
+		c.Next()
+	})
+	r.Use(Permission(rbacSvc, domain.PermissionInstanceRead))
+	r.GET("/protected", func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodGet, "/protected", nil)
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusForbidden, w.Code)
+}
+
+func TestPermission_Allowed(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	rbacSvc := new(mockRBACService)
+	userID := uuid.New()
+	rbacSvc.On("Authorize", mock.Anything, userID, domain.PermissionInstanceRead).Return(nil)
+
+	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		c.Set("userID", userID)
+		c.Next()
+	})
+	r.Use(Permission(rbacSvc, domain.PermissionInstanceRead))
+	r.GET("/protected", func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodGet, "/protected", nil)
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
 }
 
 func TestAuth_InvalidTenantHeader(t *testing.T) {
