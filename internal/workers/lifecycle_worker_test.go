@@ -170,3 +170,34 @@ func TestLifecycleWorker_ProcessRulesRepoError(t *testing.T) {
 
 	assert.Empty(t, storageSvc.DeletedKeys())
 }
+
+func TestLifecycleWorker_ProcessRulesDeleteError(t *testing.T) {
+	repo := &fakeLifecycleRepo{
+		rules: []*domain.LifecycleRule{
+			{
+				ID:             uuid.New(),
+				BucketName:     "logs",
+				ExpirationDays: 1,
+				UserID:         uuid.New(),
+			},
+		},
+	}
+
+	old := time.Now().UTC().Add(-48 * time.Hour)
+	storageSvc := &fakeLifecycleStorageService{
+		objects:   []*domain.Object{{Key: "old.log", CreatedAt: old}},
+		deleteErr: io.EOF,
+	}
+
+	worker := &LifecycleWorker{
+		lifecycleRepo: repo,
+		storageSvc:    storageSvc,
+		storageRepo:   nil,
+		logger:        slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+
+	worker.processRules(context.Background())
+
+	deleted := storageSvc.DeletedKeys()
+	assert.Len(t, deleted, 1)
+}

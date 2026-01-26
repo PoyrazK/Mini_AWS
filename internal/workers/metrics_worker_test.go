@@ -122,3 +122,24 @@ func TestMetricsCollectorWorker_CollectMetricsHandlesError(t *testing.T) {
 		t.Fatalf("expected GetClusterStatus to be called once")
 	}
 }
+
+func TestMetricsCollectorWorker_CollectMetricsCountsUpNodes(t *testing.T) {
+	svc := &fakeStorageService{clusterStatus: &domain.StorageCluster{
+		Nodes: []domain.StorageNode{
+			{Status: "up"},
+			{Status: "alive"},
+			{Status: "down"},
+		},
+	}}
+	worker := &MetricsCollectorWorker{
+		storageRepo: nil,
+		storageSvc:  svc,
+		logger:      slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+
+	worker.collectMetrics(context.Background())
+
+	if svc.StatusCalls() != 1 {
+		t.Fatalf("expected GetClusterStatus to be called once")
+	}
+}
