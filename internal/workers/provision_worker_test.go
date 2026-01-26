@@ -51,7 +51,7 @@ func (f *failingComputeBackend) CreateInstance(ctx context.Context, opts ports.C
 	return "", errors.New("provisioning failed")
 }
 
-func TestProvisionWorker_Run(t *testing.T) {
+func TestProvisionWorkerRun(t *testing.T) {
 	tests := []struct {
 		name           string
 		message        interface{} // string or struct
@@ -132,7 +132,7 @@ func TestProvisionWorker_Run(t *testing.T) {
 	}
 }
 
-func TestProvisionWorker_Run_DequeueError(t *testing.T) {
+func TestProvisionWorkerRunDequeueError(t *testing.T) {
 	// Test that worker continues on queue error
 	fq := &fakeTaskQueue{
 		messages: []string{},
