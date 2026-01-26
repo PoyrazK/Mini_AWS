@@ -11,7 +11,7 @@ import (
 )
 
 // Auth enforces API key authentication and injects user context.
-func Auth(svc ports.IdentityService) gin.HandlerFunc {
+func Auth(svc ports.IdentityService, tenantSvc ports.TenantService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		apiKey := c.GetHeader("X-API-Key")
 		if apiKey == "" {
@@ -46,6 +46,19 @@ func Auth(svc ports.IdentityService) gin.HandlerFunc {
 		}
 
 		if tenantID != uuid.Nil {
+			// Verify membership
+			member, err := tenantSvc.GetMembership(ctx, tenantID, apiKeyObj.UserID)
+			if err != nil {
+				Error(c, errors.New(errors.Forbidden, "failed to verify tenant membership"))
+				c.Abort()
+				return
+			}
+			if member == nil {
+				Error(c, errors.New(errors.Forbidden, "user is not a member of this tenant"))
+				c.Abort()
+				return
+			}
+
 			ctx = appcontext.WithTenantID(ctx, tenantID)
 			c.Set("tenantID", tenantID)
 		}
