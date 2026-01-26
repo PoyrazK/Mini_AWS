@@ -18,15 +18,9 @@ func TestMultiTenancy_TenantIsolation(t *testing.T) {
 	db := setupDB(t)
 	defer db.Close()
 
-	// Clear tables in correct order
+	// Clear tables in correct order using TRUNCATE CASCADE to handle circular dependencies
 	ctx := context.Background()
-	_, _ = db.Exec(ctx, "DELETE FROM instances")
-	_, _ = db.Exec(ctx, "DELETE FROM vpcs")
-	_, _ = db.Exec(ctx, "DELETE FROM volumes")
-	_, _ = db.Exec(ctx, "DELETE FROM tenant_members")
-	_, _ = db.Exec(ctx, "UPDATE users SET default_tenant_id = NULL")
-	_, _ = db.Exec(ctx, "DELETE FROM tenants")
-	_, _ = db.Exec(ctx, "DELETE FROM users")
+	_, _ = db.Exec(ctx, "TRUNCATE users, tenants, tenant_members, vpcs, instances, volumes CASCADE")
 
 	// Create User IDs
 	user1 := uuid.New()
@@ -38,6 +32,7 @@ func TestMultiTenancy_TenantIsolation(t *testing.T) {
 	tenantRepo := NewTenantRepo(db)
 	vpcRepo := NewVpcRepository(db)
 	instRepo := NewInstanceRepository(db)
+	sgRepo := NewSecurityGroupRepository(db)
 
 	// 1. Create Users
 	users := []*domain.User{
@@ -125,5 +120,41 @@ func TestMultiTenancy_TenantIsolation(t *testing.T) {
 		require.NoError(t, err)
 		assert.Len(t, listB, 1)
 		assert.Equal(t, instB.ID, listB[0].ID)
+	})
+
+	t.Run("Security Group Isolation", func(t *testing.T) {
+		// Create new VPCs to avoid conflict/ensure clean state
+		vpcA := &domain.VPC{ID: uuid.New(), UserID: user1, TenantID: tenantA, Name: "vpc-a-sg", CreatedAt: time.Now()}
+		require.NoError(t, vpcRepo.Create(ctxA1, vpcA))
+
+		sgA := &domain.SecurityGroup{
+			ID: uuid.New(), UserID: user1, TenantID: tenantA, VPCID: vpcA.ID, Name: "sg-a", CreatedAt: time.Now(),
+		}
+		require.NoError(t, sgRepo.Create(ctxA1, sgA))
+
+		// Tenant B cannot see SG A
+		_, err := sgRepo.GetByID(ctxB3, sgA.ID)
+		assert.Error(t, err)
+
+		// Instance in Tenant A
+		instA := &domain.Instance{
+			ID: uuid.New(), UserID: user1, TenantID: tenantA, Name: "inst-a-sg", Image: "alpine", Status: domain.StatusRunning, CreatedAt: time.Now(),
+		}
+		require.NoError(t, instRepo.Create(ctxA1, instA))
+
+		// Add Instance A to SG A (Same Tenant) - Should succeed
+		err = sgRepo.AddInstanceToGroup(ctxA1, instA.ID, sgA.ID)
+		assert.NoError(t, err)
+
+		// Instance in Tenant B
+		instB := &domain.Instance{
+			ID: uuid.New(), UserID: user3, TenantID: tenantB, Name: "inst-b-sg", Image: "alpine", Status: domain.StatusRunning, CreatedAt: time.Now(),
+		}
+		require.NoError(t, instRepo.Create(ctxB3, instB))
+
+		// Try to add Instance B to SG A (Cross Tenant) - Should fail
+		err = sgRepo.AddInstanceToGroup(ctxA1, instB.ID, sgA.ID)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "instance does not belong to this tenant")
 	})
 }

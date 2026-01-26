@@ -128,8 +128,34 @@ func (s *TenantService) SwitchTenant(ctx context.Context, userID, tenantID uuid.
 }
 
 func (s *TenantService) CheckQuota(ctx context.Context, tenantID uuid.UUID, resource string, requested int) error {
-	// This would involve counting current usage.
-	// Placeholder for now as we haven't implemented usage counting services yet.
+	quota, err := s.repo.GetQuota(ctx, tenantID)
+	if err != nil {
+		// If no quota defined, assume unlimited or default? For now, fail safe.
+		// Or creating a default quota on the fly?
+		// Let's assuming GetQuota returns not found error if no specific quota.
+		// Ideally we should have defaults.
+		return errors.Wrap(errors.Internal, "failed to get tenant quota", err)
+	}
+
+	var current, limit int
+	switch resource {
+	case "instances":
+		current, limit = quota.UsedInstances, quota.MaxInstances
+	case "vpcs":
+		current, limit = quota.UsedVPCs, quota.MaxVPCs
+	case "storage":
+		current, limit = quota.UsedStorageGB, quota.MaxStorageGB
+	case "memory":
+		current, limit = quota.UsedMemoryGB, quota.MaxMemoryGB
+	case "vcpus":
+		current, limit = quota.UsedVCPUs, quota.MaxVCPUs
+	default:
+		return nil // Unknown resource, skip check? Or error?
+	}
+
+	if current+requested > limit {
+		return errors.New(errors.QuotaExceeded, "quota exceeded for "+resource)
+	}
 	return nil
 }
 

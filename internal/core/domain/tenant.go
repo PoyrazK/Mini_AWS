@@ -28,10 +28,15 @@ type TenantMember struct {
 
 // TenantQuota defines resource limits for a tenant.
 type TenantQuota struct {
-	TenantID     uuid.UUID `json:"tenant_id"`
-	MaxInstances int       `json:"max_instances"`
-	MaxVPCs      int       `json:"max_vpcs"`
-	MaxStorageGB int       `json:"max_storage_gb"`
-	MaxMemoryGB  int       `json:"max_memory_gb"`
-	MaxVCPUs     int       `json:"max_vcpus"`
+	TenantID      uuid.UUID `json:"tenant_id"`
+	MaxInstances  int       `json:"max_instances"`
+	UsedInstances int       `json:"used_instances"`
+	MaxVPCs       int       `json:"max_vpcs"`
+	UsedVPCs      int       `json:"used_vpcs"`
+	MaxStorageGB  int       `json:"max_storage_gb"`
+	UsedStorageGB int       `json:"used_storage_gb"`
+	MaxMemoryGB   int       `json:"max_memory_gb"`
+	UsedMemoryGB  int       `json:"used_memory_gb"`
+	MaxVCPUs      int       `json:"max_vcpus"`
+	UsedVCPUs     int       `json:"used_vcpus"`
 }
