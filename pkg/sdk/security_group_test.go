@@ -70,6 +70,25 @@ func TestClientListSecurityGroups(t *testing.T) {
 	assert.Len(t, sgs, 2)
 }
 
+func TestClientListSecurityGroups_NoVPC(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, sgBasePath, r.URL.Path)
+		assert.Equal(t, "", r.URL.RawQuery)
+		assert.Equal(t, http.MethodGet, r.Method)
+
+		w.Header().Set(contentType, testutil.TestContentTypeAppJSON)
+		resp := Response[[]SecurityGroup]{Data: []SecurityGroup{{ID: "sg-1"}}}
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, testAPIKey)
+	groups, err := client.ListSecurityGroups("")
+
+	assert.NoError(t, err)
+	assert.Len(t, groups, 1)
+}
+
 func TestClientGetSecurityGroup(t *testing.T) {
 	id := sg123
 	expectedSG := SecurityGroup{

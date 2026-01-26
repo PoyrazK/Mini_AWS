@@ -152,6 +152,13 @@ func TestClient_GetInstanceLogsErrorStatus(t *testing.T) {
 	assert.Contains(t, err.Error(), "api error")
 }
 
+func TestClient_GetInstanceLogsRequestError(t *testing.T) {
+	client := NewClient("http://127.0.0.1:0", "test-key")
+	_, err := client.GetInstanceLogs("inst-1")
+
+	assert.Error(t, err)
+}
+
 func TestClient_GetInstanceStats(t *testing.T) {
 	mockStats := InstanceStats{
 		CPUPercentage:    15.5,

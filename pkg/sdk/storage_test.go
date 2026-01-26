@@ -79,6 +79,13 @@ func TestClient_UploadObjectErrorStatus(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestClient_UploadObjectRequestError(t *testing.T) {
+	client := NewClient("http://127.0.0.1:0", "test-api-key")
+	_, err := client.UploadObject("bucket", "key", strings.NewReader("data"))
+
+	assert.Error(t, err)
+}
+
 func TestClient_DownloadObject(t *testing.T) {
 	bucket := "my-bucket"
 	key := "file.txt"

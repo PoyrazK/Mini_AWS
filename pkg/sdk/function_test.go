@@ -179,3 +179,10 @@ func TestFunctionSDK_Errors(t *testing.T) {
 	_, err = client.GetFunctionLogs("fn-1")
 	assert.Error(t, err)
 }
+
+func TestFunctionSDK_RequestError(t *testing.T) {
+	client := sdk.NewClient("http://127.0.0.1:0/api/v1", "test-api-key")
+	_, err := client.CreateFunction("my-fn", "nodejs20", "index.js", []byte("code"))
+
+	assert.Error(t, err)
+}

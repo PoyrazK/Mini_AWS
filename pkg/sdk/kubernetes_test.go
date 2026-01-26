@@ -114,6 +114,25 @@ func TestClient_GetKubeconfig(t *testing.T) {
 	assert.Equal(t, "kubeconfig", config)
 }
 
+func TestClient_GetKubeconfigNoRole(t *testing.T) {
+	clusterID := uuid.New()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodGet, r.Method)
+		assert.Equal(t, "/clusters/"+clusterID.String()+"/kubeconfig", r.URL.Path)
+		assert.Equal(t, "", r.URL.RawQuery)
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(Response[string]{Data: "kubeconfig"})
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, testAPIKey)
+	config, err := client.GetKubeconfig(clusterID.String(), "")
+
+	assert.NoError(t, err)
+	assert.Equal(t, "kubeconfig", config)
+}
+
 func TestClient_RepairScaleUpgradeRotateBackupRestoreCluster(t *testing.T) {
 	clusterID := uuid.New()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
