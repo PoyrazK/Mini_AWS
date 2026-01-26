@@ -35,7 +35,7 @@ ALTER TABLE secrets DROP COLUMN IF EXISTS tenant_id;
 ALTER TABLE snapshots DROP COLUMN IF EXISTS tenant_id;
 ALTER TABLE subnets DROP COLUMN IF EXISTS tenant_id;
 ALTER TABLE security_groups DROP COLUMN IF EXISTS tenant_id;
-ALTER TABLE floating_ips DROP COLUMN IF EXISTS tenant_id;
+ALTER TABLE IF EXISTS floating_ips DROP COLUMN IF EXISTS tenant_id;
 ALTER TABLE clusters DROP COLUMN IF EXISTS tenant_id;
 ALTER TABLE buckets DROP COLUMN IF EXISTS tenant_id;
 ALTER TABLE scaling_groups DROP COLUMN IF EXISTS tenant_id;
