@@ -225,6 +225,8 @@ func TestCheckQuota_Resources(t *testing.T) {
 	err := svc.CheckQuota(ctx, tenantID, "vpcs", 1)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "quota exceeded")
-	// Unknown resource (should pass or fail depending on logic, implementation returns nil currently)
-	assert.NoError(t, svc.CheckQuota(ctx, tenantID, "unknown", 1))
+	// Unknown resource
+	err = svc.CheckQuota(ctx, tenantID, "unknown", 1)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "unknown resource type")
 }
