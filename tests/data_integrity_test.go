@@ -101,7 +101,7 @@ func TestDataIntegrity(t *testing.T) {
 		resp = getRequest(t, client, vpcPath, token)
 		defer resp.Body.Close()
 		require.Equal(t, http.StatusOK, resp.StatusCode)
-		_ = json.NewDecoder(resp.Body).Decode(&w)
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(&w))
 		assert.Equal(t, name, w.Data.Name)
 
 		// 3. Update (if supported, using PUT/PATCH)
@@ -120,7 +120,7 @@ func TestDataIntegrity(t *testing.T) {
 				// 4. Verify Update
 				resp = getRequest(t, client, vpcPath, token)
 				defer resp.Body.Close()
-				_ = json.NewDecoder(resp.Body).Decode(&w)
+				require.NoError(t, json.NewDecoder(resp.Body).Decode(&w))
 				assert.Equal(t, newName, w.Data.Name)
 			}
 		}
