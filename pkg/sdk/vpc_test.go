@@ -93,3 +93,24 @@ func TestClientDeleteVPC(t *testing.T) {
 
 	assert.NoError(t, err)
 }
+
+func TestClient_VPCErrors(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("boom"))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, testAPIKey)
+	_, err := client.ListVPCs()
+	assert.Error(t, err)
+
+	_, err = client.CreateVPC("vpc", testutil.TestCIDR)
+	assert.Error(t, err)
+
+	_, err = client.GetVPC("vpc-1")
+	assert.Error(t, err)
+
+	err = client.DeleteVPC("vpc-1")
+	assert.Error(t, err)
+}

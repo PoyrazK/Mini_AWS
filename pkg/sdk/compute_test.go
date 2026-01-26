@@ -188,6 +188,18 @@ func TestClient_ComputeErrors(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestClient_LaunchInstanceError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("boom"))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "test-key")
+	_, err := client.LaunchInstance("name", "img", "80", "", "", nil)
+	assert.Error(t, err)
+}
+
 func TestClient_ApiError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

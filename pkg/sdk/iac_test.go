@@ -137,3 +137,27 @@ func TestClient_ValidateTemplate(t *testing.T) {
 	assert.NotNil(t, resp)
 	assert.True(t, resp.Valid)
 }
+
+func TestClient_IacErrors(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("boom"))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "test-api-key")
+	_, err := client.CreateStack("stack", "template", map[string]string{})
+	assert.Error(t, err)
+
+	_, err = client.ListStacks()
+	assert.Error(t, err)
+
+	_, err = client.GetStack("stack-1")
+	assert.Error(t, err)
+
+	err = client.DeleteStack("stack-1")
+	assert.Error(t, err)
+
+	_, err = client.ValidateTemplate("template")
+	assert.Error(t, err)
+}
