@@ -36,12 +36,15 @@ reset: clean-docker
 	@echo "System reset complete."
 
 test:
-	go test -timeout $(TEST_TIMEOUT) ./...
+	go test ./...
 
 test-coverage:
-	go test -timeout $(TEST_TIMEOUT) -coverprofile=coverage.out ./...
+	go test -coverprofile=coverage.out ./...
 	go tool cover -func=coverage.out
 	@rm coverage.out
+
+test-e2e:
+	go test -timeout $(TEST_TIMEOUT) ./tests/...
 
 doccheck:
 	go run ./cmd/doccheck --root .
