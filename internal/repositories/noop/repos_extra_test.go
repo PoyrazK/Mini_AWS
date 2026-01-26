@@ -122,5 +122,6 @@ func TestNoopRepositoriesExtra(t *testing.T) {
 		list, err := repo.List(ctx)
 		assert.NoError(t, err)
 		assert.Empty(t, list)
+		assert.NoError(t, repo.Delete(ctx, id))
 	})
 }

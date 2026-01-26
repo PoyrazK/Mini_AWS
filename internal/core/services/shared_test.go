@@ -45,6 +45,10 @@ func (m *MockUserRepo) List(ctx context.Context) ([]*domain.User, error) {
 	return args.Get(0).([]*domain.User), args.Error(1)
 }
 
+func (m *MockUserRepo) Delete(ctx context.Context, id uuid.UUID) error {
+	return m.Called(ctx, id).Error(0)
+}
+
 // MockIdentityService
 type MockIdentityService struct {
 	mock.Mock

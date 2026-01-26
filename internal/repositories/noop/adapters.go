@@ -304,6 +304,7 @@ func (r *NoopUserRepository) Update(ctx context.Context, user *domain.User) erro
 func (r *NoopUserRepository) List(ctx context.Context) ([]*domain.User, error) {
 	return []*domain.User{}, nil
 }
+func (r *NoopUserRepository) Delete(ctx context.Context, id uuid.UUID) error { return nil }
 
 // NoopIdentityService is a no-op identity service.
 type NoopIdentityService struct{}

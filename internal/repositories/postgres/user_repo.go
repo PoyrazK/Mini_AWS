@@ -92,6 +92,18 @@ func (r *UserRepo) List(ctx context.Context) ([]*domain.User, error) {
 	return r.scanUsers(rows)
 }
 
+func (r *UserRepo) Delete(ctx context.Context, id uuid.UUID) error {
+	query := `
+		DELETE FROM users
+		WHERE id = $1
+	`
+	_, err := r.db.Exec(ctx, query, id)
+	if err != nil {
+		return fmt.Errorf("failed to delete user: %w", err)
+	}
+	return nil
+}
+
 func (r *UserRepo) scanUser(row pgx.Row) (*domain.User, error) {
 	user := &domain.User{}
 	err := row.Scan(

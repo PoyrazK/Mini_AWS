@@ -103,6 +103,32 @@ func TestAuthServiceRegisterDuplicateEmail(t *testing.T) {
 	assert.Contains(t, err.Error(), "already exists")
 }
 
+func TestAuthServiceRegisterTenantCreateRollback(t *testing.T) {
+	userRepo, _, auditSvc, tenantSvc, svc := setupAuthServiceTest(t)
+	defer userRepo.AssertExpectations(t)
+	defer auditSvc.AssertExpectations(t)
+	defer tenantSvc.AssertExpectations(t)
+
+	ctx := context.Background()
+
+	email := "rollback@example.com"
+	password := testutil.TestPasswordStrong
+	name := "Rollback User"
+
+	userRepo.On("GetByEmail", mock.Anything, email).Return(nil, nil)
+	userRepo.On("Create", mock.Anything, mock.MatchedBy(func(u *domain.User) bool {
+		return u.Email == email && u.Name == name
+	})).Return(nil)
+	tenantSvc.On("CreateTenant", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("uuid.UUID")).Return(nil, assert.AnError)
+	userRepo.On("Delete", mock.Anything, mock.AnythingOfType("uuid.UUID")).Return(nil)
+
+	user, err := svc.Register(ctx, email, password, name)
+
+	assert.Error(t, err)
+	assert.Nil(t, user)
+	auditSvc.AssertNotCalled(t, "Log", mock.Anything, mock.Anything, "user.register", mock.Anything, mock.Anything, mock.Anything)
+}
+
 func TestAuthServiceLoginSuccess(t *testing.T) {
 	userRepo, identitySvc, auditSvc, _, svc := setupAuthServiceTest(t)
 	defer userRepo.AssertExpectations(t)

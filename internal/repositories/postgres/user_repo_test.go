@@ -280,3 +280,38 @@ func TestUserRepo_List(t *testing.T) {
 		assert.Nil(t, users)
 	})
 }
+
+func TestUserRepo_Delete(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		mock, err := pgxmock.NewPool()
+		assert.NoError(t, err)
+		defer mock.Close()
+
+		repo := NewUserRepo(mock)
+		id := uuid.New()
+
+		mock.ExpectExec("DELETE FROM users").
+			WithArgs(id).
+			WillReturnResult(pgxmock.NewResult("DELETE", 1))
+
+		err = repo.Delete(context.Background(), id)
+		assert.NoError(t, err)
+		assert.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("db error", func(t *testing.T) {
+		mock, err := pgxmock.NewPool()
+		assert.NoError(t, err)
+		defer mock.Close()
+
+		repo := NewUserRepo(mock)
+		id := uuid.New()
+
+		mock.ExpectExec("DELETE FROM users").
+			WithArgs(id).
+			WillReturnError(errors.New("db error"))
+
+		err = repo.Delete(context.Background(), id)
+		assert.Error(t, err)
+	})
+}

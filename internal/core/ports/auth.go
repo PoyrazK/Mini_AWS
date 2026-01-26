@@ -30,4 +30,6 @@ type UserRepository interface {
 	Update(ctx context.Context, user *domain.User) error
 	// List returns all registered users (typically for administrative use).
 	List(ctx context.Context) ([]*domain.User, error)
+	// Delete removes a user by ID.
+	Delete(ctx context.Context, id uuid.UUID) error
 }

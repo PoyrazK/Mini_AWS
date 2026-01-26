@@ -108,8 +108,10 @@ func (s *AuthService) Register(ctx context.Context, email, password, name string
 
 	_, err = s.tenantSvc.CreateTenant(ctx, tenantName, tenantSlug, user.ID)
 	if err != nil {
-		// TODO: Implement user rollback here if tenant creation fails.
-		// Currently UserRepository does not expose a Delete method.
+		rollbackErr := s.userRepo.Delete(ctx, user.ID)
+		if rollbackErr != nil {
+			return nil, fmt.Errorf("failed to create personal tenant: %w; rollback failed: %v", err, rollbackErr)
+		}
 		return nil, fmt.Errorf("failed to create personal tenant: %w", err)
 	}
 
