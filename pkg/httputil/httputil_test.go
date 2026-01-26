@@ -236,6 +236,32 @@ func TestPermission_Allowed(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
+func TestGetTenantID(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	tenantID := uuid.New()
+
+	c.Set("tenantID", tenantID)
+	assert.Equal(t, tenantID, GetTenantID(c))
+
+	c.Set("tenantID", "invalid")
+	assert.Equal(t, uuid.Nil, GetTenantID(c))
+}
+
+func TestGetUserID(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	userID := uuid.New()
+
+	c.Set("userID", userID)
+	assert.Equal(t, userID, GetUserID(c))
+
+	c.Set("userID", 123)
+	assert.Equal(t, uuid.Nil, GetUserID(c))
+}
+
 func TestAuth_InvalidTenantHeader(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockIdentityService)
