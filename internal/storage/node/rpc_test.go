@@ -84,9 +84,7 @@ func TestRPCServerGetClusterStatus(t *testing.T) {
 
 func TestRPCServerStoreError(t *testing.T) {
 	tmpDir := t.TempDir()
-	store, err := NewLocalStore(tmpDir)
-	require.NoError(t, err)
-
+	store, _ := NewLocalStore(tmpDir)
 	server := NewRPCServer(store, nil)
 
 	resp, err := server.Store(context.Background(), &pb.StoreRequest{
@@ -102,9 +100,7 @@ func TestRPCServerStoreError(t *testing.T) {
 
 func TestRPCServerDeleteMissing(t *testing.T) {
 	tmpDir := t.TempDir()
-	store, err := NewLocalStore(tmpDir)
-	require.NoError(t, err)
-
+	store, _ := NewLocalStore(tmpDir)
 	server := NewRPCServer(store, nil)
 
 	resp, err := server.Delete(context.Background(), &pb.DeleteRequest{

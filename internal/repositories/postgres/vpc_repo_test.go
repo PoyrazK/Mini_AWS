@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestVpcRepository_Integration(t *testing.T) {
+func TestVpcRepositoryIntegration(t *testing.T) {
 	db := setupDB(t)
 	defer db.Close()
 	repo := NewVpcRepository(db)
