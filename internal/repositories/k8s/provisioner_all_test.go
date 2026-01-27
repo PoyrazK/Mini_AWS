@@ -72,10 +72,14 @@ func TestKubeadmProvisionerK8sOps(t *testing.T) {
 
 		// GetHealth Success
 		healthCheckCmd := "kubectl --kubeconfig /etc/kubernetes/admin.conf get nodes"
-		instSvc.On("Exec", ctx, masterID.String(), mock.MatchedBy(func(args []string) bool { return args[len(args)-1] == healthCheckCmd })).Return("master Ready v1.29.0", nil).Once()
+		instSvc.On("Exec", ctx, masterID.String(), mock.MatchedBy(func(args []string) bool {
+			return len(args) > 0 && args[len(args)-1] == healthCheckCmd
+		})).Return("master Ready v1.29.0", nil).Once()
 
 		healthNoHeadersCmd := "kubectl --kubeconfig /etc/kubernetes/admin.conf get nodes --no-headers"
-		instSvc.On("Exec", ctx, masterID.String(), mock.MatchedBy(func(args []string) bool { return args[len(args)-1] == healthNoHeadersCmd })).Return("master Ready v1.29.0", nil).Once()
+		instSvc.On("Exec", ctx, masterID.String(), mock.MatchedBy(func(args []string) bool {
+			return len(args) > 0 && args[len(args)-1] == healthNoHeadersCmd
+		})).Return("master Ready v1.29.0", nil).Once()
 
 		h, err := p.GetHealth(ctx, cluster)
 		assert.NoError(t, err)
