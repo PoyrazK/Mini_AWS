@@ -15,9 +15,9 @@ import (
 	"testing"
 	"time"
 
-	"golang.org/x/crypto/ssh"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/crypto/ssh"
 )
 
 // generateTestKey generates a private key for testing
@@ -277,7 +277,7 @@ func handleSSHConn(t *testing.T, conn net.Conn, config *ssh.ServerConfig, handle
 
 	for newChannel := range chans {
 		if newChannel.ChannelType() != "session" {
-			newChannel.Reject(ssh.UnknownChannelType, "unknown channel type")
+			_ = newChannel.Reject(ssh.UnknownChannelType, "unknown channel type")
 			continue
 		}
 
@@ -290,13 +290,13 @@ func handleSSHConn(t *testing.T, conn net.Conn, config *ssh.ServerConfig, handle
 			defer ch.Close()
 			for req := range in {
 				if req.Type != "exec" {
-					req.Reply(false, nil)
+					_ = req.Reply(false, nil)
 					continue
 				}
 
 				var payload struct{ Command string }
-				ssh.Unmarshal(req.Payload, &payload)
-				req.Reply(true, nil)
+				_ = ssh.Unmarshal(req.Payload, &payload)
+				_ = req.Reply(true, nil)
 
 				status := uint32(0)
 				if err := handler(payload.Command, ch); err != nil {
