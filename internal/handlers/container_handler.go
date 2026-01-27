@@ -11,6 +11,8 @@ import (
 	"github.com/poyrazk/thecloud/pkg/httputil"
 )
 
+const invalidDeploymentIDMsg = "Invalid deployment ID"
+
 // ContainerHandler handles deployment and container HTTP endpoints.
 type ContainerHandler struct {
 	svc ports.ContainerService
@@ -54,7 +56,7 @@ func (h *ContainerHandler) ListDeployments(c *gin.Context) {
 func (h *ContainerHandler) GetDeployment(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		httputil.Error(c, errors.New(errors.InvalidInput, "Invalid deployment ID"))
+		httputil.Error(c, errors.New(errors.InvalidInput, invalidDeploymentIDMsg))
 		return
 	}
 
@@ -70,7 +72,7 @@ func (h *ContainerHandler) GetDeployment(c *gin.Context) {
 func (h *ContainerHandler) ScaleDeployment(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		httputil.Error(c, errors.New(errors.InvalidInput, "Invalid deployment ID"))
+		httputil.Error(c, errors.New(errors.InvalidInput, invalidDeploymentIDMsg))
 		return
 	}
 
@@ -93,7 +95,7 @@ func (h *ContainerHandler) ScaleDeployment(c *gin.Context) {
 func (h *ContainerHandler) DeleteDeployment(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		httputil.Error(c, errors.New(errors.InvalidInput, "Invalid deployment ID"))
+		httputil.Error(c, errors.New(errors.InvalidInput, invalidDeploymentIDMsg))
 		return
 	}
 
