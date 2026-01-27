@@ -14,8 +14,8 @@ import (
 )
 
 const (
-	testMasterIP = "10.0.0.10"
-	binSh        = "/bin/sh"
+	kubeMasterIP = "10.0.0.10"
+	kubeShell    = "/bin/sh"
 )
 
 type mockInstanceService struct{ mock.Mock }
@@ -110,13 +110,13 @@ func TestKubeadmProvisionerGetHealthServiceExecutor(t *testing.T) {
 
 	clusterID := uuid.New()
 	instanceID := uuid.New()
-	masterIP := testMasterIP
+	masterIP := kubeMasterIP
 	cluster := &domain.Cluster{ID: clusterID, ControlPlaneIPs: []string{masterIP}, Status: domain.ClusterStatusRunning}
 
 	repo.On("GetNodes", mock.Anything, clusterID).Return([]*domain.ClusterNode{{ID: uuid.New(), InstanceID: instanceID}}, nil)
 	instSvc.On("GetInstance", mock.Anything, instanceID.String()).Return(&domain.Instance{ID: instanceID, PrivateIP: masterIP}, nil)
-	instSvc.On("Exec", mock.Anything, instanceID.String(), []string{binSh, "-c", kubectlBase + " get nodes"}).Return("", nil)
-	instSvc.On("Exec", mock.Anything, instanceID.String(), []string{binSh, "-c", kubectlBase + " get nodes --no-headers"}).Return("node-a Ready \nnode-b NotReady", nil)
+	instSvc.On("Exec", mock.Anything, instanceID.String(), []string{kubeShell, "-c", kubectlBase + " get nodes"}).Return("", nil)
+	instSvc.On("Exec", mock.Anything, instanceID.String(), []string{kubeShell, "-c", kubectlBase + " get nodes --no-headers"}).Return("node-a Ready \nnode-b NotReady", nil)
 
 	health, err := p.GetHealth(context.Background(), cluster)
 
@@ -134,13 +134,13 @@ func TestKubeadmProvisionerGetHealthAPIServerDown(t *testing.T) {
 
 	clusterID := uuid.New()
 	instanceID := uuid.New()
-	masterIP := testMasterIP
+	masterIP := kubeMasterIP
 	cluster := &domain.Cluster{ID: clusterID, ControlPlaneIPs: []string{masterIP}, Status: domain.ClusterStatusRunning}
 
 	repo.On("GetNodes", mock.Anything, clusterID).Return([]*domain.ClusterNode{{ID: uuid.New(), InstanceID: instanceID}}, nil)
 	instSvc.On("GetInstance", mock.Anything, instanceID.String()).Return(&domain.Instance{ID: instanceID, PrivateIP: masterIP}, nil)
-	instSvc.On("Exec", mock.Anything, instanceID.String(), []string{binSh, "-c", kubectlBase + " get nodes"}).Return("", errors.New("down"))
-	instSvc.On("Exec", mock.Anything, instanceID.String(), []string{binSh, "-c", kubectlBase + " get nodes --no-headers"}).Return("", io.EOF)
+	instSvc.On("Exec", mock.Anything, instanceID.String(), []string{kubeShell, "-c", kubectlBase + " get nodes"}).Return("", errors.New("down"))
+	instSvc.On("Exec", mock.Anything, instanceID.String(), []string{kubeShell, "-c", kubectlBase + " get nodes --no-headers"}).Return("", io.EOF)
 
 	health, err := p.GetHealth(context.Background(), cluster)
 
@@ -168,7 +168,7 @@ func TestKubeadmProvisionerGetKubeconfigViewerNotImplemented(t *testing.T) {
 	p := newProvisioner(instSvc, repo)
 
 	clusterID := uuid.New()
-	cluster := &domain.Cluster{ID: clusterID, ControlPlaneIPs: []string{testMasterIP}}
+	cluster := &domain.Cluster{ID: clusterID, ControlPlaneIPs: []string{kubeMasterIP}}
 
 	repo.On("GetNodes", mock.Anything, clusterID).Return(nil, errors.New("no nodes"))
 
@@ -185,12 +185,12 @@ func TestKubeadmProvisionerGetKubeconfigAdmin(t *testing.T) {
 
 	clusterID := uuid.New()
 	instanceID := uuid.New()
-	masterIP := testMasterIP
+	masterIP := kubeMasterIP
 	cluster := &domain.Cluster{ID: clusterID, ControlPlaneIPs: []string{masterIP}}
 
 	repo.On("GetNodes", mock.Anything, clusterID).Return([]*domain.ClusterNode{{ID: uuid.New(), InstanceID: instanceID}}, nil)
 	instSvc.On("GetInstance", mock.Anything, instanceID.String()).Return(&domain.Instance{ID: instanceID, PrivateIP: masterIP}, nil)
-	instSvc.On("Exec", mock.Anything, instanceID.String(), []string{binSh, "-c", "cat " + adminKubeconfig}).Return("kubeconfig", nil)
+	instSvc.On("Exec", mock.Anything, instanceID.String(), []string{kubeShell, "-c", "cat " + adminKubeconfig}).Return("kubeconfig", nil)
 
 	kubeconfig, err := p.GetKubeconfig(context.Background(), cluster, "admin")
 

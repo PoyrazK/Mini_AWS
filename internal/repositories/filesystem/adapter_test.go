@@ -10,7 +10,13 @@ import (
 	"github.com/poyrazk/thecloud/internal/errors"
 )
 
-func TestLocalFileStore_WriteReadDelete(t *testing.T) {
+const (
+	pathTraversalKey          = "../../../etc/passwd"
+	pathTraversalExpectedErr  = "expected error for path traversal"
+	pathTraversalInvalidInput = "expected InvalidInput, got %v"
+)
+
+func TestLocalFileStoreWriteReadDelete(t *testing.T) {
 	tempDir, err := os.MkdirTemp("", "filestore_test")
 	if err != nil {
 		t.Fatal(err)
@@ -66,7 +72,7 @@ func TestLocalFileStore_WriteReadDelete(t *testing.T) {
 	}
 }
 
-func TestLocalFileStore_PathTraversal(t *testing.T) {
+func TestLocalFileStorePathTraversal(t *testing.T) {
 	tempDir, err := os.MkdirTemp("", "filestore_test")
 	if err != nil {
 		t.Fatal(err)
@@ -81,32 +87,32 @@ func TestLocalFileStore_PathTraversal(t *testing.T) {
 	ctx := context.Background()
 
 	// Try path traversal
-	_, err = store.Write(ctx, "bucket", "../../../etc/passwd", bytes.NewReader([]byte("bad")))
+	_, err = store.Write(ctx, "bucket", pathTraversalKey, bytes.NewReader([]byte("bad")))
 	if err == nil {
-		t.Fatal("expected error for path traversal")
+		t.Fatal(pathTraversalExpectedErr)
 	}
 	if !errors.Is(err, errors.InvalidInput) {
-		t.Fatalf("expected InvalidInput, got %v", err)
+		t.Fatalf(pathTraversalInvalidInput, err)
 	}
 
-	_, err = store.Read(ctx, "bucket", "../../../etc/passwd")
+	_, err = store.Read(ctx, "bucket", pathTraversalKey)
 	if err == nil {
-		t.Fatal("expected error for path traversal")
+		t.Fatal(pathTraversalExpectedErr)
 	}
 	if !errors.Is(err, errors.InvalidInput) {
-		t.Fatalf("expected InvalidInput, got %v", err)
+		t.Fatalf(pathTraversalInvalidInput, err)
 	}
 
-	err = store.Delete(ctx, "bucket", "../../../etc/passwd")
+	err = store.Delete(ctx, "bucket", pathTraversalKey)
 	if err == nil {
-		t.Fatal("expected error for path traversal")
+		t.Fatal(pathTraversalExpectedErr)
 	}
 	if !errors.Is(err, errors.InvalidInput) {
-		t.Fatalf("expected InvalidInput, got %v", err)
+		t.Fatalf(pathTraversalInvalidInput, err)
 	}
 }
 
-func TestLocalFileStore_Assemble(t *testing.T) {
+func TestLocalFileStoreAssemble(t *testing.T) {
 	tempDir, err := os.MkdirTemp("", "filestore_test")
 	if err != nil {
 		t.Fatal(err)
