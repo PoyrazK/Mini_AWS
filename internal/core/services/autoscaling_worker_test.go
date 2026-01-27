@@ -13,6 +13,8 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+const testGroupName = "test-group"
+
 func setupAutoScalingWorkerTest(_ *testing.T) (*MockAutoScalingRepo, *MockInstanceService, *MockLBService, *MockEventService, *MockClock, *services.AutoScalingWorker) {
 	mockRepo := new(MockAutoScalingRepo)
 	mockInstSvc := new(MockInstanceService)
@@ -195,7 +197,7 @@ func TestAutoScalingWorkerCleanupGroupDeletesGroup(t *testing.T) {
 	groupID := uuid.New()
 	group := &domain.ScalingGroup{
 		ID:     groupID,
-		Name:   "test-group",
+		Name:   testGroupName,
 		Status: domain.ScalingGroupStatusDeleting,
 	}
 
@@ -224,7 +226,7 @@ func TestAutoScalingWorkerCleanupGroupWithInstances(t *testing.T) {
 	group := &domain.ScalingGroup{
 		ID:           groupID,
 		UserID:       userID,
-		Name:         "test-group",
+		Name:         testGroupName,
 		Status:       domain.ScalingGroupStatusDeleting,
 		DesiredCount: 2,
 	}
@@ -258,7 +260,6 @@ func TestAutoScalingWorkerRecordFailure(t *testing.T) {
 	userID := uuid.New()
 	now := time.Now()
 
-	const testGroupName = "test-group"
 	group := &domain.ScalingGroup{
 		ID:           groupID,
 		UserID:       userID,
@@ -372,7 +373,7 @@ func TestAutoScalingWorkerResetFailures(t *testing.T) {
 	group := &domain.ScalingGroup{
 		ID:            groupID,
 		UserID:        userID,
-		Name:          "test-group",
+		Name:          testGroupName,
 		MinInstances:  1,
 		MaxInstances:  5,
 		DesiredCount:  2,
