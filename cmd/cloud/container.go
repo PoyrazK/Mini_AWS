@@ -9,6 +9,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const containerErrorFormat = "Error: %v\n"
+
 var containerCmd = &cobra.Command{
 	Use:   "container",
 	Short: "Manage CloudContainers (Deployments)",
@@ -25,7 +27,7 @@ var createDeploymentCmd = &cobra.Command{
 		client := getClient()
 		dep, err := client.CreateDeployment(args[0], args[1], replicas, ports)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(containerErrorFormat, err)
 			return
 		}
 
@@ -40,7 +42,7 @@ var listDeploymentsCmd = &cobra.Command{
 		client := getClient()
 		deps, err := client.ListDeployments()
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(containerErrorFormat, err)
 			return
 		}
 
@@ -75,7 +77,7 @@ var scaleDeploymentCmd = &cobra.Command{
 		client := getClient()
 		err = client.ScaleDeployment(args[0], replicas)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(containerErrorFormat, err)
 			return
 		}
 		fmt.Println("[SUCCESS] Scaling initiated")
@@ -90,7 +92,7 @@ var deleteDeploymentCmd = &cobra.Command{
 		client := getClient()
 		err := client.DeleteDeployment(args[0])
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(containerErrorFormat, err)
 			return
 		}
 		fmt.Println("[SUCCESS] Deletion initiated")

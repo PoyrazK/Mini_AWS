@@ -10,6 +10,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const cliErrorFormat = "Error: %v\n"
+
 var iacCmd = &cobra.Command{
 	Use:   "iac",
 	Short: "Manage Infrastructure as Code (IaC) Stacks",
@@ -22,7 +24,7 @@ var iacListCmd = &cobra.Command{
 		client := getClient()
 		stacks, err := client.ListStacks()
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(cliErrorFormat, err)
 			return
 		}
 
@@ -64,7 +66,7 @@ var iacCreateCmd = &cobra.Command{
 		client := getClient()
 		stack, err := client.CreateStack(name, string(templateData), nil)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(cliErrorFormat, err)
 			return
 		}
 
@@ -83,7 +85,7 @@ var iacGetCmd = &cobra.Command{
 		client := getClient()
 		stack, err := client.GetStack(id)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(cliErrorFormat, err)
 			return
 		}
 
@@ -125,7 +127,7 @@ var iacRmCmd = &cobra.Command{
 		id := args[0]
 		client := getClient()
 		if err := client.DeleteStack(id); err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(cliErrorFormat, err)
 			return
 		}
 
@@ -148,7 +150,7 @@ var iacValidateCmd = &cobra.Command{
 		client := getClient()
 		resp, err := client.ValidateTemplate(string(templateData))
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(cliErrorFormat, err)
 			return
 		}
 

@@ -9,6 +9,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const gatewayErrorFormat = "Error: %v\n"
+
 var gatewayCmd = &cobra.Command{
 	Use:   "gateway",
 	Short: "Manage CloudGateway (API Routes)",
@@ -25,7 +27,7 @@ var createRouteCmd = &cobra.Command{
 		client := getClient()
 		route, err := client.CreateGatewayRoute(args[0], args[1], args[2], strip, limit)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(gatewayErrorFormat, err)
 			return
 		}
 
@@ -40,7 +42,7 @@ var listRoutesCmd = &cobra.Command{
 		client := getClient()
 		routes, err := client.ListGatewayRoutes()
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(gatewayErrorFormat, err)
 			return
 		}
 
@@ -61,7 +63,7 @@ var deleteRouteCmd = &cobra.Command{
 		client := getClient()
 		err := client.DeleteGatewayRoute(args[0])
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(gatewayErrorFormat, err)
 			return
 		}
 		fmt.Println("[SUCCESS] Route deleted")
