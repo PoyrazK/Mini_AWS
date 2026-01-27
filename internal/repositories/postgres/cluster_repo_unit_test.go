@@ -12,6 +12,11 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+const (
+	testClusterName    = "cluster-1"
+	testClusterVersion = "v1.29.0"
+)
+
 func TestClusterRepository(t *testing.T) {
 	ctx := context.Background()
 	userID := uuid.New()
@@ -25,8 +30,8 @@ func TestClusterRepository(t *testing.T) {
 			ID:                 uuid.New(),
 			UserID:             userID,
 			VpcID:              uuid.New(),
-			Name:               "cluster-1",
-			Version:            "v1.29.0",
+			Name:               testClusterName,
+			Version:            testClusterVersion,
 			ControlPlaneIPs:    []string{},
 			WorkerCount:        3,
 			Status:             domain.ClusterStatusRunning,
@@ -57,7 +62,7 @@ func TestClusterRepository(t *testing.T) {
 
 		mock.ExpectQuery("SELECT .* FROM clusters").WithArgs(id, userID).
 			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "vpc_id", "name", "version", "control_plane_ips", "worker_count", "status", "ssh_key", "kubeconfig", "network_isolation", "ha_enabled", "api_server_lb_address", "job_id", "created_at", "updated_at"}).
-				AddRow(id, userID, uuid.New(), "cluster-1", "v1.29.0", []string{}, 3, string(domain.ClusterStatusRunning), "", "", false, false, nil, nil, time.Now(), time.Now()))
+				AddRow(id, userID, uuid.New(), testClusterName, testClusterVersion, []string{}, 3, string(domain.ClusterStatusRunning), "", "", false, false, nil, nil, time.Now(), time.Now()))
 
 		cluster, err := repo.GetByID(ctx, id)
 		assert.NoError(t, err)

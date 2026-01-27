@@ -10,6 +10,11 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+const (
+	testEncKey    = "secret"
+	testAlgorithm = "AES256"
+)
+
 func TestEncryptionRepository(t *testing.T) {
 	ctx := context.Background()
 	bucketName := "encrypted-bucket"
@@ -21,8 +26,8 @@ func TestEncryptionRepository(t *testing.T) {
 		key := ports.EncryptionKey{
 			ID:           uuid.New().String(),
 			BucketName:   bucketName,
-			EncryptedKey: []byte("secret"),
-			Algorithm:    "AES256",
+			EncryptedKey: []byte(testEncKey),
+			Algorithm:    testAlgorithm,
 		}
 
 		mock.ExpectExec("INSERT INTO encryption_keys").
@@ -42,7 +47,7 @@ func TestEncryptionRepository(t *testing.T) {
 		mock.ExpectQuery("SELECT id, bucket_name, encrypted_key, algorithm FROM encryption_keys").
 			WithArgs(bucketName).
 			WillReturnRows(pgxmock.NewRows([]string{"id", "bucket_name", "encrypted_key", "algorithm"}).
-				AddRow(id, bucketName, []byte("secret"), "AES256"))
+				AddRow(id, bucketName, []byte(testEncKey), testAlgorithm))
 
 		key, err := repo.GetKey(ctx, bucketName)
 		assert.NoError(t, err)

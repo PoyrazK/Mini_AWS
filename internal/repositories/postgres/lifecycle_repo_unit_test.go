@@ -12,6 +12,11 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+const (
+	selectLifecycleRules = "SELECT .* FROM lifecycle_rules"
+	testLifecyclePrefix  = "logs/"
+)
+
 func TestLifecycleRepository(t *testing.T) {
 	ctx := context.Background()
 	userID := uuid.New()
@@ -26,7 +31,7 @@ func TestLifecycleRepository(t *testing.T) {
 			ID:             uuid.New(),
 			UserID:         userID,
 			BucketName:     bucketName,
-			Prefix:         "logs/",
+			Prefix:         testLifecyclePrefix,
 			ExpirationDays: 30,
 			Enabled:        true,
 			CreatedAt:      time.Now(),
@@ -47,10 +52,10 @@ func TestLifecycleRepository(t *testing.T) {
 		repo := NewLifecycleRepository(mock)
 		id := uuid.New()
 
-		mock.ExpectQuery("SELECT .* FROM lifecycle_rules").
+		mock.ExpectQuery(selectLifecycleRules).
 			WithArgs(id, userID).
 			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "bucket_name", "prefix", "expiration_days", "enabled", "created_at", "updated_at"}).
-				AddRow(id, userID, bucketName, "logs/", 30, true, time.Now(), time.Now()))
+				AddRow(id, userID, bucketName, testLifecyclePrefix, 30, true, time.Now(), time.Now()))
 
 		rule, err := repo.Get(ctx, id)
 		assert.NoError(t, err)

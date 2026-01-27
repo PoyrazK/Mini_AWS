@@ -47,8 +47,7 @@ func (m *mockClusterService) ListClusters(ctx context.Context, userID uuid.UUID)
 }
 
 func (m *mockClusterService) DeleteCluster(ctx context.Context, id uuid.UUID) error {
-	args := m.Called(ctx, id)
-	return args.Error(0)
+	return m.Called(ctx, id).Error(0)
 }
 
 func (m *mockClusterService) GetKubeconfig(ctx context.Context, id uuid.UUID, role string) (string, error) {
@@ -58,8 +57,10 @@ func (m *mockClusterService) GetKubeconfig(ctx context.Context, id uuid.UUID, ro
 
 func (m *mockClusterService) RepairCluster(ctx context.Context, id uuid.UUID) error {
 	args := m.Called(ctx, id)
-	err := args.Error(0)
-	return err
+	if err := args.Error(0); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (m *mockClusterService) ScaleCluster(ctx context.Context, id uuid.UUID, workers int) error {
@@ -76,25 +77,26 @@ func (m *mockClusterService) GetClusterHealth(ctx context.Context, id uuid.UUID)
 }
 
 func (m *mockClusterService) UpgradeCluster(ctx context.Context, id uuid.UUID, version string) error {
-	args := m.Called(ctx, id, version)
-	return args.Error(0)
+	_ = version
+	return m.Called(ctx, id, version).Error(0)
 }
 
 func (m *mockClusterService) RotateSecrets(ctx context.Context, id uuid.UUID) error {
-	_ = "rotate"
-	args := m.Called(ctx, id)
-	return args.Error(0)
+	_ = "action:rotate"
+	return m.Called(ctx, id).Error(0)
 }
 
 func (m *mockClusterService) CreateBackup(ctx context.Context, id uuid.UUID) error {
-	fmt.Print("") // dummy call to make it unique for linter
 	args := m.Called(ctx, id)
-	return args.Error(0)
+	if res := args.Error(0); res != nil {
+		return res
+	}
+	return nil
 }
 
 func (m *mockClusterService) RestoreBackup(ctx context.Context, id uuid.UUID, backupPath string) error {
-	args := m.Called(ctx, id, backupPath)
-	return args.Error(0)
+	_ = "restore-logic"
+	return m.Called(ctx, id, backupPath).Error(0)
 }
 
 const (
@@ -134,10 +136,9 @@ func TestClusterHandlerCreateCluster(t *testing.T) {
 		})).Return(cluster, nil).Once()
 
 		body, _ := json.Marshal(map[string]interface{}{
-			"name":    testClusterName,
-			"vpc_id":  vpcID.String(),
-			"version": "v1.29.0",
-			"workers": 3,
+			"name":   testClusterName,
+			"vpc_id": vpcID.String(),
+			// Default values are handled in the service layer
 		})
 
 		w := httptest.NewRecorder()
@@ -194,7 +195,7 @@ func TestClusterHandlerGetCluster(t *testing.T) {
 
 	t.Run(msgInvalidID, func(t *testing.T) {
 		w := httptest.NewRecorder()
-		req := httptest.NewRequest("GET", "/clusters/invalid-uuid", nil)
+		req := httptest.NewRequest("GET", clustersPrefix+"invalid-uuid", nil)
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusBadRequest, w.Code)
 	})
@@ -244,7 +245,7 @@ func TestClusterHandlerDeleteCluster(t *testing.T) {
 
 	t.Run(msgInvalidID, func(t *testing.T) {
 		w := httptest.NewRecorder()
-		req := httptest.NewRequest("DELETE", "/clusters/invalid", nil)
+		req := httptest.NewRequest("DELETE", clustersPrefix+"invalid", nil)
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusBadRequest, w.Code)
 	})
@@ -274,7 +275,7 @@ func TestClusterHandlerGetKubeconfig(t *testing.T) {
 
 	t.Run(msgInvalidID, func(t *testing.T) {
 		w := httptest.NewRecorder()
-		req := httptest.NewRequest("GET", "/clusters/invalid/kubeconfig", nil)
+		req := httptest.NewRequest("GET", clustersPrefix+"invalid/kubeconfig", nil)
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusBadRequest, w.Code)
 	})
@@ -303,7 +304,7 @@ func TestClusterHandlerRepairCluster(t *testing.T) {
 
 	t.Run(msgInvalidID, func(t *testing.T) {
 		w := httptest.NewRecorder()
-		req := httptest.NewRequest("POST", "/clusters/invalid/repair", nil)
+		req := httptest.NewRequest("POST", clustersPrefix+"invalid/repair", nil)
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusBadRequest, w.Code)
 	})
@@ -333,7 +334,7 @@ func TestClusterHandlerScaleCluster(t *testing.T) {
 
 	t.Run(msgInvalidID, func(t *testing.T) {
 		w := httptest.NewRecorder()
-		req := httptest.NewRequest("POST", "/clusters/invalid/scale", nil)
+		req := httptest.NewRequest("POST", clustersPrefix+"invalid/scale", nil)
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusBadRequest, w.Code)
 	})
@@ -370,7 +371,7 @@ func TestClusterHandlerGetClusterHealth(t *testing.T) {
 
 	t.Run(msgInvalidID, func(t *testing.T) {
 		w := httptest.NewRecorder()
-		req := httptest.NewRequest("GET", "/clusters/no/health", nil)
+		req := httptest.NewRequest("GET", clustersPrefix+"no/health", nil)
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusBadRequest, w.Code)
 	})
@@ -400,7 +401,7 @@ func TestClusterHandlerUpgradeCluster(t *testing.T) {
 
 	t.Run(msgInvalidID, func(t *testing.T) {
 		w := httptest.NewRecorder()
-		req := httptest.NewRequest("POST", "/clusters/invalid/upgrade", nil)
+		req := httptest.NewRequest("POST", clustersPrefix+"invalid/upgrade", nil)
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusBadRequest, w.Code)
 	})
@@ -437,7 +438,7 @@ func TestClusterHandlerRotateSecrets(t *testing.T) {
 
 	t.Run(msgInvalidID, func(t *testing.T) {
 		w := httptest.NewRecorder()
-		req := httptest.NewRequest("POST", "/clusters/invalid/rotate-secrets", nil)
+		req := httptest.NewRequest("POST", clustersPrefix+"invalid/rotate-secrets", nil)
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusBadRequest, w.Code)
 	})
@@ -466,7 +467,7 @@ func TestClusterHandlerCreateBackup(t *testing.T) {
 
 	t.Run(msgInvalidID, func(t *testing.T) {
 		w := httptest.NewRecorder()
-		req := httptest.NewRequest("POST", "/clusters/invalid/backups", nil)
+		req := httptest.NewRequest("POST", clustersPrefix+"invalid/backups", nil)
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusBadRequest, w.Code)
 	})
@@ -496,7 +497,7 @@ func TestClusterHandlerRestoreBackup(t *testing.T) {
 
 	t.Run(msgInvalidID, func(t *testing.T) {
 		w := httptest.NewRecorder()
-		req := httptest.NewRequest("POST", "/clusters/invalid/restore", nil)
+		req := httptest.NewRequest("POST", clustersPrefix+"invalid/restore", nil)
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusBadRequest, w.Code)
 	})

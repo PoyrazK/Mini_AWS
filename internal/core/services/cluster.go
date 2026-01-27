@@ -60,6 +60,14 @@ func (s *ClusterService) CreateCluster(ctx context.Context, params ports.CreateC
 		return nil, errors.Wrap(errors.NotFound, "vpc not found", err)
 	}
 
+	// Default version if not specified
+	if params.Version == "" {
+		params.Version = "v1.29.0"
+	}
+	if params.Workers == 0 {
+		params.Workers = 2 // Default 2 workers
+	}
+
 	// 2. Generate SSH Key Pair for the cluster
 	privKey, _, err := crypto.GenerateSSHKeyPair()
 	if err != nil {
