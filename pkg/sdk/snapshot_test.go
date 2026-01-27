@@ -12,18 +12,28 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestClient_CreateSnapshot(t *testing.T) {
+const (
+	snapshotDescription   = "test snapshot"
+	snapshotAPIKey        = "test-api-key"
+	snapshotContentType   = "Content-Type"
+	snapshotApplicationJSON = "application/json"
+	snapshotPath          = "/snapshots"
+	snapshotPathPrefix    = "/snapshots/"
+	snapshotExampleID     = "snap-1"
+)
+
+func TestClientCreateSnapshot(t *testing.T) {
 	volumeID := uuid.New()
 	expectedSnapshot := domain.Snapshot{
 		ID:          uuid.New(),
 		VolumeID:    volumeID,
-		Description: "test snapshot",
+		Description: snapshotDescription,
 		Status:      domain.SnapshotStatusAvailable,
 		CreatedAt:   time.Now(),
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/snapshots", r.URL.Path)
+		assert.Equal(t, snapshotPath, r.URL.Path)
 		assert.Equal(t, http.MethodPost, r.Method)
 
 		var req map[string]interface{}
@@ -32,13 +42,13 @@ func TestClient_CreateSnapshot(t *testing.T) {
 		assert.Equal(t, volumeID.String(), req["volume_id"])
 		assert.Equal(t, expectedSnapshot.Description, req["description"])
 
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set(snapshotContentType, snapshotApplicationJSON)
 		json.NewEncoder(w).Encode(expectedSnapshot)
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "test-api-key")
-	snapshot, err := client.CreateSnapshot(volumeID, "test snapshot")
+	client := NewClient(server.URL, snapshotAPIKey)
+	snapshot, err := client.CreateSnapshot(volumeID, snapshotDescription)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, snapshot)
@@ -46,22 +56,22 @@ func TestClient_CreateSnapshot(t *testing.T) {
 	assert.Equal(t, expectedSnapshot.VolumeID, snapshot.VolumeID)
 }
 
-func TestClient_ListSnapshots(t *testing.T) {
+func TestClientListSnapshots(t *testing.T) {
 	expectedSnapshots := []*domain.Snapshot{
-		{ID: uuid.New(), Description: "snap-1"},
+		{ID: uuid.New(), Description: snapshotExampleID},
 		{ID: uuid.New(), Description: "snap-2"},
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/snapshots", r.URL.Path)
+		assert.Equal(t, snapshotPath, r.URL.Path)
 		assert.Equal(t, http.MethodGet, r.Method)
 
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set(snapshotContentType, snapshotApplicationJSON)
 		json.NewEncoder(w).Encode(expectedSnapshots)
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "test-api-key")
+	client := NewClient(server.URL, snapshotAPIKey)
 	snapshots, err := client.ListSnapshots()
 
 	assert.NoError(t, err)
@@ -69,20 +79,20 @@ func TestClient_ListSnapshots(t *testing.T) {
 	assert.Equal(t, expectedSnapshots[0].Description, snapshots[0].Description)
 }
 
-func TestClient_GetSnapshot(t *testing.T) {
+func TestClientGetSnapshot(t *testing.T) {
 	id := uuid.New().String()
-	expectedSnapshot := domain.Snapshot{ID: uuid.MustParse(id), Description: "test snapshot"}
+	expectedSnapshot := domain.Snapshot{ID: uuid.MustParse(id), Description: snapshotDescription}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/snapshots/"+id, r.URL.Path)
+		assert.Equal(t, snapshotPathPrefix+id, r.URL.Path)
 		assert.Equal(t, http.MethodGet, r.Method)
 
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set(snapshotContentType, snapshotApplicationJSON)
 		json.NewEncoder(w).Encode(expectedSnapshot)
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "test-api-key")
+	client := NewClient(server.URL, snapshotAPIKey)
 	snapshot, err := client.GetSnapshot(id)
 
 	assert.NoError(t, err)
@@ -90,24 +100,24 @@ func TestClient_GetSnapshot(t *testing.T) {
 	assert.Equal(t, expectedSnapshot.ID, snapshot.ID)
 }
 
-func TestClient_DeleteSnapshot(t *testing.T) {
+func TestClientDeleteSnapshot(t *testing.T) {
 	id := uuid.New().String()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/snapshots/"+id, r.URL.Path)
+		assert.Equal(t, snapshotPathPrefix+id, r.URL.Path)
 		assert.Equal(t, http.MethodDelete, r.Method)
 
 		w.WriteHeader(http.StatusNoContent)
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "test-api-key")
+	client := NewClient(server.URL, snapshotAPIKey)
 	err := client.DeleteSnapshot(id)
 
 	assert.NoError(t, err)
 }
 
-func TestClient_RestoreSnapshot(t *testing.T) {
+func TestClientRestoreSnapshot(t *testing.T) {
 	id := uuid.New().String()
 	newVolumeName := "restored-volume"
 	expectedVolume := domain.Volume{
@@ -116,7 +126,7 @@ func TestClient_RestoreSnapshot(t *testing.T) {
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/snapshots/"+id+"/restore", r.URL.Path)
+		assert.Equal(t, snapshotPathPrefix+id+"/restore", r.URL.Path)
 		assert.Equal(t, http.MethodPost, r.Method)
 
 		var req map[string]interface{}
@@ -124,12 +134,12 @@ func TestClient_RestoreSnapshot(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, newVolumeName, req["new_volume_name"])
 
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set(snapshotContentType, snapshotApplicationJSON)
 		json.NewEncoder(w).Encode(expectedVolume)
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "test-api-key")
+	client := NewClient(server.URL, snapshotAPIKey)
 	volume, err := client.RestoreSnapshot(id, newVolumeName)
 
 	assert.NoError(t, err)
@@ -138,26 +148,26 @@ func TestClient_RestoreSnapshot(t *testing.T) {
 	assert.Equal(t, expectedVolume.Name, volume.Name)
 }
 
-func TestClient_SnapshotErrors(t *testing.T) {
+func TestClientSnapshotErrors(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("boom"))
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "test-api-key")
+	client := NewClient(server.URL, snapshotAPIKey)
 	_, err := client.CreateSnapshot(uuid.New(), "snap")
 	assert.Error(t, err)
 
 	_, err = client.ListSnapshots()
 	assert.Error(t, err)
 
-	_, err = client.GetSnapshot("snap-1")
+	_, err = client.GetSnapshot(snapshotExampleID)
 	assert.Error(t, err)
 
-	err = client.DeleteSnapshot("snap-1")
+	err = client.DeleteSnapshot(snapshotExampleID)
 	assert.Error(t, err)
 
-	_, err = client.RestoreSnapshot("snap-1", "vol")
+	_, err = client.RestoreSnapshot(snapshotExampleID, "vol")
 	assert.Error(t, err)
 }

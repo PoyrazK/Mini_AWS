@@ -12,24 +12,37 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestClient_ListObjects(t *testing.T) {
-	bucket := "my-bucket"
+const (
+	storageTestBucket       = "my-bucket"
+	storageTestKey          = "file.txt"
+	storageTestContent      = "hello world"
+	storageContentType      = "Content-Type"
+	storageApplicationJSON  = "application/json"
+	storageAPIKey           = "test-api-key"
+	storagePathPrefix       = "/storage/"
+	storageBucketName       = "bucket-1"
+	storageBucketsPath      = "/storage/buckets/"
+	storageRuleID           = "rule-1"
+)
+
+func TestClientListObjects(t *testing.T) {
+	bucket := storageTestBucket
 	expectedObjects := []Object{
 		{ID: "obj-1", Key: "file1.txt", Bucket: bucket, CreatedAt: time.Now()},
 		{ID: "obj-2", Key: "file2.txt", Bucket: bucket, CreatedAt: time.Now()},
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/storage/"+bucket, r.URL.Path)
+		assert.Equal(t, storagePathPrefix+bucket, r.URL.Path)
 		assert.Equal(t, http.MethodGet, r.Method)
 
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set(storageContentType, storageApplicationJSON)
 		resp := Response[[]Object]{Data: expectedObjects}
 		json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "test-api-key")
+	client := NewClient(server.URL, storageAPIKey)
 	objects, err := client.ListObjects(bucket)
 
 	assert.NoError(t, err)
@@ -37,13 +50,13 @@ func TestClient_ListObjects(t *testing.T) {
 	assert.Equal(t, expectedObjects[0].Key, objects[0].Key)
 }
 
-func TestClient_UploadObject(t *testing.T) {
-	bucket := "my-bucket"
-	key := "file.txt"
-	content := "hello world"
+func TestClientUploadObject(t *testing.T) {
+	bucket := storageTestBucket
+	key := storageTestKey
+	content := storageTestContent
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/storage/"+bucket+"/"+key, r.URL.Path)
+		assert.Equal(t, storagePathPrefix+bucket+"/"+key, r.URL.Path)
 		assert.Equal(t, http.MethodPut, r.Method)
 
 		body, err := io.ReadAll(r.Body)
@@ -54,52 +67,52 @@ func TestClient_UploadObject(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "test-api-key")
+	client := NewClient(server.URL, storageAPIKey)
 	obj, err := client.UploadObject(bucket, key, strings.NewReader(content))
 
 	assert.NoError(t, err)
 	assert.NotNil(t, obj)
 }
 
-func TestClient_UploadObjectErrorStatus(t *testing.T) {
-	bucket := "my-bucket"
-	key := "file.txt"
+func TestClientUploadObjectErrorStatus(t *testing.T) {
+	bucket := storageTestBucket
+	key := storageTestKey
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/storage/"+bucket+"/"+key, r.URL.Path)
+		assert.Equal(t, storagePathPrefix+bucket+"/"+key, r.URL.Path)
 		assert.Equal(t, http.MethodPut, r.Method)
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("boom"))
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "test-api-key")
+	client := NewClient(server.URL, storageAPIKey)
 	_, err := client.UploadObject(bucket, key, strings.NewReader("data"))
 
 	assert.Error(t, err)
 }
 
-func TestClient_UploadObjectRequestError(t *testing.T) {
-	client := NewClient("http://127.0.0.1:0", "test-api-key")
+func TestClientUploadObjectRequestError(t *testing.T) {
+	client := NewClient("http://127.0.0.1:0", storageAPIKey)
 	_, err := client.UploadObject("bucket", "key", strings.NewReader("data"))
 
 	assert.Error(t, err)
 }
 
-func TestClient_DownloadObject(t *testing.T) {
-	bucket := "my-bucket"
-	key := "file.txt"
-	content := "hello world"
+func TestClientDownloadObject(t *testing.T) {
+	bucket := storageTestBucket
+	key := storageTestKey
+	content := storageTestContent
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/storage/"+bucket+"/"+key, r.URL.Path)
+		assert.Equal(t, storagePathPrefix+bucket+"/"+key, r.URL.Path)
 		assert.Equal(t, http.MethodGet, r.Method)
 
 		w.Write([]byte(content))
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "test-api-key")
+	client := NewClient(server.URL, storageAPIKey)
 	readCloser, err := client.DownloadObject(bucket, key)
 
 	assert.NoError(t, err)
@@ -110,39 +123,39 @@ func TestClient_DownloadObject(t *testing.T) {
 	assert.Equal(t, content, string(body))
 }
 
-func TestClient_DeleteObject(t *testing.T) {
-	bucket := "my-bucket"
-	key := "file.txt"
+func TestClientDeleteObject(t *testing.T) {
+	bucket := storageTestBucket
+	key := storageTestKey
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/storage/"+bucket+"/"+key, r.URL.Path)
+		assert.Equal(t, storagePathPrefix+bucket+"/"+key, r.URL.Path)
 		assert.Equal(t, http.MethodDelete, r.Method)
 
 		w.WriteHeader(http.StatusNoContent)
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "test-api-key")
+	client := NewClient(server.URL, storageAPIKey)
 	err := client.DeleteObject(bucket, key)
 
 	assert.NoError(t, err)
 }
 
-func TestClient_ListVersions(t *testing.T) {
-	bucket := "my-bucket"
-	key := "file.txt"
+func TestClientListVersions(t *testing.T) {
+	bucket := storageTestBucket
+	key := storageTestKey
 	expected := []Object{{ID: "obj-1", VersionID: "v1"}}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/storage/versions/"+bucket+"/"+key, r.URL.Path)
 		assert.Equal(t, http.MethodGet, r.Method)
 
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set(storageContentType, storageApplicationJSON)
 		json.NewEncoder(w).Encode(Response[[]Object]{Data: expected})
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, testAPIKey)
+	client := NewClient(server.URL, storageAPIKey)
 	versions, err := client.ListVersions(bucket, key)
 
 	assert.NoError(t, err)
@@ -150,20 +163,20 @@ func TestClient_ListVersions(t *testing.T) {
 	assert.Equal(t, "v1", versions[0].VersionID)
 }
 
-func TestClient_DownloadObjectWithVersion(t *testing.T) {
-	bucket := "my-bucket"
-	key := "file.txt"
+func TestClientDownloadObjectWithVersion(t *testing.T) {
+	bucket := storageTestBucket
+	key := storageTestKey
 	version := "v1"
-	content := "hello world"
+	content := storageTestContent
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/storage/"+bucket+"/"+key, r.URL.Path)
+		assert.Equal(t, storagePathPrefix+bucket+"/"+key, r.URL.Path)
 		assert.Equal(t, version, r.URL.Query().Get("versionId"))
 		w.Write([]byte(content))
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, testAPIKey)
+	client := NewClient(server.URL, storageAPIKey)
 	readCloser, err := client.DownloadObject(bucket, key, version)
 
 	assert.NoError(t, err)
@@ -174,51 +187,51 @@ func TestClient_DownloadObjectWithVersion(t *testing.T) {
 	assert.Equal(t, content, string(body))
 }
 
-func TestClient_DownloadObjectErrorStatus(t *testing.T) {
-	bucket := "my-bucket"
-	key := "file.txt"
+func TestClientDownloadObjectErrorStatus(t *testing.T) {
+	bucket := storageTestBucket
+	key := storageTestKey
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/storage/"+bucket+"/"+key, r.URL.Path)
+		assert.Equal(t, storagePathPrefix+bucket+"/"+key, r.URL.Path)
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("boom"))
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, testAPIKey)
+	client := NewClient(server.URL, storageAPIKey)
 	_, err := client.DownloadObject(bucket, key)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "api error")
 }
 
-func TestClient_DownloadObjectRequestError(t *testing.T) {
-	client := NewClient("http://127.0.0.1:0", testAPIKey)
+func TestClientDownloadObjectRequestError(t *testing.T) {
+	client := NewClient("http://127.0.0.1:0", storageAPIKey)
 	_, err := client.DownloadObject("bucket", "key")
 
 	assert.Error(t, err)
 }
 
-func TestClient_DeleteObjectWithVersion(t *testing.T) {
-	bucket := "my-bucket"
-	key := "file.txt"
+func TestClientDeleteObjectWithVersion(t *testing.T) {
+	bucket := storageTestBucket
+	key := storageTestKey
 	version := "v1"
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/storage/"+bucket+"/"+key, r.URL.Path)
+		assert.Equal(t, storagePathPrefix+bucket+"/"+key, r.URL.Path)
 		assert.Equal(t, version, r.URL.Query().Get("versionId"))
 		assert.Equal(t, http.MethodDelete, r.Method)
 		w.WriteHeader(http.StatusNoContent)
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, testAPIKey)
+	client := NewClient(server.URL, storageAPIKey)
 	err := client.DeleteObject(bucket, key, version)
 
 	assert.NoError(t, err)
 }
 
-func TestClient_CreateBucket(t *testing.T) {
+func TestClientCreateBucket(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/storage/buckets", r.URL.Path)
 		assert.Equal(t, http.MethodPost, r.Method)
@@ -229,56 +242,56 @@ func TestClient_CreateBucket(t *testing.T) {
 		}
 		err := json.NewDecoder(r.Body).Decode(&payload)
 		assert.NoError(t, err)
-		assert.Equal(t, "bucket-1", payload.Name)
+		assert.Equal(t, storageBucketName, payload.Name)
 		assert.True(t, payload.IsPublic)
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(Response[Bucket]{Data: Bucket{ID: "b1", Name: "bucket-1", IsPublic: true}})
+		w.Header().Set(storageContentType, storageApplicationJSON)
+		json.NewEncoder(w).Encode(Response[Bucket]{Data: Bucket{ID: "b1", Name: storageBucketName, IsPublic: true}})
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, testAPIKey)
-	bucket, err := client.CreateBucket("bucket-1", true)
+	client := NewClient(server.URL, storageAPIKey)
+	bucket, err := client.CreateBucket(storageBucketName, true)
 
 	assert.NoError(t, err)
 	assert.Equal(t, "b1", bucket.ID)
 }
 
-func TestClient_ListBuckets(t *testing.T) {
+func TestClientListBuckets(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/storage/buckets", r.URL.Path)
 		assert.Equal(t, http.MethodGet, r.Method)
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(Response[[]Bucket]{Data: []Bucket{{ID: "b1", Name: "bucket-1"}}})
+		w.Header().Set(storageContentType, storageApplicationJSON)
+		json.NewEncoder(w).Encode(Response[[]Bucket]{Data: []Bucket{{ID: "b1", Name: storageBucketName}}})
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, testAPIKey)
+	client := NewClient(server.URL, storageAPIKey)
 	buckets, err := client.ListBuckets()
 
 	assert.NoError(t, err)
 	assert.Len(t, buckets, 1)
-	assert.Equal(t, "bucket-1", buckets[0].Name)
+	assert.Equal(t, storageBucketName, buckets[0].Name)
 }
 
-func TestClient_DeleteBucket(t *testing.T) {
+func TestClientDeleteBucket(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/storage/buckets/bucket-1", r.URL.Path)
+		assert.Equal(t, storageBucketsPath+storageBucketName, r.URL.Path)
 		assert.Equal(t, http.MethodDelete, r.Method)
 		w.WriteHeader(http.StatusNoContent)
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, testAPIKey)
-	err := client.DeleteBucket("bucket-1")
+	client := NewClient(server.URL, storageAPIKey)
+	err := client.DeleteBucket(storageBucketName)
 
 	assert.NoError(t, err)
 }
 
-func TestClient_SetBucketVersioning(t *testing.T) {
+func TestClientSetBucketVersioning(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/storage/buckets/bucket-1/versioning", r.URL.Path)
+		assert.Equal(t, storageBucketsPath+storageBucketName+"/versioning", r.URL.Path)
 		assert.Equal(t, http.MethodPatch, r.Method)
 
 		var payload struct {
@@ -292,23 +305,23 @@ func TestClient_SetBucketVersioning(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, testAPIKey)
-	err := client.SetBucketVersioning("bucket-1", true)
+	client := NewClient(server.URL, storageAPIKey)
+	err := client.SetBucketVersioning(storageBucketName, true)
 
 	assert.NoError(t, err)
 }
 
-func TestClient_GetStorageClusterStatus(t *testing.T) {
+func TestClientGetStorageClusterStatus(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/storage/cluster/status", r.URL.Path)
 		assert.Equal(t, http.MethodGet, r.Method)
 
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set(storageContentType, storageApplicationJSON)
 		json.NewEncoder(w).Encode(Response[StorageCluster]{Data: StorageCluster{Nodes: []StorageNode{{ID: "node-1"}}}})
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, testAPIKey)
+	client := NewClient(server.URL, storageAPIKey)
 	status, err := client.GetStorageClusterStatus()
 
 	assert.NoError(t, err)
@@ -316,9 +329,9 @@ func TestClient_GetStorageClusterStatus(t *testing.T) {
 	assert.Equal(t, "node-1", status.Nodes[0].ID)
 }
 
-func TestClient_GeneratePresignedURL(t *testing.T) {
-	bucket := "my-bucket"
-	key := "file.txt"
+func TestClientGeneratePresignedURL(t *testing.T) {
+	bucket := storageTestBucket
+	key := storageTestKey
 	method := http.MethodGet
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -334,23 +347,23 @@ func TestClient_GeneratePresignedURL(t *testing.T) {
 		assert.Equal(t, method, payload.Method)
 		assert.Equal(t, 60, payload.ExpirySec)
 
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set(storageContentType, storageApplicationJSON)
 		json.NewEncoder(w).Encode(Response[PresignedURL]{Data: PresignedURL{URL: "http://example.com", Method: method}})
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, testAPIKey)
+	client := NewClient(server.URL, storageAPIKey)
 	url, err := client.GeneratePresignedURL(bucket, key, method, 60)
 
 	assert.NoError(t, err)
 	assert.Equal(t, "http://example.com", url.URL)
 }
 
-func TestClient_LifecycleRules(t *testing.T) {
-	bucket := "my-bucket"
+func TestClientLifecycleRules(t *testing.T) {
+	bucket := storageTestBucket
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
-		case r.Method == http.MethodPost && r.URL.Path == "/storage/buckets/"+bucket+"/lifecycle":
+		case r.Method == http.MethodPost && r.URL.Path == storageBucketsPath+bucket+"/lifecycle":
 			var payload struct {
 				Prefix         string `json:"prefix"`
 				ExpirationDays int    `json:"expiration_days"`
@@ -362,12 +375,12 @@ func TestClient_LifecycleRules(t *testing.T) {
 			assert.Equal(t, 30, payload.ExpirationDays)
 			assert.True(t, payload.Enabled)
 
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(Response[LifecycleRule]{Data: LifecycleRule{ID: "rule-1", BucketName: bucket}})
-		case r.Method == http.MethodGet && r.URL.Path == "/storage/buckets/"+bucket+"/lifecycle":
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(Response[[]LifecycleRule]{Data: []LifecycleRule{{ID: "rule-1", BucketName: bucket}}})
-		case r.Method == http.MethodDelete && r.URL.Path == "/storage/buckets/"+bucket+"/lifecycle/rule-1":
+			w.Header().Set(storageContentType, storageApplicationJSON)
+			json.NewEncoder(w).Encode(Response[LifecycleRule]{Data: LifecycleRule{ID: storageRuleID, BucketName: bucket}})
+		case r.Method == http.MethodGet && r.URL.Path == storageBucketsPath+bucket+"/lifecycle":
+			w.Header().Set(storageContentType, storageApplicationJSON)
+			json.NewEncoder(w).Encode(Response[[]LifecycleRule]{Data: []LifecycleRule{{ID: storageRuleID, BucketName: bucket}}})
+		case r.Method == http.MethodDelete && r.URL.Path == storageBucketsPath+bucket+"/lifecycle/"+storageRuleID:
 			w.WriteHeader(http.StatusNoContent)
 		default:
 			w.WriteHeader(http.StatusNotFound)
@@ -375,27 +388,27 @@ func TestClient_LifecycleRules(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, testAPIKey)
+	client := NewClient(server.URL, storageAPIKey)
 	created, err := client.CreateLifecycleRule(bucket, "logs/", 30, true)
 	assert.NoError(t, err)
-	assert.Equal(t, "rule-1", created.ID)
+	assert.Equal(t, storageRuleID, created.ID)
 
 	rules, err := client.ListLifecycleRules(bucket)
 	assert.NoError(t, err)
 	assert.Len(t, rules, 1)
 
-	err = client.DeleteLifecycleRule(bucket, "rule-1")
+	err = client.DeleteLifecycleRule(bucket, storageRuleID)
 	assert.NoError(t, err)
 }
 
-func TestClient_StorageListErrors(t *testing.T) {
+func TestClientStorageListErrors(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("boom"))
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, testAPIKey)
+	client := NewClient(server.URL, storageAPIKey)
 	_, err := client.ListObjects("bucket")
 	assert.Error(t, err)
 
@@ -412,14 +425,14 @@ func TestClient_StorageListErrors(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestClient_StorageCreateErrors(t *testing.T) {
+func TestClientStorageCreateErrors(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("boom"))
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, testAPIKey)
+	client := NewClient(server.URL, storageAPIKey)
 	_, err := client.CreateBucket("bucket", true)
 	assert.Error(t, err)
 
