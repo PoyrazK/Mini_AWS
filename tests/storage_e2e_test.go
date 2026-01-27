@@ -16,6 +16,8 @@ import (
 	"github.com/poyrazk/thecloud/pkg/testutil"
 )
 
+const storageObjectPathFormat = "%s/storage/%s/%s"
+
 func TestStorageE2E(t *testing.T) {
 	if err := waitForServer(); err != nil {
 		t.Skipf("Skipping Storage E2E test: %v (server at %s not available)", err, testutil.TestBaseURL)
@@ -45,7 +47,7 @@ func TestStorageE2E(t *testing.T) {
 
 	// 2. Upload Object
 	t.Run("UploadObject", func(t *testing.T) {
-		req, _ := http.NewRequest("PUT", fmt.Sprintf("%s/storage/%s/%s", testutil.TestBaseURL, bucketName, key), bytes.NewBufferString(content))
+		req, _ := http.NewRequest("PUT", fmt.Sprintf(storageObjectPathFormat, testutil.TestBaseURL, bucketName, key), bytes.NewBufferString(content))
 		req.Header.Set(testutil.TestHeaderAPIKey, token)
 		applyTenantHeader(t, req, token)
 
@@ -57,7 +59,7 @@ func TestStorageE2E(t *testing.T) {
 
 	// 3. Download Object
 	t.Run("DownloadObject", func(t *testing.T) {
-		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/storage/%s/%s", testutil.TestBaseURL, bucketName, key), nil)
+		req, _ := http.NewRequest("GET", fmt.Sprintf(storageObjectPathFormat, testutil.TestBaseURL, bucketName, key), nil)
 		req.Header.Set(testutil.TestHeaderAPIKey, token)
 		applyTenantHeader(t, req, token)
 
@@ -90,7 +92,7 @@ func TestStorageE2E(t *testing.T) {
 	var version2ID string
 	t.Run("UploadSecondVersion", func(t *testing.T) {
 		newContent := "Hello World Version 2"
-		req, _ := http.NewRequest("PUT", fmt.Sprintf("%s/storage/%s/%s", testutil.TestBaseURL, bucketName, key), bytes.NewBufferString(newContent))
+		req, _ := http.NewRequest("PUT", fmt.Sprintf(storageObjectPathFormat, testutil.TestBaseURL, bucketName, key), bytes.NewBufferString(newContent))
 		req.Header.Set(testutil.TestHeaderAPIKey, token)
 		applyTenantHeader(t, req, token)
 
@@ -134,7 +136,7 @@ func TestStorageE2E(t *testing.T) {
 	// 7. Cleanup
 	t.Run("Cleanup", func(t *testing.T) {
 		// Delete object
-		req, _ := http.NewRequest("DELETE", fmt.Sprintf("%s/storage/%s/%s", testutil.TestBaseURL, bucketName, key), nil)
+		req, _ := http.NewRequest("DELETE", fmt.Sprintf(storageObjectPathFormat, testutil.TestBaseURL, bucketName, key), nil)
 		req.Header.Set(testutil.TestHeaderAPIKey, token)
 		applyTenantHeader(t, req, token)
 		resp, _ := client.Do(req)
