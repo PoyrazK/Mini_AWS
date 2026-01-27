@@ -138,7 +138,7 @@ func postRequest(t *testing.T, client *http.Client, url, token string, payload i
 	if requiresTenantHeader(url) {
 		tenantID := tenantIDForToken(token)
 		if tenantID == "" {
-			t.Fatalf(errTenantNotSet)
+			t.Fatal(errTenantNotSet)
 		}
 		req.Header.Set(headerTenantID, tenantID)
 	}
@@ -153,7 +153,7 @@ func getRequest(t *testing.T, client *http.Client, url, token string) *http.Resp
 	if requiresTenantHeader(url) {
 		tenantID := tenantIDForToken(token)
 		if tenantID == "" {
-			t.Fatalf(errTenantNotSet)
+			t.Fatal(errTenantNotSet)
 		}
 		req.Header.Set(headerTenantID, tenantID)
 	}
@@ -168,7 +168,7 @@ func deleteRequest(t *testing.T, client *http.Client, url, token string) *http.R
 	if requiresTenantHeader(url) {
 		tenantID := tenantIDForToken(token)
 		if tenantID == "" {
-			t.Fatalf(errTenantNotSet)
+			t.Fatal(errTenantNotSet)
 		}
 		req.Header.Set(headerTenantID, tenantID)
 	}
@@ -183,7 +183,7 @@ func applyTenantHeader(t *testing.T, req *http.Request, token string) {
 	}
 	tenantID := tenantIDForToken(token)
 	if tenantID == "" {
-		t.Fatalf(errTenantNotSet)
+		t.Fatal(errTenantNotSet)
 	}
 	req.Header.Set(headerTenantID, tenantID)
 }

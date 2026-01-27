@@ -9,6 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+type testKey string
+
 func TestUserIDContext(t *testing.T) {
 	t.Run("Extract from empty context", func(t *testing.T) {
 		ctx := context.Background()
@@ -27,7 +29,7 @@ func TestUserIDContext(t *testing.T) {
 	})
 
 	t.Run("Ignore invalid type", func(t *testing.T) {
-		ctx := context.WithValue(context.Background(), "user_id", "not-a-uuid")
+		ctx := context.WithValue(context.Background(), testKey("user_id"), "not-a-uuid")
 		userID := appcontext.UserIDFromContext(ctx)
 		assert.Equal(t, uuid.Nil, userID)
 	})
@@ -51,7 +53,7 @@ func TestTenantIDContext(t *testing.T) {
 	})
 
 	t.Run("Ignore invalid type", func(t *testing.T) {
-		ctx := context.WithValue(context.Background(), "tenant_id", "not-a-uuid")
+		ctx := context.WithValue(context.Background(), testKey("tenant_id"), "not-a-uuid")
 		tenantID := appcontext.TenantIDFromContext(ctx)
 		assert.Equal(t, uuid.Nil, tenantID)
 	})
