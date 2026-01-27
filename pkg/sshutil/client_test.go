@@ -36,6 +36,11 @@ func generateTestKey(t *testing.T) string {
 const (
 	testLocalhostSSH = "localhost:22"
 	testLoopbackAddr = "127.0.0.1:0"
+	testLocalhostIP  = "127.0.0.1"
+	testErrTimedOut  = "timed out"
+	testCmdEcho      = "echo hello"
+	testTmpFile      = "/tmp/test"
+	testScpCmdPrefix = "/usr/bin/scp -t "
 )
 
 func TestNewClientWithKey(t *testing.T) {
@@ -60,7 +65,7 @@ func TestWaitForSSH(t *testing.T) {
 	defer l.Close()
 
 	port := l.Addr().(*net.TCPAddr).Port
-	host := fmt.Sprintf("127.0.0.1:%d", port)
+	host := fmt.Sprintf("%s:%d", testLocalhostIP, port)
 
 	client := &Client{Host: host}
 
@@ -71,35 +76,35 @@ func TestWaitForSSH(t *testing.T) {
 
 func TestWaitForSSHTimeout(t *testing.T) {
 	// Pick a random port (hopefully unused)
-	client := &Client{Host: "127.0.0.1:54321"} // Unlikely to be a valid SSH server immediately
+	client := &Client{Host: fmt.Sprintf("%s:54321", testLocalhostIP)} // Unlikely to be a valid SSH server immediately
 
 	// Should timeout
 	// Use small timeout for test speed
 	err := client.WaitForSSH(context.Background(), 100*time.Millisecond)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "timed out")
+	assert.Contains(t, err.Error(), testErrTimedOut)
 }
 
 func TestWaitForSSHContextCanceled(t *testing.T) {
-	client := &Client{Host: "127.0.0.1:54321"}
+	client := &Client{Host: fmt.Sprintf("%s:54321", testLocalhostIP)}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
 	err := client.WaitForSSH(ctx, 2*time.Second)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "timed out")
+	assert.Contains(t, err.Error(), testErrTimedOut)
 }
 
 func TestWaitForSSHHostWithoutPortTimeout(t *testing.T) {
-	client := &Client{Host: "127.0.0.1"}
+	client := &Client{Host: testLocalhostIP}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
 
 	err := client.WaitForSSH(ctx, 2*time.Second)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "timed out")
+	assert.Contains(t, err.Error(), testErrTimedOut)
 }
 
 func TestRunConnectionRefused(t *testing.T) {
@@ -109,64 +114,63 @@ func TestRunConnectionRefused(t *testing.T) {
 	port := l.Addr().(*net.TCPAddr).Port
 	l.Close() // Close immediately to ensure connection refused
 
-	host := fmt.Sprintf("127.0.0.1:%d", port)
+	host := fmt.Sprintf("%s:%d", testLocalhostIP, port)
 	privKey := generateTestKey(t)
 	client, _ := NewClientWithKey(host, "user", privKey)
 
-	_, err = client.Run(context.Background(), "echo hello")
+	_, err = client.Run(context.Background(), testCmdEcho)
 	require.Error(t, err)
 	// Error message format depends on OS, usually "connection refused" or "dial tcp"
 }
 
 func TestRunContextTimeout(t *testing.T) {
 	privKey := generateTestKey(t)
-	client, err := NewClientWithKey("127.0.0.1:0", "user", privKey)
+	client, err := NewClientWithKey(testLoopbackAddr, "user", privKey)
 	require.NoError(t, err)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
 
-	_, err = client.Run(ctx, "echo hello")
+	_, err = client.Run(ctx, testCmdEcho)
 	require.Error(t, err)
 }
 
 func TestRunHostWithoutPort(t *testing.T) {
 	privKey := generateTestKey(t)
-	client, err := NewClientWithKey("127.0.0.1", "user", privKey)
+	client, err := NewClientWithKey(testLocalhostIP, "user", privKey)
 	require.NoError(t, err)
 
-	_, err = client.Run(context.Background(), "echo hello")
+	_, err = client.Run(context.Background(), testCmdEcho)
 	require.Error(t, err)
 }
 
-// TODO: A full SSH server mock for Run and WriteFile would be better but significantly more complex.
-// For "Phase 1 Quick Wins", validating the Client logic, Key parsing, and Network dialing is a good start.
+// Full SSH server mock for Run and WriteFile validates the Client logic, Key parsing, and Network dialing.
 
 func TestWriteFileConnectionRefused(t *testing.T) {
 	// Pick a random port (hopefully unused)
 	client := &Client{Host: testLoopbackAddr}
 
-	err := client.WriteFile(context.Background(), "/tmp/test", []byte("data"), "0644")
+	err := client.WriteFile(context.Background(), testTmpFile, []byte("data"), "0644")
 	require.Error(t, err)
 	// Expect dial error
 }
 
 func TestWriteFileContextTimeout(t *testing.T) {
-	client := &Client{Host: "127.0.0.1:0"}
+	client := &Client{Host: testLoopbackAddr}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
 
-	err := client.WriteFile(ctx, "/tmp/test", []byte("data"), "0644")
+	err := client.WriteFile(ctx, testTmpFile, []byte("data"), "0644")
 	require.Error(t, err)
 }
 
 func TestWriteFileHostWithoutPort(t *testing.T) {
 	privKey := generateTestKey(t)
-	client, err := NewClientWithKey("127.0.0.1", "user", privKey)
+	client, err := NewClientWithKey(testLocalhostIP, "user", privKey)
 	require.NoError(t, err)
 
-	err = client.WriteFile(context.Background(), "/tmp/test", []byte("data"), "0644")
+	err = client.WriteFile(context.Background(), testTmpFile, []byte("data"), "0644")
 	require.Error(t, err)
 }
 
@@ -178,7 +182,7 @@ func TestRunSuccess(t *testing.T) {
 	client, err := NewClientWithKey(addr, "user", privKey)
 	require.NoError(t, err)
 
-	out, err := client.Run(context.Background(), "echo hello")
+	out, err := client.Run(context.Background(), testCmdEcho)
 	require.NoError(t, err)
 	assert.Contains(t, out, "hello")
 }
@@ -197,10 +201,10 @@ func TestWriteFileSuccess(t *testing.T) {
 
 func TestWriteFileScpError(t *testing.T) {
 	addr, stop := startTestSSHServerWithHandler(t, func(cmd string, ch ssh.Channel) error {
-		if strings.HasPrefix(cmd, "/usr/bin/scp -t ") {
+		if strings.HasPrefix(cmd, testScpCmdPrefix) {
 			return fmt.Errorf("scp failed")
 		}
-		if cmd == "echo hello" {
+		if cmd == testCmdEcho {
 			_, err := ch.Write([]byte("hello\n"))
 			return err
 		}
@@ -221,7 +225,7 @@ func startTestSSHServer(t *testing.T) (string, func()) {
 }
 
 func startTestSSHServerWithHandler(t *testing.T, handler func(cmd string, ch ssh.Channel) error) (string, func()) {
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	listener, err := net.Listen("tcp", testLoopbackAddr)
 	require.NoError(t, err)
 
 	signer, err := newTestSigner()
@@ -247,7 +251,7 @@ func startTestSSHServerWithHandler(t *testing.T, handler func(cmd string, ch ssh
 			wg.Add(1)
 			go func(c net.Conn) {
 				defer wg.Done()
-				handleSSHConn(t, c, config, handler)
+				handleSSHConn(c, config, handler)
 			}(conn)
 		}
 	}()
@@ -267,7 +271,7 @@ func newTestSigner() (ssh.Signer, error) {
 	return ssh.NewSignerFromKey(key)
 }
 
-func handleSSHConn(t *testing.T, conn net.Conn, config *ssh.ServerConfig, handler func(cmd string, ch ssh.Channel) error) {
+func handleSSHConn(conn net.Conn, config *ssh.ServerConfig, handler func(cmd string, ch ssh.Channel) error) {
 	sshConn, chans, reqs, err := ssh.NewServerConn(conn, config)
 	if err != nil {
 		return
@@ -286,37 +290,39 @@ func handleSSHConn(t *testing.T, conn net.Conn, config *ssh.ServerConfig, handle
 			continue
 		}
 
-		go func(ch ssh.Channel, in <-chan *ssh.Request) {
-			defer ch.Close()
-			for req := range in {
-				if req.Type != "exec" {
-					_ = req.Reply(false, nil)
-					continue
-				}
+		go handleSessionRequests(channel, requests, handler)
+	}
+}
 
-				var payload struct{ Command string }
-				_ = ssh.Unmarshal(req.Payload, &payload)
-				_ = req.Reply(true, nil)
+func handleSessionRequests(ch ssh.Channel, in <-chan *ssh.Request, handler func(cmd string, ch ssh.Channel) error) {
+	defer ch.Close()
+	for req := range in {
+		if req.Type != "exec" {
+			_ = req.Reply(false, nil)
+			continue
+		}
 
-				status := uint32(0)
-				if err := handler(payload.Command, ch); err != nil {
-					status = 1
-				}
+		var payload struct{ Command string }
+		_ = ssh.Unmarshal(req.Payload, &payload)
+		_ = req.Reply(true, nil)
 
-				_, _ = ch.SendRequest("exit-status", false, ssh.Marshal(struct{ Status uint32 }{Status: status}))
-				return
-			}
-		}(channel, requests)
+		status := uint32(0)
+		if err := handler(payload.Command, ch); err != nil {
+			status = 1
+		}
+
+		_, _ = ch.SendRequest("exit-status", false, ssh.Marshal(struct{ Status uint32 }{Status: status}))
+		return
 	}
 }
 
 func handleExecCommand(cmd string, ch ssh.Channel) error {
-	if cmd == "echo hello" {
+	if cmd == testCmdEcho {
 		_, err := ch.Write([]byte("hello\n"))
 		return err
 	}
 
-	if len(cmd) >= len("/usr/bin/scp -t ") && cmd[:len("/usr/bin/scp -t ")] == "/usr/bin/scp -t " {
+	if len(cmd) >= len(testScpCmdPrefix) && cmd[:len(testScpCmdPrefix)] == testScpCmdPrefix {
 		return handleScp(ch)
 	}
 
