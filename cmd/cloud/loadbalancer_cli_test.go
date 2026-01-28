@@ -15,6 +15,7 @@ const (
 
 func TestLBListJSONOutput(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		if r.URL.Path != "/lb" || r.Method != http.MethodGet {
 			w.WriteHeader(http.StatusNotFound)
 			return
@@ -56,6 +57,7 @@ func TestLBListJSONOutput(t *testing.T) {
 
 func TestLBAddTargetCmd(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		if r.URL.Path != "/lb/"+lbTestID+"/targets" || r.Method != http.MethodPost {
 			w.WriteHeader(http.StatusNotFound)
 			return

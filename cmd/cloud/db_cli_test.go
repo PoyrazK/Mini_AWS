@@ -17,6 +17,7 @@ const (
 
 func TestDBListJSONOutput(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		if r.URL.Path != "/databases" || r.Method != http.MethodGet {
 			w.WriteHeader(http.StatusNotFound)
 			return
@@ -61,6 +62,7 @@ func TestDBListJSONOutput(t *testing.T) {
 
 func TestDBCreateJSONMasksPassword(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		if r.URL.Path != "/databases" || r.Method != http.MethodPost {
 			w.WriteHeader(http.StatusNotFound)
 			return
@@ -111,6 +113,7 @@ func TestDBCreateJSONMasksPassword(t *testing.T) {
 
 func TestDBConnectionCmd(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		if r.URL.Path != "/databases/"+dbTestID+"/connection" || r.Method != http.MethodGet {
 			w.WriteHeader(http.StatusNotFound)
 			return

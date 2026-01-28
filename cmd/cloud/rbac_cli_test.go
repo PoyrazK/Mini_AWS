@@ -13,12 +13,13 @@ import (
 
 const (
 	rbacTestAPIKey   = "rbac-key"
-	rbacTestRoleID   = "role-1"
+	rbacTestRoleID   = "22222222-2222-2222-2222-222222222222"
 	rbacTestRoleName = "viewer"
 )
 
 func TestCreateRoleCmd(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		if r.URL.Path != "/rbac/roles" || r.Method != http.MethodPost {
 			w.WriteHeader(http.StatusNotFound)
 			return
@@ -54,6 +55,7 @@ func TestCreateRoleCmd(t *testing.T) {
 
 func TestListRolesCmd(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		if r.URL.Path != "/rbac/roles" || r.Method != http.MethodGet {
 			w.WriteHeader(http.StatusNotFound)
 			return
@@ -88,6 +90,7 @@ func TestListRolesCmd(t *testing.T) {
 
 func TestBindRoleCmd(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		if r.URL.Path != "/rbac/bindings" || r.Method != http.MethodPost {
 			w.WriteHeader(http.StatusNotFound)
 			return
@@ -114,6 +117,7 @@ func TestBindRoleCmd(t *testing.T) {
 func TestDeleteRoleCmd(t *testing.T) {
 	roleID := uuid.New()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		if r.URL.Path != "/rbac/roles/"+roleID.String() || r.Method != http.MethodDelete {
 			w.WriteHeader(http.StatusNotFound)
 			return

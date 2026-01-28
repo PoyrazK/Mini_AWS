@@ -19,6 +19,7 @@ const (
 
 func TestFunctionCreateCmd(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		if r.URL.Path != "/functions" || r.Method != http.MethodPost {
 			w.WriteHeader(http.StatusNotFound)
 			return
@@ -67,6 +68,7 @@ func TestFunctionCreateCmd(t *testing.T) {
 
 func TestFunctionListEmpty(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		if r.URL.Path != "/functions" || r.Method != http.MethodGet {
 			w.WriteHeader(http.StatusNotFound)
 			return

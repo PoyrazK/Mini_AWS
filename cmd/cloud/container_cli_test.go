@@ -16,6 +16,7 @@ const (
 
 func TestCreateDeploymentCmd(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		if r.URL.Path != "/containers/deployments" || r.Method != http.MethodPost {
 			w.WriteHeader(http.StatusNotFound)
 			return
@@ -55,6 +56,7 @@ func TestCreateDeploymentCmd(t *testing.T) {
 
 func TestListDeploymentsCmd(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		if r.URL.Path != "/containers/deployments" || r.Method != http.MethodGet {
 			w.WriteHeader(http.StatusNotFound)
 			return
@@ -102,6 +104,7 @@ func TestScaleDeploymentInvalidReplicas(t *testing.T) {
 
 func TestDeleteDeploymentCmd(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		if r.URL.Path != "/containers/deployments/"+containerTestID || r.Method != http.MethodDelete {
 			w.WriteHeader(http.StatusNotFound)
 			return

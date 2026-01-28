@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 const (
@@ -14,15 +16,17 @@ const (
 )
 
 func TestEventsListJSONOutput(t *testing.T) {
+	eventID := uuid.New().String()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/events" || r.Method != http.MethodGet {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path != "/events" || r.Method != http.MethodGet || r.URL.Query().Get("limit") != "50" {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
 		payload := map[string]interface{}{
 			"data": []map[string]interface{}{
 				{
-					"id":            "evt-1",
+					"id":            eventID,
 					"action":        "create",
 					"resource_id":   "res-1",
 					"resource_type": "instance",
@@ -49,7 +53,7 @@ func TestEventsListJSONOutput(t *testing.T) {
 	out := captureStdout(t, func() {
 		listEventsCmd.Run(listEventsCmd, nil)
 	})
-	if !strings.Contains(out, "evt-1") {
+	if !strings.Contains(out, eventID) {
 		t.Fatalf("expected JSON output to include event id, got: %s", out)
 	}
 }

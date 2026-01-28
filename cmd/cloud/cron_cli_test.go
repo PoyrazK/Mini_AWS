@@ -18,6 +18,7 @@ const (
 
 func TestCreateCronCmd(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		if r.URL.Path != "/cron/jobs" || r.Method != http.MethodPost {
 			w.WriteHeader(http.StatusNotFound)
 			return
@@ -56,6 +57,7 @@ func TestCreateCronCmd(t *testing.T) {
 
 func TestPauseCronCmd(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		if r.URL.Path != "/cron/jobs/"+cronTestJobID+"/pause" || r.Method != http.MethodPost {
 			w.WriteHeader(http.StatusNotFound)
 			return
@@ -83,6 +85,7 @@ func TestPauseCronCmd(t *testing.T) {
 
 func TestDeleteCronCmd(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		if r.URL.Path != "/cron/jobs/"+cronTestJobID || r.Method != http.MethodDelete {
 			w.WriteHeader(http.StatusNotFound)
 			return

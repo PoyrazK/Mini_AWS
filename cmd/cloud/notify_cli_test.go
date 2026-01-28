@@ -16,6 +16,7 @@ const (
 
 func TestCreateTopicCmd(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		if r.URL.Path != "/notify/topics" || r.Method != http.MethodPost {
 			w.WriteHeader(http.StatusNotFound)
 			return
@@ -50,6 +51,7 @@ func TestCreateTopicCmd(t *testing.T) {
 
 func TestPublishCmd(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		if r.URL.Path != "/notify/topics/"+notifyTestTopicID+"/publish" || r.Method != http.MethodPost {
 			w.WriteHeader(http.StatusNotFound)
 			return

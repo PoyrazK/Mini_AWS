@@ -17,6 +17,7 @@ const (
 
 func TestASGCreateJSONOutput(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		if r.URL.Path != "/autoscaling/groups" || r.Method != http.MethodPost {
 			w.WriteHeader(http.StatusNotFound)
 			return
@@ -67,6 +68,7 @@ func TestASGCreateJSONOutput(t *testing.T) {
 
 func TestASGListJSONOutput(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		if r.URL.Path != "/autoscaling/groups" || r.Method != http.MethodGet {
 			w.WriteHeader(http.StatusNotFound)
 			return
@@ -112,6 +114,7 @@ func TestASGListJSONOutput(t *testing.T) {
 
 func TestASGDeleteCmd(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		if r.URL.Path != "/autoscaling/groups/"+asgTestID || r.Method != http.MethodDelete {
 			w.WriteHeader(http.StatusNotFound)
 			return
@@ -139,6 +142,7 @@ func TestASGDeleteCmd(t *testing.T) {
 
 func TestASGPolicyAddCmd(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		if r.URL.Path != "/autoscaling/groups/"+asgTestID+"/policies" || r.Method != http.MethodPost {
 			w.WriteHeader(http.StatusNotFound)
 			return

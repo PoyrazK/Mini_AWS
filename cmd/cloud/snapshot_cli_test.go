@@ -13,11 +13,12 @@ import (
 
 const (
 	snapshotTestAPIKey = "snapshot-key"
-	snapshotTestID     = "snap-1"
+	snapshotTestID     = "33333333-3333-3333-3333-333333333333"
 )
 
 func TestSnapshotListJSONOutput(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		if r.URL.Path != "/snapshots" || r.Method != http.MethodGet {
 			w.WriteHeader(http.StatusNotFound)
 			return
@@ -58,6 +59,7 @@ func TestSnapshotListJSONOutput(t *testing.T) {
 func TestSnapshotCreateCmd(t *testing.T) {
 	volID := uuid.New()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		if r.URL.Path != "/snapshots" || r.Method != http.MethodPost {
 			w.WriteHeader(http.StatusNotFound)
 			return
@@ -95,6 +97,7 @@ func TestSnapshotCreateCmd(t *testing.T) {
 
 func TestSnapshotRestoreCmd(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		if r.URL.Path != "/snapshots/"+snapshotTestID+"/restore" || r.Method != http.MethodPost {
 			w.WriteHeader(http.StatusNotFound)
 			return
@@ -132,6 +135,7 @@ func TestSnapshotRestoreCmd(t *testing.T) {
 
 func TestSnapshotDeleteCmd(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		if r.URL.Path != "/snapshots/"+snapshotTestID || r.Method != http.MethodDelete {
 			w.WriteHeader(http.StatusNotFound)
 			return

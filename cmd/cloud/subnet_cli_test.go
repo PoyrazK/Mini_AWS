@@ -17,6 +17,7 @@ const (
 func TestSubnetListJSONOutput(t *testing.T) {
 	vpcID := "vpc-1"
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		if r.URL.Path != "/vpcs/"+vpcID+"/subnets" || r.Method != http.MethodGet {
 			w.WriteHeader(http.StatusNotFound)
 			return

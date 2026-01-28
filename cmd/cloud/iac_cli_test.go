@@ -13,11 +13,12 @@ import (
 
 const (
 	iacTestAPIKey = "iac-key"
-	iacTestID     = "stack-1"
+	iacTestID     = "11111111-1111-1111-1111-111111111111"
 )
 
 func TestIACListJSONOutput(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		if r.URL.Path != "/iac/stacks" || r.Method != http.MethodGet {
 			w.WriteHeader(http.StatusNotFound)
 			return
@@ -55,6 +56,7 @@ func TestIACListJSONOutput(t *testing.T) {
 
 func TestIACValidateTemplateSuccess(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		if r.URL.Path != "/iac/validate" || r.Method != http.MethodPost {
 			w.WriteHeader(http.StatusNotFound)
 			return
