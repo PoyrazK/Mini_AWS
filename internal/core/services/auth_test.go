@@ -21,6 +21,7 @@ const (
 	defaultKeyName  = "Default Key"
 	userLoginAction = "user.login"
 	wrongPassword   = "wrong-password"
+	uuidTypeName    = "uuid.UUID"
 )
 
 func setupAuthServiceTest(_ *testing.T) (*MockUserRepo, *MockIdentityService, *MockAuditService, *MockTenantService, *services.AuthService) {
@@ -52,10 +53,10 @@ func TestAuthServiceRegisterSuccess(t *testing.T) {
 	})).Return(nil)
 
 	// Match tenant creation
-	tenantSvc.On("CreateTenant", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("uuid.UUID")).Return(&domain.Tenant{ID: uuid.New()}, nil)
+	tenantSvc.On("CreateTenant", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType(uuidTypeName)).Return(&domain.Tenant{ID: uuid.New()}, nil)
 
 	// Match user reload
-	userRepo.On("GetByID", mock.Anything, mock.AnythingOfType("uuid.UUID")).Return(&domain.User{
+	userRepo.On("GetByID", mock.Anything, mock.AnythingOfType(uuidTypeName)).Return(&domain.User{
 		ID:    uuid.New(),
 		Email: email,
 		Name:  name,
@@ -119,8 +120,8 @@ func TestAuthServiceRegisterTenantCreateRollback(t *testing.T) {
 	userRepo.On("Create", mock.Anything, mock.MatchedBy(func(u *domain.User) bool {
 		return u.Email == email && u.Name == name
 	})).Return(nil)
-	tenantSvc.On("CreateTenant", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("uuid.UUID")).Return(nil, assert.AnError)
-	userRepo.On("Delete", mock.Anything, mock.AnythingOfType("uuid.UUID")).Return(nil)
+	tenantSvc.On("CreateTenant", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType(uuidTypeName)).Return(nil, assert.AnError)
+	userRepo.On("Delete", mock.Anything, mock.AnythingOfType(uuidTypeName)).Return(nil)
 
 	user, err := svc.Register(ctx, email, password, name)
 

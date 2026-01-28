@@ -8,10 +8,15 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-func TestRedisTaskQueue_Enqueue(t *testing.T) {
+const (
+	miniredisStartErrMsg = "failed to start miniredis: %v"
+	redisTestQueue       = "test_queue"
+)
+
+func TestRedisTaskQueueEnqueue(t *testing.T) {
 	s, err := miniredis.Run()
 	if err != nil {
-		t.Fatalf("failed to start miniredis: %v", err)
+		t.Fatalf(miniredisStartErrMsg, err)
 	}
 	defer s.Close()
 
@@ -21,13 +26,13 @@ func TestRedisTaskQueue_Enqueue(t *testing.T) {
 	ctx := context.Background()
 	payload := map[string]string{"key": "value"}
 
-	err = queue.Enqueue(ctx, "test_queue", payload)
+	err = queue.Enqueue(ctx, redisTestQueue, payload)
 	if err != nil {
 		t.Fatalf("Enqueue failed: %v", err)
 	}
 
 	// Verify the item is in the queue
-	len, err := client.LLen(ctx, "test_queue").Result()
+	len, err := client.LLen(ctx, redisTestQueue).Result()
 	if err != nil {
 		t.Fatalf("LLen failed: %v", err)
 	}
@@ -36,10 +41,10 @@ func TestRedisTaskQueue_Enqueue(t *testing.T) {
 	}
 }
 
-func TestRedisTaskQueue_Dequeue(t *testing.T) {
+func TestRedisTaskQueueDequeue(t *testing.T) {
 	s, err := miniredis.Run()
 	if err != nil {
-		t.Fatalf("failed to start miniredis: %v", err)
+		t.Fatalf(miniredisStartErrMsg, err)
 	}
 	defer s.Close()
 
@@ -50,13 +55,13 @@ func TestRedisTaskQueue_Dequeue(t *testing.T) {
 	payload := map[string]string{"key": "value"}
 
 	// Enqueue first
-	err = queue.Enqueue(ctx, "test_queue", payload)
+	err = queue.Enqueue(ctx, redisTestQueue, payload)
 	if err != nil {
 		t.Fatalf("Enqueue failed: %v", err)
 	}
 
 	// Dequeue
-	result, err := queue.Dequeue(ctx, "test_queue")
+	result, err := queue.Dequeue(ctx, redisTestQueue)
 	if err != nil {
 		t.Fatalf("Dequeue failed: %v", err)
 	}
@@ -65,7 +70,7 @@ func TestRedisTaskQueue_Dequeue(t *testing.T) {
 	}
 
 	// Verify queue is empty
-	len, err := client.LLen(ctx, "test_queue").Result()
+	len, err := client.LLen(ctx, redisTestQueue).Result()
 	if err != nil {
 		t.Fatalf("LLen failed: %v", err)
 	}
@@ -74,10 +79,10 @@ func TestRedisTaskQueue_Dequeue(t *testing.T) {
 	}
 }
 
-func TestRedisTaskQueue_DequeueEmpty(t *testing.T) {
+func TestRedisTaskQueueDequeueEmpty(t *testing.T) {
 	s, err := miniredis.Run()
 	if err != nil {
-		t.Fatalf("failed to start miniredis: %v", err)
+		t.Fatalf(miniredisStartErrMsg, err)
 	}
 	defer s.Close()
 
@@ -87,7 +92,7 @@ func TestRedisTaskQueue_DequeueEmpty(t *testing.T) {
 	ctx := context.Background()
 
 	// Dequeue from empty queue with timeout
-	result, err := queue.Dequeue(ctx, "test_queue")
+	result, err := queue.Dequeue(ctx, redisTestQueue)
 	if err != nil {
 		t.Fatalf("Dequeue failed: %v", err)
 	}

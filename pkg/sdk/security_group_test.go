@@ -70,7 +70,7 @@ func TestClientListSecurityGroups(t *testing.T) {
 	assert.Len(t, sgs, 2)
 }
 
-func TestClientListSecurityGroups_NoVPC(t *testing.T) {
+func TestClientListSecurityGroupsNoVPC(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, sgBasePath, r.URL.Path)
 		assert.Equal(t, "", r.URL.RawQuery)
@@ -89,7 +89,7 @@ func TestClientListSecurityGroups_NoVPC(t *testing.T) {
 	assert.Len(t, groups, 1)
 }
 
-func TestClientListSecurityGroups_Error(t *testing.T) {
+func TestClientListSecurityGroupsError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("boom"))
@@ -243,7 +243,7 @@ func TestClientDetachSecurityGroup(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestClient_SecurityGroupErrors(t *testing.T) {
+func TestClientSecurityGroupErrors(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("boom"))
@@ -258,7 +258,7 @@ func TestClient_SecurityGroupErrors(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestClient_CreateSecurityGroupError(t *testing.T) {
+func TestClientCreateSecurityGroupError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("boom"))

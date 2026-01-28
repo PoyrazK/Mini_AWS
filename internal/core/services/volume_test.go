@@ -16,7 +16,9 @@ import (
 )
 
 const (
-	testVolName = "test-vol"
+	testVolName       = "test-vol"
+	volumeTypeLiteral = "*domain.Volume"
+	volumeDeleteEvent = "volume.delete"
 )
 
 func setupVolumeServiceTest(_ *testing.T) (*MockVolumeRepo, *MockStorageBackend, *MockEventService, *MockAuditService, ports.VolumeService) {
@@ -46,7 +48,7 @@ func TestVolumeServiceCreateVolumeSuccess(t *testing.T) {
 		return len(n) > 0 // Ensure some name is generated
 	}), size).Return("vol-path", nil)
 
-	repo.On("Create", mock.Anything, mock.AnythingOfType("*domain.Volume")).Return(nil)
+	repo.On("Create", mock.Anything, mock.AnythingOfType(volumeTypeLiteral)).Return(nil)
 	eventSvc.On("RecordEvent", mock.Anything, "VOLUME_CREATE", mock.Anything, "VOLUME", mock.Anything).Return(nil)
 	auditSvc.On("Log", mock.Anything, mock.Anything, "volume.create", "volume", mock.Anything, mock.Anything).Return(nil)
 
@@ -83,7 +85,7 @@ func TestVolumeServiceCreateVolumeRepoErrorRollsBack(t *testing.T) {
 	ctx := appcontext.WithUserID(context.Background(), uuid.New())
 
 	storage.On("CreateVolume", mock.Anything, mock.Anything, 5).Return("vol-path", nil)
-	repo.On("Create", mock.Anything, mock.AnythingOfType("*domain.Volume")).Return(assert.AnError)
+	repo.On("Create", mock.Anything, mock.AnythingOfType(volumeTypeLiteral)).Return(assert.AnError)
 	storage.On("DeleteVolume", mock.Anything, mock.Anything).Return(nil)
 
 	vol, err := svc.CreateVolume(ctx, testVolName, 5)
@@ -111,7 +113,7 @@ func TestVolumeServiceDeleteVolumeSuccess(t *testing.T) {
 	storage.On("DeleteVolume", mock.Anything, dockerName).Return(nil)
 	repo.On("Delete", mock.Anything, volID).Return(nil)
 	eventSvc.On("RecordEvent", mock.Anything, "VOLUME_DELETE", volID.String(), "VOLUME", mock.Anything).Return(nil)
-	auditSvc.On("Log", mock.Anything, mock.Anything, "volume.delete", "volume", mock.Anything, mock.Anything).Return(nil)
+	auditSvc.On("Log", mock.Anything, mock.Anything, volumeDeleteEvent, "volume", mock.Anything, mock.Anything).Return(nil)
 
 	err := svc.DeleteVolume(ctx, volID.String())
 
@@ -134,7 +136,7 @@ func TestVolumeServiceDeleteVolumeStorageErrorContinues(t *testing.T) {
 	storage.On("DeleteVolume", mock.Anything, dockerName).Return(assert.AnError)
 	repo.On("Delete", mock.Anything, volID).Return(nil)
 	eventSvc.On("RecordEvent", mock.Anything, "VOLUME_DELETE", volID.String(), "VOLUME", mock.Anything).Return(nil)
-	auditSvc.On("Log", mock.Anything, mock.Anything, "volume.delete", "volume", mock.Anything, mock.Anything).Return(nil)
+	auditSvc.On("Log", mock.Anything, mock.Anything, volumeDeleteEvent, "volume", mock.Anything, mock.Anything).Return(nil)
 
 	err := svc.DeleteVolume(ctx, volID.String())
 
@@ -264,7 +266,7 @@ func TestVolumeServiceReleaseVolumesForInstance(t *testing.T) {
 	}
 
 	repo.On("ListByInstanceID", mock.Anything, instanceID).Return(volumes, nil)
-	repo.On("Update", mock.Anything, mock.AnythingOfType("*domain.Volume")).Return(nil).Twice()
+	repo.On("Update", mock.Anything, mock.AnythingOfType(volumeTypeLiteral)).Return(nil).Twice()
 
 	err := svc.ReleaseVolumesForInstance(ctx, instanceID)
 
@@ -300,8 +302,8 @@ func TestVolumeServiceReleaseVolumesForInstanceUpdateErrorContinues(t *testing.T
 	}
 
 	repo.On("ListByInstanceID", mock.Anything, instanceID).Return(volumes, nil)
-	repo.On("Update", mock.Anything, mock.AnythingOfType("*domain.Volume")).Return(assert.AnError).Once()
-	repo.On("Update", mock.Anything, mock.AnythingOfType("*domain.Volume")).Return(nil).Once()
+	repo.On("Update", mock.Anything, mock.AnythingOfType(volumeTypeLiteral)).Return(assert.AnError).Once()
+	repo.On("Update", mock.Anything, mock.AnythingOfType(volumeTypeLiteral)).Return(nil).Once()
 
 	err := svc.ReleaseVolumesForInstance(ctx, instanceID)
 	assert.NoError(t, err)

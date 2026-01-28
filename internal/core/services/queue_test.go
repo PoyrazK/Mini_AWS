@@ -12,6 +12,8 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+const testQueueName = "test-queue"
+
 type mockQueueRepository struct {
 	mock.Mock
 }
@@ -80,24 +82,24 @@ func TestQueueServiceCreateQueue(t *testing.T) {
 	ctx := appcontext.WithUserID(context.Background(), userID)
 
 	t.Run("success", func(t *testing.T) {
-		repo.On("GetByName", mock.Anything, "test-queue", userID).Return(nil, nil).Once()
+		repo.On("GetByName", mock.Anything, testQueueName, userID).Return(nil, nil).Once()
 		repo.On("Create", mock.Anything, mock.MatchedBy(func(q *domain.Queue) bool {
-			return q.Name == "test-queue" && q.UserID == userID
+			return q.Name == testQueueName && q.UserID == userID
 		})).Return(nil).Once()
 		eventSvc.On("RecordEvent", mock.Anything, "QUEUE_CREATED", mock.Anything, "QUEUE", mock.Anything).Return(nil).Once()
 		auditSvc.On("Log", mock.Anything, userID, "queue.create", "queue", mock.Anything, mock.Anything).Return(nil).Once()
 
 		opts := &ports.CreateQueueOptions{}
-		q, err := svc.CreateQueue(ctx, "test-queue", opts)
+		q, err := svc.CreateQueue(ctx, testQueueName, opts)
 
 		assert.NoError(t, err)
 		assert.NotNil(t, q)
-		assert.Equal(t, "test-queue", q.Name)
+		assert.Equal(t, testQueueName, q.Name)
 		repo.AssertExpectations(t)
 	})
 
 	t.Run("unauthorized", func(t *testing.T) {
-		_, err := svc.CreateQueue(context.Background(), "test-queue", nil)
+		_, err := svc.CreateQueue(context.Background(), testQueueName, nil)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "unauthorized")
 	})

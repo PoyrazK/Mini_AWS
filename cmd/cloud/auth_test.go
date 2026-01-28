@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestLoadConfig_WhenFileMissing_ReturnsEmptyString(t *testing.T) {
+func TestLoadConfigWhenFileMissingReturnsEmptyString(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
 	got := loadConfig()
@@ -15,7 +15,7 @@ func TestLoadConfig_WhenFileMissing_ReturnsEmptyString(t *testing.T) {
 	}
 }
 
-func TestSaveAndLoadConfig_RoundTrip(t *testing.T) {
+func TestSaveAndLoadConfigRoundTrip(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("HOME", dir)
 
@@ -33,7 +33,7 @@ func TestSaveAndLoadConfig_RoundTrip(t *testing.T) {
 	}
 }
 
-func TestLoadConfig_WhenInvalidJSON_ReturnsEmptyString(t *testing.T) {
+func TestLoadConfigWhenInvalidJSONReturnsEmptyString(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("HOME", dir)
 

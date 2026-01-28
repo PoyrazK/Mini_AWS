@@ -2,7 +2,9 @@ package platform
 
 import "testing"
 
-func TestMetrics_CollectorsAreUsable(t *testing.T) {
+const testBucketLabel = "bucket-1"
+
+func TestMetricsCollectorsAreUsable(t *testing.T) {
 	HTTPRequestsTotal.WithLabelValues("GET", "/health", "200").Inc()
 	HTTPRequestDuration.WithLabelValues("GET", "/health").Observe(0.1)
 	LBRequestsTotal.WithLabelValues("lb-1").Inc()
@@ -11,9 +13,9 @@ func TestMetrics_CollectorsAreUsable(t *testing.T) {
 	AuthAttemptsTotal.WithLabelValues("success").Inc()
 	VolumesTotal.WithLabelValues("available").Set(3)
 	QueueMessagesTotal.WithLabelValues("queue-1", "send").Inc()
-	StorageOperations.WithLabelValues("upload", "bucket-1", "success").Inc()
-	StorageLatency.WithLabelValues("upload", "bucket-1").Observe(0.05)
+	StorageOperations.WithLabelValues("upload", testBucketLabel, "success").Inc()
+	StorageLatency.WithLabelValues("upload", testBucketLabel).Observe(0.05)
 	StorageBytesTransferred.WithLabelValues("upload").Add(123)
-	StorageBucketObjects.WithLabelValues("bucket-1").Set(10)
-	StorageBucketBytes.WithLabelValues("bucket-1").Set(2048)
+	StorageBucketObjects.WithLabelValues(testBucketLabel).Set(10)
+	StorageBucketBytes.WithLabelValues(testBucketLabel).Set(2048)
 }

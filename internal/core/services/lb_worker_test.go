@@ -72,6 +72,9 @@ func (m *mockLBRepo) List(ctx context.Context) ([]*domain.LoadBalancer, error) {
 }
 func (m *mockLBRepo) ListAll(ctx context.Context) ([]*domain.LoadBalancer, error) {
 	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	return args.Get(0).([]*domain.LoadBalancer), args.Error(1)
 }
 func (m *mockLBRepo) Update(ctx context.Context, lb *domain.LoadBalancer) error {
@@ -119,6 +122,9 @@ func (m *mockInstRepo) List(ctx context.Context) ([]*domain.Instance, error) {
 }
 func (m *mockInstRepo) ListAll(ctx context.Context) ([]*domain.Instance, error) {
 	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	return args.Get(0).([]*domain.Instance), args.Error(1)
 }
 func (m *mockInstRepo) ListBySubnet(ctx context.Context, id uuid.UUID) ([]*domain.Instance, error) {

@@ -11,6 +11,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const autoscalingErrorFormat = "Error: %v\n"
+
 var autoscalingCmd = &cobra.Command{
 	Use:     "autoscaling",
 	Aliases: []string{"asg"},
@@ -47,7 +49,7 @@ var asgCreateCmd = &cobra.Command{
 
 		group, err := client.CreateScalingGroup(req)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(autoscalingErrorFormat, err)
 			os.Exit(1)
 		}
 
@@ -68,7 +70,7 @@ var asgListCmd = &cobra.Command{
 		client := getClient()
 		groups, err := client.ListScalingGroups()
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(autoscalingErrorFormat, err)
 			os.Exit(1)
 		}
 
@@ -96,7 +98,7 @@ var asgRmCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		client := getClient()
 		if err := client.DeleteScalingGroup(args[0]); err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(autoscalingErrorFormat, err)
 			os.Exit(1)
 		}
 		fmt.Println("[SUCCESS] Scaling Group deleted")
@@ -126,7 +128,7 @@ var asgPolicyAddCmd = &cobra.Command{
 		}
 
 		if err := client.CreateScalingPolicy(args[0], req); err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(autoscalingErrorFormat, err)
 			os.Exit(1)
 		}
 		fmt.Println("[SUCCESS] Policy added")

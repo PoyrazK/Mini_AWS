@@ -16,6 +16,8 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+const vpcDeleteName = "to-delete"
+
 func setupVpcServiceTest(cidr string) (*MockVpcRepo, *MockNetworkBackend, *MockAuditService, ports.VpcService) {
 	vpcRepo := new(MockVpcRepo)
 	network := new(MockNetworkBackend)
@@ -130,7 +132,7 @@ func TestVpcServiceDeleteSuccess(t *testing.T) {
 	vpcID := uuid.New()
 	vpc := &domain.VPC{
 		ID:        vpcID,
-		Name:      "to-delete",
+		Name:      vpcDeleteName,
 		NetworkID: "br-vpc-123",
 	}
 
@@ -152,7 +154,7 @@ func TestVpcServiceDeleteBridgeError(t *testing.T) {
 	vpcID := uuid.New()
 	vpc := &domain.VPC{
 		ID:        vpcID,
-		Name:      "to-delete",
+		Name:      vpcDeleteName,
 		NetworkID: "br-vpc-err",
 	}
 
@@ -183,7 +185,7 @@ func TestVpcServiceDeleteRepoError(t *testing.T) {
 	vpcID := uuid.New()
 	vpc := &domain.VPC{
 		ID:        vpcID,
-		Name:      "to-delete",
+		Name:      vpcDeleteName,
 		NetworkID: "br-vpc-ok",
 	}
 

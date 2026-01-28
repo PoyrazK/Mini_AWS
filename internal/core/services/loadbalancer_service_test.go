@@ -11,7 +11,9 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-func TestLBService_Get(t *testing.T) {
+const lbMainName = "lb-main"
+
+func TestLBServiceGet(t *testing.T) {
 	lbRepo := new(MockLBRepo)
 	vpcRepo := new(MockVpcRepo)
 	instanceRepo := new(MockInstanceRepo)
@@ -19,7 +21,7 @@ func TestLBService_Get(t *testing.T) {
 	svc := services.NewLBService(lbRepo, vpcRepo, instanceRepo, auditSvc)
 
 	lbID := uuid.New()
-	lb := &domain.LoadBalancer{ID: lbID, Name: "lb-main"}
+	lb := &domain.LoadBalancer{ID: lbID, Name: lbMainName}
 	lbRepo.On("GetByID", mock.Anything, lbID).Return(lb, nil).Once()
 
 	res, err := svc.Get(context.Background(), lbID)
@@ -28,7 +30,7 @@ func TestLBService_Get(t *testing.T) {
 	lbRepo.AssertExpectations(t)
 }
 
-func TestLBService_List(t *testing.T) {
+func TestLBServiceList(t *testing.T) {
 	lbRepo := new(MockLBRepo)
 	vpcRepo := new(MockVpcRepo)
 	instanceRepo := new(MockInstanceRepo)
@@ -43,7 +45,7 @@ func TestLBService_List(t *testing.T) {
 	lbRepo.AssertExpectations(t)
 }
 
-func TestLBService_RemoveTarget(t *testing.T) {
+func TestLBServiceRemoveTarget(t *testing.T) {
 	lbRepo := new(MockLBRepo)
 	vpcRepo := new(MockVpcRepo)
 	instanceRepo := new(MockInstanceRepo)
@@ -52,7 +54,7 @@ func TestLBService_RemoveTarget(t *testing.T) {
 
 	lbID := uuid.New()
 	instanceID := uuid.New()
-	lb := &domain.LoadBalancer{ID: lbID, Name: "lb-main", UserID: uuid.New()}
+	lb := &domain.LoadBalancer{ID: lbID, Name: lbMainName, UserID: uuid.New()}
 
 	lbRepo.On("GetByID", mock.Anything, lbID).Return(lb, nil).Once()
 	lbRepo.On("RemoveTarget", mock.Anything, lbID, instanceID).Return(nil).Once()
@@ -64,7 +66,7 @@ func TestLBService_RemoveTarget(t *testing.T) {
 	auditSvc.AssertExpectations(t)
 }
 
-func TestLBService_ListTargets(t *testing.T) {
+func TestLBServiceListTargets(t *testing.T) {
 	lbRepo := new(MockLBRepo)
 	vpcRepo := new(MockVpcRepo)
 	instanceRepo := new(MockInstanceRepo)
@@ -81,7 +83,7 @@ func TestLBService_ListTargets(t *testing.T) {
 	lbRepo.AssertExpectations(t)
 }
 
-func TestLBService_Delete(t *testing.T) {
+func TestLBServiceDelete(t *testing.T) {
 	lbRepo := new(MockLBRepo)
 	vpcRepo := new(MockVpcRepo)
 	instanceRepo := new(MockInstanceRepo)
@@ -89,7 +91,7 @@ func TestLBService_Delete(t *testing.T) {
 	svc := services.NewLBService(lbRepo, vpcRepo, instanceRepo, auditSvc)
 
 	lbID := uuid.New()
-	lb := &domain.LoadBalancer{ID: lbID, Name: "lb-main", UserID: uuid.New()}
+	lb := &domain.LoadBalancer{ID: lbID, Name: lbMainName, UserID: uuid.New()}
 
 	lbRepo.On("GetByID", mock.Anything, lbID).Return(lb, nil).Once()
 	lbRepo.On("Update", mock.Anything, mock.MatchedBy(func(updated *domain.LoadBalancer) bool {

@@ -12,9 +12,11 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+const testVolumeName = "test-vol"
+
 // mockVolumeRepo is already defined in dashboard_test.go (package services)
 
-func TestInstanceService_Internal_GetVolumeByIDOrName(t *testing.T) {
+func TestInstanceServiceInternalGetVolumeByIDOrName(t *testing.T) {
 	repo := new(mockVolumeRepo)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	svc := &InstanceService{volumeRepo: repo, logger: logger}
@@ -29,14 +31,14 @@ func TestInstanceService_Internal_GetVolumeByIDOrName(t *testing.T) {
 	})
 
 	t.Run("ByName", func(t *testing.T) {
-		repo.On("GetByName", ctx, "test-vol").Return(&domain.Volume{Name: "test-vol"}, nil).Once()
-		res, err := svc.getVolumeByIDOrName(ctx, "test-vol")
+		repo.On("GetByName", ctx, testVolumeName).Return(&domain.Volume{Name: testVolumeName}, nil).Once()
+		res, err := svc.getVolumeByIDOrName(ctx, testVolumeName)
 		assert.NoError(t, err)
-		assert.Equal(t, "test-vol", res.Name)
+		assert.Equal(t, testVolumeName, res.Name)
 	})
 }
 
-func TestInstanceService_Internal_ResolveVolumes(t *testing.T) {
+func TestInstanceServiceInternalResolveVolumes(t *testing.T) {
 	repo := new(mockVolumeRepo)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	svc := &InstanceService{volumeRepo: repo, logger: logger}
@@ -51,7 +53,7 @@ func TestInstanceService_Internal_ResolveVolumes(t *testing.T) {
 	assert.Len(t, vols, 1)
 }
 
-func TestInstanceService_Internal_ResolveVolumesUnavailable(t *testing.T) {
+func TestInstanceServiceInternalResolveVolumesUnavailable(t *testing.T) {
 	repo := new(mockVolumeRepo)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	svc := &InstanceService{volumeRepo: repo, logger: logger}
@@ -64,7 +66,7 @@ func TestInstanceService_Internal_ResolveVolumesUnavailable(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestInstanceService_Internal_UpdateVolumesAfterLaunch(t *testing.T) {
+func TestInstanceServiceInternalUpdateVolumesAfterLaunch(t *testing.T) {
 	repo := new(mockVolumeRepo)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	svc := &InstanceService{volumeRepo: repo, logger: logger}

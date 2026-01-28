@@ -18,6 +18,8 @@ import (
 const (
 	testDBName    = "test-db"
 	dbContainerID = "cont-123"
+	dbDomainType  = "*domain.Database"
+	dbCreateAudit = "database.create"
 )
 
 // MockDatabaseRepo
@@ -78,9 +80,9 @@ func TestCreateDatabaseSuccess(t *testing.T) {
 			len(opts.Ports) == 1 && opts.Ports[0] == "0:5432"
 	})).Return(dbContainerID, nil)
 	docker.On("GetInstancePort", ctx, dbContainerID, "5432").Return(54321, nil)
-	repo.On("Create", ctx, mock.AnythingOfType("*domain.Database")).Return(nil)
+	repo.On("Create", ctx, mock.AnythingOfType(dbDomainType)).Return(nil)
 	eventSvc.On("RecordEvent", ctx, "DATABASE_CREATE", mock.Anything, "DATABASE", mock.Anything).Return(nil)
-	auditSvc.On("Log", ctx, mock.Anything, "database.create", "database", mock.Anything, mock.Anything).Return(nil)
+	auditSvc.On("Log", ctx, mock.Anything, dbCreateAudit, "database", mock.Anything, mock.Anything).Return(nil)
 
 	db, err := svc.CreateDatabase(ctx, name, engine, version, nil)
 
@@ -111,9 +113,9 @@ func TestCreateDatabaseWithVpc(t *testing.T) {
 		return opts.NetworkID == "net-1" && opts.ImageName == "postgres:16-alpine"
 	})).Return(dbContainerID, nil)
 	docker.On("GetInstancePort", ctx, dbContainerID, "5432").Return(54321, nil)
-	repo.On("Create", ctx, mock.AnythingOfType("*domain.Database")).Return(nil)
+	repo.On("Create", ctx, mock.AnythingOfType(dbDomainType)).Return(nil)
 	eventSvc.On("RecordEvent", ctx, "DATABASE_CREATE", mock.Anything, "DATABASE", mock.Anything).Return(nil)
-	auditSvc.On("Log", ctx, mock.Anything, "database.create", "database", mock.Anything, mock.Anything).Return(nil)
+	auditSvc.On("Log", ctx, mock.Anything, dbCreateAudit, "database", mock.Anything, mock.Anything).Return(nil)
 
 	_, err := svc.CreateDatabase(ctx, name, engine, version, &vpcID)
 	assert.NoError(t, err)
@@ -154,9 +156,9 @@ func TestCreateDatabaseMySQL(t *testing.T) {
 		return opts.ImageName == "mysql:8.0" && len(opts.Ports) == 1 && opts.Ports[0] == "0:3306"
 	})).Return(dbContainerID, nil)
 	docker.On("GetInstancePort", ctx, dbContainerID, "3306").Return(33060, nil)
-	repo.On("Create", ctx, mock.AnythingOfType("*domain.Database")).Return(nil)
+	repo.On("Create", ctx, mock.AnythingOfType(dbDomainType)).Return(nil)
 	eventSvc.On("RecordEvent", ctx, "DATABASE_CREATE", mock.Anything, "DATABASE", mock.Anything).Return(nil)
-	auditSvc.On("Log", ctx, mock.Anything, "database.create", "database", mock.Anything, mock.Anything).Return(nil)
+	auditSvc.On("Log", ctx, mock.Anything, dbCreateAudit, "database", mock.Anything, mock.Anything).Return(nil)
 
 	db, err := svc.CreateDatabase(ctx, name, engine, version, nil)
 	assert.NoError(t, err)

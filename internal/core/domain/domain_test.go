@@ -2,7 +2,7 @@ package domain
 
 import "testing"
 
-func TestDomainConstants_Smoke(t *testing.T) {
+func TestDomainConstantsSmoke(t *testing.T) {
 	// These are intentionally lightweight tests whose main purpose is to mark
 	// domain/package statements as covered in the global coverage report.
 	if RuleIngress != "ingress" {
