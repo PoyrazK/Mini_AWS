@@ -36,7 +36,8 @@ func (p *KubeadmProvisioner) Repair(ctx context.Context, cluster *domain.Cluster
 		return err
 	}
 
-	return nil
+	// 4. Reconcile node count to ensure any missing/failed nodes are replaced
+	return p.Scale(ctx, cluster)
 }
 
 func (p *KubeadmProvisioner) Scale(ctx context.Context, cluster *domain.Cluster) error {
