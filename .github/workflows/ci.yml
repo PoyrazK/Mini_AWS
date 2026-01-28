@@ -16,7 +16,7 @@ jobs:
         env:
           POSTGRES_USER: cloud
           POSTGRES_PASSWORD: cloud
-          POSTGRES_DB: thecloud
+          POSTGRES_DB: cloud
         ports:
           - 5433:5432
         options: >-
@@ -63,12 +63,12 @@ jobs:
 
       - name: Run Database Migrations
         env:
-          DATABASE_URL: postgres://cloud:cloud@localhost:5433/thecloud?sslmode=disable
+          DATABASE_URL: postgres://cloud:cloud@localhost:5433/cloud?sslmode=disable
         run: go run ./cmd/api -migrate-only
         
       - name: Run Integration Tests
         env:
-          DATABASE_URL: postgres://cloud:cloud@localhost:5433/thecloud?sslmode=disable
+          DATABASE_URL: postgres://cloud:cloud@localhost:5433/cloud?sslmode=disable
         run: go test -tags=integration -v ./internal/repositories/postgres/...
 
   test-libvirt:
@@ -79,7 +79,7 @@ jobs:
         env:
           POSTGRES_USER: cloud
           POSTGRES_PASSWORD: cloud
-          POSTGRES_DB: thecloud
+          POSTGRES_DB: cloud
         ports:
           - 5433:5432
         options: >-
@@ -165,7 +165,7 @@ jobs:
 
       - name: Test Backend Switching
         env:
-          DATABASE_URL: postgres://cloud:cloud@localhost:5433/thecloud?sslmode=disable
+          DATABASE_URL: postgres://cloud:cloud@localhost:5433/cloud?sslmode=disable
         run: |
           # Test with Docker backend (default)
           export COMPUTE_BACKEND=docker
