@@ -29,6 +29,9 @@ func (m *mockClusterRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.Cl
 func (m *mockClusterRepo) ListByUserID(ctx context.Context, userID uuid.UUID) ([]*domain.Cluster, error) {
 	return nil, nil
 }
+func (m *mockClusterRepo) ListAll(ctx context.Context) ([]*domain.Cluster, error) {
+	return nil, nil
+}
 func (m *mockClusterRepo) Update(ctx context.Context, c *domain.Cluster) error      { return nil }
 func (m *mockClusterRepo) Delete(ctx context.Context, id uuid.UUID) error           { return nil }
 func (m *mockClusterRepo) AddNode(ctx context.Context, n *domain.ClusterNode) error { return nil }

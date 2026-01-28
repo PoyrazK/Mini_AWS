@@ -913,6 +913,13 @@ func (m *MockClusterRepo) ListByUserID(ctx context.Context, userID uuid.UUID) ([
 	}
 	return args.Get(0).([]*domain.Cluster), args.Error(1)
 }
+func (m *MockClusterRepo) ListAll(ctx context.Context) ([]*domain.Cluster, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Cluster), args.Error(1)
+}
 func (m *MockClusterRepo) Update(ctx context.Context, cluster *domain.Cluster) error {
 	return m.Called(ctx, cluster).Error(0)
 }

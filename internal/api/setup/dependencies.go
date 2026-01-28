@@ -134,15 +134,16 @@ type Services struct {
 
 // Workers struct to return background workers
 type Workers struct {
-	LB             *services.LBWorker
-	AutoScaling    *services.AutoScalingWorker
-	Cron           *services.CronWorker
-	Container      *services.ContainerWorker
-	Provision      *workers.ProvisionWorker
-	Accounting     *workers.AccountingWorker
-	Cluster        *workers.ClusterWorker
-	Lifecycle      *workers.LifecycleWorker
-	ReplicaMonitor *workers.ReplicaMonitor
+	LB                *services.LBWorker
+	AutoScaling       *services.AutoScalingWorker
+	Cron              *services.CronWorker
+	Container         *services.ContainerWorker
+	Provision         *workers.ProvisionWorker
+	Accounting        *workers.AccountingWorker
+	Cluster           *workers.ClusterWorker
+	Lifecycle         *workers.LifecycleWorker
+	ReplicaMonitor    *workers.ReplicaMonitor
+	ClusterReconciler *workers.ClusterReconciler
 }
 
 // ServiceConfig holds the dependencies required to initialize services
@@ -284,9 +285,10 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 	workersCollection := &Workers{
 		LB: lbWorker, AutoScaling: asgWorker, Cron: cronWorker, Container: containerWorker,
 		Provision: provisionWorker, Accounting: accountingWorker,
-		Cluster:        workers.NewClusterWorker(c.Repos.Cluster, clusterProvisioner, c.Repos.TaskQueue, c.Logger),
-		Lifecycle:      workers.NewLifecycleWorker(c.Repos.Lifecycle, storageSvc, c.Repos.Storage, c.Logger),
-		ReplicaMonitor: replicaMonitor,
+		Cluster:           workers.NewClusterWorker(c.Repos.Cluster, clusterProvisioner, c.Repos.TaskQueue, c.Logger),
+		Lifecycle:         workers.NewLifecycleWorker(c.Repos.Lifecycle, storageSvc, c.Repos.Storage, c.Logger),
+		ReplicaMonitor:    replicaMonitor,
+		ClusterReconciler: workers.NewClusterReconciler(c.Repos.Cluster, clusterProvisioner, c.Logger),
 	}
 
 	return svcs, workersCollection, nil

@@ -21,6 +21,7 @@ type ClusterRepository interface {
 	Create(ctx context.Context, cluster *domain.Cluster) error
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.Cluster, error)
 	ListByUserID(ctx context.Context, userID uuid.UUID) ([]*domain.Cluster, error)
+	ListAll(ctx context.Context) ([]*domain.Cluster, error)
 	Update(ctx context.Context, cluster *domain.Cluster) error
 	Delete(ctx context.Context, id uuid.UUID) error
 

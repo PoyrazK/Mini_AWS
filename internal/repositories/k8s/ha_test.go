@@ -24,6 +24,9 @@ func (m *mockClusterRepoForHA) GetByID(ctx context.Context, id uuid.UUID) (*doma
 func (m *mockClusterRepoForHA) ListByUserID(ctx context.Context, userID uuid.UUID) ([]*domain.Cluster, error) {
 	return nil, nil
 }
+func (m *mockClusterRepoForHA) ListAll(ctx context.Context) ([]*domain.Cluster, error) {
+	return nil, nil
+}
 func (m *mockClusterRepoForHA) Update(ctx context.Context, c *domain.Cluster) error {
 	return m.Called(ctx, c).Error(0)
 }

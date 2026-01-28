@@ -53,7 +53,20 @@ func (r *ClusterRepository) ListByUserID(ctx context.Context, userID uuid.UUID) 
 		WHERE user_id = $1
 		ORDER BY created_at DESC
 	`
-	rows, err := r.db.Query(ctx, query, userID)
+	return r.list(ctx, query, userID)
+}
+
+func (r *ClusterRepository) ListAll(ctx context.Context) ([]*domain.Cluster, error) {
+	query := `
+		SELECT id, user_id, vpc_id, name, version, COALESCE(control_plane_ips, '{}'), worker_count, status, COALESCE(ssh_key, ''), COALESCE(kubeconfig, ''), network_isolation, ha_enabled, api_server_lb_address, job_id, created_at, updated_at
+		FROM clusters
+		ORDER BY created_at DESC
+	`
+	return r.list(ctx, query)
+}
+
+func (r *ClusterRepository) list(ctx context.Context, query string, args ...any) ([]*domain.Cluster, error) {
+	rows, err := r.db.Query(ctx, query, args...)
 	if err != nil {
 		return nil, errors.Wrap(errors.Internal, "failed to list clusters", err)
 	}
