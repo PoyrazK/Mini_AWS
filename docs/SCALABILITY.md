@@ -35,8 +35,10 @@ The system employs a multi-layered scaling strategy covering caching, asynchrono
 - **Solution:** Connection pooling and Read/Write splitting.
 - **Mechanism:**
   - **Pooling:** `pgxpool` manages efficient connection reuse with configurable `DB_MAX_CONNS`.
-  - **DualDB:** Custom DB implementation routes `Exec` (writes) to Primary and `Query` (reads) to a Read Replica if `DATABASE_READ_URL` is configured.
-  - **Resilience:** Automatic fallback to Primary for reads if Replica is unavailable.
+  - **DualDB:** Custom DB implementation routes `Exec` (writes) to Primary and `Query` (reads) to a Read Replica.
+  - **Replica Health Monitoring:** A background `ReplicaMonitor` worker periodically pings the read replica.
+  - **Automatic Failover:** Transparently falls back to the Primary database for read operations if the replica is detected as unhealthy or unreachable, managed via a Circuit Breaker pattern.
+  - **Health Reporting:** Detailed health status for both primary and replica nodes is available via the `/health` endpoint.
 
 ## Configuration
 

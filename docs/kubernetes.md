@@ -14,6 +14,9 @@ Our KaaS solution leverages `kubeadm` for standard, compliant cluster bootstrapp
     *   Encrypted Kubeconfig storage.
     *   SSH key management for secure node access.
 *   **Standard Compliance**: Uses upstream Kubernetes (v1.29.0 default).
+*   **High Availability & Self-Healing**:
+    *   **Cluster Reconciliation**: A background `ClusterReconciler` worker periodically audits cluster health.
+    *   **Automatic Repair**: Automatically detects and repairs unhealthy clusters (e.g., API server down or nodes not ready) by re-applying configurations and reconciling the desired node count.
 
 ## Architecture
 
@@ -106,6 +109,5 @@ spec:
 ```
 
 ## Limitations (MVP)
-*   **Single Master**: Currently supports single control plane node (no HA).
-*   **LoadBalancers**: `type: LoadBalancer` is not yet integrated with the platform LB. Use NodePort or Ingress.
 *   **Persistent Volumes**: Dynamic storage provisioning (CSI) is planned for Phase 7.
+*   **Multi-Master**: While we have self-healing for single master, multi-control plane HA is a future roadmap item.
