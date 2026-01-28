@@ -39,10 +39,22 @@ func (s *HealthServiceImpl) Check(ctx context.Context) ports.HealthCheckResult {
 	checks := make(map[string]string)
 	overall := "UP"
 
-	// Check DB
+	s.checkDatabase(ctx, checks, &overall)
+	s.checkCompute(ctx, checks, &overall)
+	s.checkClusters(ctx, checks, &overall)
+
+	return ports.HealthCheckResult{
+		Status: overall,
+		Checks: checks,
+		Time:   time.Now(),
+	}
+}
+
+func (s *HealthServiceImpl) checkDatabase(ctx context.Context, checks map[string]string, overall *string) {
+	// Check Primary
 	if err := s.db.Ping(ctx); err != nil {
 		checks["database_primary"] = "DISCONNECTED: " + err.Error()
-		overall = "DEGRADED"
+		*overall = "DEGRADED"
 	} else {
 		checks["database_primary"] = "CONNECTED"
 	}
@@ -53,38 +65,33 @@ func (s *HealthServiceImpl) Check(ctx context.Context) ports.HealthCheckResult {
 		for k, v := range dbStats {
 			checks[k] = v
 			if v != "CONNECTED" && v != "HEALTHY" && k == "database_replica" {
-				// Replica being down is DEGRADED, but not DOWN if primary is up
-				if overall == "UP" {
-					overall = "DEGRADED"
+				if *overall == "UP" {
+					*overall = "DEGRADED"
 				}
 			}
 		}
 	}
+}
 
-	// Check Docker
+func (s *HealthServiceImpl) checkCompute(ctx context.Context, checks map[string]string, overall *string) {
 	if err := s.compute.Ping(ctx); err != nil {
 		checks["docker"] = "DISCONNECTED: " + err.Error()
-		overall = "DEGRADED"
+		*overall = "DEGRADED"
 	} else {
 		checks["docker"] = "CONNECTED"
 	}
+}
 
-	// Check Clusters (summarized)
-	if s.cluster != nil {
-		clusters, err := s.cluster.ListClusters(ctx, uuid.Nil) // ListAll equivalent if userID is empty in some impls,
-		// but wait, s.cluster.ListClusters takes userID.
-		// For system health, we might want to just check if the service is responsive.
-		_ = clusters
-		if err != nil {
-			checks["kubernetes_service"] = "DEGRADED: " + err.Error()
-		} else {
-			checks["kubernetes_service"] = "OK"
-		}
+func (s *HealthServiceImpl) checkClusters(ctx context.Context, checks map[string]string, overall *string) {
+	if s.cluster == nil {
+		return
 	}
 
-	return ports.HealthCheckResult{
-		Status: overall,
-		Checks: checks,
-		Time:   time.Now(),
+	_, err := s.cluster.ListClusters(ctx, uuid.Nil)
+	if err != nil {
+		checks["kubernetes_service"] = "DEGRADED: " + err.Error()
+		*overall = "DEGRADED"
+	} else {
+		checks["kubernetes_service"] = "OK"
 	}
 }

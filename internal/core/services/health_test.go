@@ -110,6 +110,6 @@ func TestHealthServiceCheck(t *testing.T) {
 		res := svc.Check(context.Background())
 
 		assert.Equal(t, "DEGRADED", res.Status)
-		assert.Equal(t, "DEGRADED", res.Checks["kubernetes_service"])
+		assert.Contains(t, res.Checks["kubernetes_service"], "DEGRADED: k8s error")
 	})
 }
