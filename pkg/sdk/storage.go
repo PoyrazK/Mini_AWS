@@ -29,6 +29,7 @@ type Bucket struct {
 	CreatedAt         time.Time `json:"created_at"`
 }
 
+// StorageNode describes a storage node in the cluster.
 type StorageNode struct {
 	ID       string    `json:"id"`
 	Address  string    `json:"address"`
@@ -36,10 +37,12 @@ type StorageNode struct {
 	LastSeen time.Time `json:"last_seen"`
 }
 
+// StorageCluster provides cluster status with node membership.
 type StorageCluster struct {
 	Nodes []StorageNode `json:"nodes"`
 }
 
+// LifecycleRule defines a storage lifecycle rule.
 type LifecycleRule struct {
 	ID             string    `json:"id"`
 	BucketName     string    `json:"bucket_name"`
@@ -151,6 +154,7 @@ func (c *Client) GetStorageClusterStatus() (*StorageCluster, error) {
 	return &res.Data, nil
 }
 
+// PresignedURL represents a temporary signed URL for object access.
 type PresignedURL struct {
 	URL       string    `json:"url"`
 	Method    string    `json:"method"`
