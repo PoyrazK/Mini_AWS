@@ -51,7 +51,7 @@ jobs:
         env:
           # The tests run on the HOST, connecting to the API at localhost:8080
           # So we use the mapped DB port 5433 for direct DB tests if any
-          DATABASE_URL: postgres://cloud:cloud@localhost:5433/thecloud?sslmode=disable
+          DATABASE_URL: postgres://cloud:cloud@localhost:5433/cloud?sslmode=disable
         run: |
           # Run tests in parallel to achieve maximum speed.
           # The 'sync.Once' logic in helpers_test.go ensures they won't all wait redundantly.
