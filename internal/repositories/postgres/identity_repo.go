@@ -35,7 +35,7 @@ func (r *IdentityRepository) CreateAPIKey(ctx context.Context, key *domain.APIKe
 
 func (r *IdentityRepository) GetAPIKeyByKey(ctx context.Context, keyStr string) (*domain.APIKey, error) {
 	query := `
-		SELECT id, user_id, key, name, created_at, last_used
+		SELECT id, user_id, key, name, created_at, last_used, default_tenant_id
 		FROM api_keys
 		WHERE key = $1
 	`
@@ -43,7 +43,7 @@ func (r *IdentityRepository) GetAPIKeyByKey(ctx context.Context, keyStr string) 
 }
 func (r *IdentityRepository) GetAPIKeyByID(ctx context.Context, id uuid.UUID) (*domain.APIKey, error) {
 	query := `
-		SELECT id, user_id, key, name, created_at, last_used
+		SELECT id, user_id, key, name, created_at, last_used, default_tenant_id
 		FROM api_keys
 		WHERE id = $1
 	`
@@ -52,7 +52,7 @@ func (r *IdentityRepository) GetAPIKeyByID(ctx context.Context, id uuid.UUID) (*
 
 func (r *IdentityRepository) ListAPIKeysByUserID(ctx context.Context, userID uuid.UUID) ([]*domain.APIKey, error) {
 	query := `
-		SELECT id, user_id, key, name, created_at, last_used
+		SELECT id, user_id, key, name, created_at, last_used, default_tenant_id
 		FROM api_keys
 		WHERE user_id = $1
 	`
@@ -67,7 +67,7 @@ func (r *IdentityRepository) scanAPIKey(row pgx.Row, notFoundType errors.Type) (
 	var key domain.APIKey
 	var lastUsed *time.Time
 	err := row.Scan(
-		&key.ID, &key.UserID, &key.Key, &key.Name, &key.CreatedAt, &lastUsed,
+		&key.ID, &key.UserID, &key.Key, &key.Name, &key.CreatedAt, &lastUsed, &key.DefaultTenantID,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
