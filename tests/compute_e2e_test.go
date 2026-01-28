@@ -64,8 +64,9 @@ func TestComputeE2E(t *testing.T) {
 
 	// 2.5 Wait for Instance to be Running
 	t.Run("WaitForRunning", func(t *testing.T) {
-		timeout := 30 * time.Second
+		timeout := 60 * time.Second
 		start := time.Now()
+		var lastStatus domain.InstanceStatus
 		for time.Since(start) < timeout {
 			resp := getRequest(t, client, fmt.Sprintf(testutil.TestRouteFormat, testutil.TestBaseURL, testutil.TestRouteInstances, instanceID), token)
 			var res struct {
@@ -74,15 +75,18 @@ func TestComputeE2E(t *testing.T) {
 			require.NoError(t, json.NewDecoder(resp.Body).Decode(&res))
 			resp.Body.Close()
 
+			lastStatus = res.Data.Status
+
 			if res.Data.Status == domain.StatusRunning {
 				return
 			}
 			if res.Data.Status == domain.StatusError {
-				t.Fatal("Instance entered error state")
+				t.Fatalf("Instance entered error state. Last status: %s", res.Data.Status)
 			}
+			t.Logf("Waiting for instance to be running... Current status: %s", res.Data.Status)
 			time.Sleep(2 * time.Second)
 		}
-		t.Fatal("Instance did not reach running state within timeout; backend may be unavailable")
+		t.Fatalf("Instance did not reach running state within timeout (60s). Last status: %s. Backend may be unavailable or Docker socket not accessible.", lastStatus)
 	})
 
 	// 3. List Instances

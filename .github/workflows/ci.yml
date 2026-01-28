@@ -52,6 +52,9 @@ jobs:
           version: v1.64.8
 
       - name: Run Unit Tests
+        run: go test -v ./cmd/... ./internal/... ./pkg/...
+
+      - name: Run Race Detection
         run: go test -race -v ./cmd/... ./internal/... ./pkg/...
         
       - name: Wait for Database
