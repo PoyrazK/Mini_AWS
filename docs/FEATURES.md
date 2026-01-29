@@ -54,12 +54,39 @@ This document provides a comprehensive overview of every feature currently imple
 - **Persistence**: Data survives instance termination.
 
 ### 4. Object Storage (S3-compatible)
-**What it is**: Store and retrieve files (blobs) via API.
-**Tech Stack**: Go (IO/FS), Local Filesystem.
+**What it is**: Store and retrieve files (blobs) via API with enterprise-grade features.
+**Tech Stack**: Go (IO/FS), Local Filesystem, AES-GCM Encryption.
 **Implementation**:
-- **Storage Backend**: Files are stored in a dedicated local directory (`thecloud-data/storage`).
-- **API**: Implements standard HTTP PUT/GET methods.
-- **Streaming**: Uses `io.Reader/Writer` to stream data efficiently without loading entire files into RAM.
+
+**Bucket Management**:
+- **Create/Delete Buckets**: Full lifecycle management with validation.
+- **Bucket Versioning**: Enable/disable versioning per bucket to preserve object history.
+- **Bucket Listing**: List all buckets for a user/tenant.
+
+**Object Operations**:
+- **Upload/Download**: Stream-based PUT/GET with efficient memory usage.
+- **List Objects**: Enumerate all objects within a bucket.
+- **Delete**: Remove objects with optional version targeting.
+
+**Versioning**:
+- **Version History**: List all versions of an object.
+- **Version Download**: Retrieve specific historical versions.
+- **Version Delete**: Remove specific versions while preserving others.
+
+**Multipart Upload** (for large files):
+- **Initiate**: Start a multipart upload session.
+- **Upload Parts**: Upload chunks in parallel with part numbers.
+- **Complete**: Assemble all parts into final object.
+- **Abort**: Cancel and clean up incomplete uploads.
+
+**Security & Access**:
+- **Presigned URLs**: Generate temporary signed URLs for time-limited access.
+- **Encryption**: Objects encrypted at rest using AES-GCM via EncryptionService.
+- **Audit Trail**: All operations logged for compliance.
+
+**Distributed Storage**:
+- **Cluster Status**: Monitor distributed storage cluster health.
+- **Multi-node Support**: Architecture ready for horizontal scaling.
 
 ---
 
