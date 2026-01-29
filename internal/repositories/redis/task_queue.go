@@ -23,6 +23,9 @@ func (q *redisTaskQueue) Enqueue(ctx context.Context, queueName string, payload 
 	if err != nil {
 		return err
 	}
+	// Log raw payload
+	// fmt.Printf("Enqueueing to %s: %s\n", queueName, string(data))
+	// We don't have a logger here easily, but we can rely on return being nil.
 	return q.client.LPush(ctx, queueName, data).Err()
 }
 

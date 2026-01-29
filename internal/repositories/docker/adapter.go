@@ -3,12 +3,12 @@ package docker
 
 import (
 	"context"
+	encodingjson "encoding/json"
 	"fmt"
 	"io"
 	"path/filepath"
-	"time"
-
 	"strings"
+	"time"
 
 	"github.com/containerd/errdefs"
 	"github.com/docker/docker/api/types"
@@ -437,18 +437,46 @@ func (a *DockerAdapter) GetConsoleURL(ctx context.Context, id string) (string, e
 
 func (a *DockerAdapter) GetInstanceIP(ctx context.Context, id string) (string, error) {
 	// Inspect container
-	json, err := a.cli.ContainerInspect(ctx, id)
-	if err != nil {
-		return "", fmt.Errorf("failed to inspect container: %w", err)
-	}
+	// Inspect container with retries to allow time for IP assignment
+	var json types.ContainerJSON
+	var err error
 
-	// Try to get IP from first network
-	for _, net := range json.NetworkSettings.Networks {
-		if net.IPAddress != "" {
-			return net.IPAddress, nil
+	// Retry up to 30 times with 500ms backoff (15 seconds total)
+	for i := 0; i < 30; i++ {
+		json, err = a.cli.ContainerInspect(ctx, id)
+		if err != nil {
+			return "", fmt.Errorf("failed to inspect container: %w", err)
+		}
+
+		// Check status
+		if json.State != nil {
+			// fmt.Printf("Container status: %s\n", json.State.Status)
+		}
+
+		// Try to get IP from first network
+		for _, net := range json.NetworkSettings.Networks {
+			if net.IPAddress != "" {
+				return net.IPAddress, nil
+			}
+		}
+
+		// If we are here, we found networks but no IP, or no networks.
+		// Wait and retry
+		select {
+		case <-ctx.Done():
+			return "", ctx.Err()
+		case <-time.After(500 * time.Millisecond):
+			continue
 		}
 	}
-	return "", fmt.Errorf("no IP address found for container %s", id)
+
+	// Marshaling might be expensive, only do on error path
+	status := "unknown"
+	if json.State != nil {
+		status = json.State.Status
+	}
+	debugBytes, _ := encodingjson.Marshal(json.NetworkSettings)
+	return "", fmt.Errorf("no IP address found for container %s (Status: %s, Networks: %s) after retries", id, status, string(debugBytes))
 }
 
 func (a *DockerAdapter) RunTask(ctx context.Context, opts ports.RunTaskOptions) (string, error) {
