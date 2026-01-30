@@ -39,13 +39,19 @@ func NewClient(hub *Hub, conn *websocket.Conn, userID string, logger *slog.Logge
 func (c *Client) ReadPump() {
 	defer func() {
 		c.hub.Unregister(c)
-		_ = c.conn.Close()
+		if err := c.conn.Close(); err != nil {
+			c.logger.Error("failed to close connection", slog.String("error", err.Error()))
+		}
 	}()
 
 	c.conn.SetReadLimit(maxMessageSize)
-	_ = c.conn.SetReadDeadline(time.Now().Add(pongWait))
+	if err := c.conn.SetReadDeadline(time.Now().Add(pongWait)); err != nil {
+		c.logger.Error("failed to set read deadline", slog.String("error", err.Error()))
+	}
 	c.conn.SetPongHandler(func(string) error {
-		_ = c.conn.SetReadDeadline(time.Now().Add(pongWait))
+		if err := c.conn.SetReadDeadline(time.Now().Add(pongWait)); err != nil {
+			c.logger.Error("failed to set pong read deadline", slog.String("error", err.Error()))
+		}
 		return nil
 	})
 
@@ -96,7 +102,10 @@ func (c *Client) WritePump() {
 			}
 
 		case <-ticker.C:
-			_ = c.conn.SetWriteDeadline(time.Now().Add(writeWait))
+			if err := c.conn.SetWriteDeadline(time.Now().Add(writeWait)); err != nil {
+				c.logger.Error("failed to set write deadline for ping", slog.String("error", err.Error()))
+				return
+			}
 			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				return
 			}

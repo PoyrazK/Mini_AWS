@@ -144,9 +144,9 @@ func init() {
 	asgCreateCmd.Flags().Int("min", 1, "Min instances")
 	asgCreateCmd.Flags().Int("max", 5, "Max instances")
 	asgCreateCmd.Flags().Int("desired", 1, "Desired instances")
-	_ = asgCreateCmd.MarkFlagRequired("name")
-	_ = asgCreateCmd.MarkFlagRequired("vpc")
-	_ = asgCreateCmd.MarkFlagRequired("image")
+	cobra.CheckErr(asgCreateCmd.MarkFlagRequired("name"))
+	cobra.CheckErr(asgCreateCmd.MarkFlagRequired("vpc"))
+	cobra.CheckErr(asgCreateCmd.MarkFlagRequired("image"))
 
 	asgPolicyAddCmd.Flags().String("name", "", "Policy Name")
 	asgPolicyAddCmd.Flags().String("metric", "cpu", "Metric Type (cpu|memory)")
@@ -154,7 +154,7 @@ func init() {
 	asgPolicyAddCmd.Flags().Int("scale-out", 1, "Scale out step")
 	asgPolicyAddCmd.Flags().Int("scale-in", 1, "Scale in step")
 	asgPolicyAddCmd.Flags().Int("cooldown", 300, "Cooldown seconds")
-	_ = asgPolicyAddCmd.MarkFlagRequired("name")
+	cobra.CheckErr(asgPolicyAddCmd.MarkFlagRequired("name"))
 
 	autoscalingCmd.AddCommand(asgCreateCmd)
 	autoscalingCmd.AddCommand(asgListCmd)

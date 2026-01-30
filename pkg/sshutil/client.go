@@ -131,7 +131,10 @@ func (c *Client) WriteFile(ctx context.Context, path string, content []byte, mod
 		defer func() { _ = w.Close() }()
 
 		filename := filepath.Base(path)
-		_, _ = fmt.Fprintf(w, "C%s %d %s\n", mode, len(content), filename)
+		if _, err := fmt.Fprintf(w, "C%s %d %s\n", mode, len(content), filename); err != nil {
+			errCh <- fmt.Errorf("failed to write SCP header: %w", err)
+			return
+		}
 		if _, err := w.Write(content); err != nil {
 			errCh <- fmt.Errorf("failed to write content: %w", err)
 			return

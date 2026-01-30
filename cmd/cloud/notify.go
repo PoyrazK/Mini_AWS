@@ -90,7 +90,7 @@ var publishCmd = &cobra.Command{
 func init() {
 	subscribeCmd.Flags().StringP("protocol", "p", "webhook", "Protocol (webhook/queue)")
 	subscribeCmd.Flags().StringP("endpoint", "e", "", "Endpoint (URL or Queue ID)")
-	_ = subscribeCmd.MarkFlagRequired("endpoint")
+	cobra.CheckErr(subscribeCmd.MarkFlagRequired("endpoint"))
 
 	notifyCmd.AddCommand(createTopicCmd)
 	notifyCmd.AddCommand(listTopicsCmd)

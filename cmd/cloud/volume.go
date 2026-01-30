@@ -46,15 +46,15 @@ var volumeListCmd = &cobra.Command{
 			if v.InstanceID != nil {
 				attachedTo = v.InstanceID.String()[:8]
 			}
-			_ = table.Append([]string{
+			cobra.CheckErr(table.Append([]string{
 				id,
 				v.Name,
 				fmt.Sprintf("%d GB", v.SizeGB),
 				v.Status,
 				attachedTo,
-			})
+			}))
 		}
-		_ = table.Render()
+		cobra.CheckErr(table.Render())
 	},
 }
 
@@ -100,5 +100,5 @@ func init() {
 
 	volumeCreateCmd.Flags().StringP("name", "n", "", "Name of the volume (required)")
 	volumeCreateCmd.Flags().IntP("size", "s", 1, "Size in GB")
-	_ = volumeCreateCmd.MarkFlagRequired("name")
+	cobra.CheckErr(volumeCreateCmd.MarkFlagRequired("name"))
 }

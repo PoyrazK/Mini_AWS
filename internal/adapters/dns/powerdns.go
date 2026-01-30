@@ -69,7 +69,8 @@ func (b *PowerDNSBackend) CreateZone(ctx context.Context, zoneName string, names
 	}
 
 	if err := b.AddRecords(ctx, zoneName, []ports.RecordSet{soaRecord}); err != nil {
-		b.logger.Warn("failed to add initial SOA record", "zone", zoneName, "error", err)
+		b.logger.Error("failed to add initial SOA record", "zone", zoneName, "error", err)
+		return fmt.Errorf("failed to add initial SOA record: %w", err)
 	}
 
 	b.logger.Info("created zone in PowerDNS", "zone", zoneName)

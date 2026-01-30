@@ -128,16 +128,16 @@ var lbRemoveTargetCmd = &cobra.Command{
 
 func init() {
 	lbCreateCmd.Flags().String("name", "", "Name of the load balancer")
-	_ = lbCreateCmd.MarkFlagRequired("name")
+	cobra.CheckErr(lbCreateCmd.MarkFlagRequired("name"))
 	lbCreateCmd.Flags().String("vpc", "", "VPC ID")
-	_ = lbCreateCmd.MarkFlagRequired("vpc")
+	cobra.CheckErr(lbCreateCmd.MarkFlagRequired("vpc"))
 	lbCreateCmd.Flags().Int("port", 80, "Public port for the LB")
 	lbCreateCmd.Flags().String("algorithm", "round-robin", "LB algorithm (round-robin or least-conn)")
 
 	lbAddTargetCmd.Flags().String("instance", "", "Target instance ID")
-	_ = lbAddTargetCmd.MarkFlagRequired("instance")
+	cobra.CheckErr(lbAddTargetCmd.MarkFlagRequired("instance"))
 	lbAddTargetCmd.Flags().Int("port", 80, "Port on the instance")
-	_ = lbAddTargetCmd.MarkFlagRequired("port")
+	cobra.CheckErr(lbAddTargetCmd.MarkFlagRequired("port"))
 	lbAddTargetCmd.Flags().Int("weight", 1, "Weight for the target (optional)")
 
 	lbCmd.AddCommand(lbListCmd)
