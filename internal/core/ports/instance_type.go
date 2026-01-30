@@ -13,3 +13,9 @@ type InstanceTypeRepository interface {
 	// GetByID retrieves a specific instance type by its unique identifier.
 	GetByID(ctx context.Context, id string) (*domain.InstanceType, error)
 }
+
+// InstanceTypeService defines the business logic for instance types.
+type InstanceTypeService interface {
+	// List returns all available instance types.
+	List(ctx context.Context) ([]*domain.InstanceType, error)
+}

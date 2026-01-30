@@ -61,6 +61,7 @@ type Handlers struct {
 	Cluster       *httphandlers.ClusterHandler
 	Lifecycle     *httphandlers.LifecycleHandler
 	DNS           *httphandlers.DNSHandler
+	InstanceType  *httphandlers.InstanceTypeHandler
 	Ws            *ws.Handler
 }
 
@@ -102,6 +103,7 @@ func InitHandlers(svcs *Services, cfg *platform.Config, logger *slog.Logger) *Ha
 		Cluster:       httphandlers.NewClusterHandler(svcs.Cluster),
 		Lifecycle:     httphandlers.NewLifecycleHandler(svcs.Lifecycle),
 		DNS:           httphandlers.NewDNSHandler(svcs.DNS),
+		InstanceType:  httphandlers.NewInstanceTypeHandler(svcs.InstanceType),
 		Ws:            ws.NewHandler(hub, svcs.Identity, logger),
 	}
 }
@@ -230,6 +232,12 @@ func registerComputeRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 		instanceGroup.GET("/:id/stats", httputil.Permission(svcs.RBAC, domain.PermissionInstanceRead), handlers.Instance.GetStats)
 		instanceGroup.GET("/:id/console", httputil.Permission(svcs.RBAC, domain.PermissionInstanceRead), handlers.Instance.GetConsole)
 		instanceGroup.DELETE("/:id", httputil.Permission(svcs.RBAC, domain.PermissionInstanceTerminate), handlers.Instance.Terminate)
+	}
+
+	typeGroup := r.Group("/instance-types")
+	typeGroup.Use(httputil.Auth(svcs.Identity, svcs.Tenant))
+	{
+		typeGroup.GET("", handlers.InstanceType.List)
 	}
 
 	snapshotGroup := r.Group("/snapshots")

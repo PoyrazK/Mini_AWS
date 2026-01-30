@@ -58,6 +58,7 @@ type Repositories struct {
 	Cluster       ports.ClusterRepository
 	Lifecycle     ports.LifecycleRepository
 	DNS           ports.DNSRepository
+	InstanceType  ports.InstanceTypeRepository
 }
 
 // InitRepositories constructs repositories using the provided database clients.
@@ -95,6 +96,7 @@ func InitRepositories(db postgres.DB, rdb *redisv9.Client) *Repositories {
 		Cluster:       postgres.NewClusterRepository(db),
 		Lifecycle:     postgres.NewLifecycleRepository(db),
 		DNS:           postgres.NewDNSRepository(db),
+		InstanceType:  postgres.NewInstanceTypeRepository(db),
 	}
 }
 
@@ -134,6 +136,7 @@ type Services struct {
 	Cluster       ports.ClusterService
 	Lifecycle     ports.LifecycleService
 	DNS           ports.DNSService
+	InstanceType  ports.InstanceTypeService
 }
 
 // Workers struct to return background workers
@@ -195,7 +198,8 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 
 	instSvcConcrete := services.NewInstanceService(services.InstanceServiceParams{
 		Repo: c.Repos.Instance, VpcRepo: c.Repos.Vpc, SubnetRepo: c.Repos.Subnet, VolumeRepo: c.Repos.Volume,
-		Compute: c.Compute, Network: c.Network, EventSvc: eventSvc, AuditSvc: auditSvc, DNSSvc: dnsSvc, TaskQueue: c.Repos.TaskQueue, Logger: c.Logger,
+		InstanceTypeRepo: c.Repos.InstanceType,
+		Compute:          c.Compute, Network: c.Network, EventSvc: eventSvc, AuditSvc: auditSvc, DNSSvc: dnsSvc, TaskQueue: c.Repos.TaskQueue, Logger: c.Logger,
 	})
 	sgSvc := services.NewSecurityGroupService(c.Repos.SecurityGroup, c.Repos.Vpc, c.Network, auditSvc, c.Logger)
 
@@ -251,10 +255,11 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 		Storage: storageSvc, Database: databaseSvc, Secret: secretSvc, Function: fnSvc, Cache: cacheSvc,
 		Queue: queueSvc, Notify: notifySvc, Cron: cronSvc, Gateway: gwSvc, Container: containerSvc,
 		Health: services.NewHealthServiceImpl(c.DB, c.Compute, clusterSvc), AutoScaling: asgSvc, Accounting: accountingSvc, Image: imageSvc,
-		Cluster:   clusterSvc,
-		Dashboard: services.NewDashboardService(c.Repos.Instance, c.Repos.Volume, c.Repos.Vpc, c.Repos.Event, c.Logger),
-		Lifecycle: services.NewLifecycleService(c.Repos.Lifecycle, c.Repos.Storage),
-		DNS:       dnsSvc,
+		Cluster:      clusterSvc,
+		Dashboard:    services.NewDashboardService(c.Repos.Instance, c.Repos.Volume, c.Repos.Vpc, c.Repos.Event, c.Logger),
+		Lifecycle:    services.NewLifecycleService(c.Repos.Lifecycle, c.Repos.Storage),
+		DNS:          dnsSvc,
+		InstanceType: services.NewInstanceTypeService(c.Repos.InstanceType),
 	}
 
 	// 7. High Availability & Monitoring
