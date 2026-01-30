@@ -38,7 +38,7 @@ var lbListCmd = &cobra.Command{
 		table.Header([]string{"ID", "NAME", "VPC ID", "PORT", "ALGO", "STATUS"})
 
 		for _, v := range lbs {
-			table.Append([]string{
+			_ = table.Append([]string{
 				v.ID[:8],
 				v.Name,
 				v.VpcID[:8],
@@ -47,7 +47,7 @@ var lbListCmd = &cobra.Command{
 				string(v.Status),
 			})
 		}
-		table.Render()
+		_ = table.Render()
 	},
 }
 
@@ -128,16 +128,16 @@ var lbRemoveTargetCmd = &cobra.Command{
 
 func init() {
 	lbCreateCmd.Flags().String("name", "", "Name of the load balancer")
-	lbCreateCmd.MarkFlagRequired("name")
+	_ = lbCreateCmd.MarkFlagRequired("name")
 	lbCreateCmd.Flags().String("vpc", "", "VPC ID")
-	lbCreateCmd.MarkFlagRequired("vpc")
+	_ = lbCreateCmd.MarkFlagRequired("vpc")
 	lbCreateCmd.Flags().Int("port", 80, "Public port for the LB")
 	lbCreateCmd.Flags().String("algorithm", "round-robin", "LB algorithm (round-robin or least-conn)")
 
 	lbAddTargetCmd.Flags().String("instance", "", "Target instance ID")
-	lbAddTargetCmd.MarkFlagRequired("instance")
+	_ = lbAddTargetCmd.MarkFlagRequired("instance")
 	lbAddTargetCmd.Flags().Int("port", 80, "Port on the instance")
-	lbAddTargetCmd.MarkFlagRequired("port")
+	_ = lbAddTargetCmd.MarkFlagRequired("port")
 	lbAddTargetCmd.Flags().Int("weight", 1, "Weight for the target (optional)")
 
 	lbCmd.AddCommand(lbListCmd)
@@ -173,13 +173,13 @@ var lbListTargetsCmd = &cobra.Command{
 			if len(id) > 8 {
 				id = id[:8]
 			}
-			table.Append([]string{
+			_ = table.Append([]string{
 				id,
 				fmt.Sprintf("%d", t.Port),
 				fmt.Sprintf("%d", t.Weight),
 				t.Health,
 			})
 		}
-		table.Render()
+		_ = table.Render()
 	},
 }

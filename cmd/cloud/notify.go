@@ -46,9 +46,9 @@ var listTopicsCmd = &cobra.Command{
 		table := tablewriter.NewWriter(os.Stdout)
 		table.Header([]string{"ID", "NAME", "ARN"})
 		for _, t := range topics {
-			table.Append([]string{t.ID, t.Name, t.ARN})
+			_ = table.Append([]string{t.ID, t.Name, t.ARN})
 		}
-		table.Render()
+		_ = table.Render()
 	},
 }
 
@@ -90,7 +90,7 @@ var publishCmd = &cobra.Command{
 func init() {
 	subscribeCmd.Flags().StringP("protocol", "p", "webhook", "Protocol (webhook/queue)")
 	subscribeCmd.Flags().StringP("endpoint", "e", "", "Endpoint (URL or Queue ID)")
-	subscribeCmd.MarkFlagRequired("endpoint")
+	_ = subscribeCmd.MarkFlagRequired("endpoint")
 
 	notifyCmd.AddCommand(createTopicCmd)
 	notifyCmd.AddCommand(listTopicsCmd)

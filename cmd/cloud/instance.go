@@ -75,7 +75,7 @@ var listCmd = &cobra.Command{
 
 			access := formatAccessPorts(inst.Ports, inst.Status)
 
-			table.Append([]string{
+			_ = table.Append([]string{
 				id,
 				inst.Name,
 				inst.Image,
@@ -83,7 +83,7 @@ var listCmd = &cobra.Command{
 				access,
 			})
 		}
-		table.Render()
+		_ = table.Render()
 	},
 }
 
@@ -242,7 +242,7 @@ func init() {
 	launchCmd.Flags().StringP("vpc", "v", "", "VPC ID or Name to attach to")
 	launchCmd.Flags().StringP("subnet", "s", "", "Subnet ID or Name to attach to")
 	launchCmd.Flags().StringSliceP("volume", "V", nil, "Volume attachment (vol-name:/path)")
-	launchCmd.MarkFlagRequired("name")
+	_ = launchCmd.MarkFlagRequired("name")
 
 	rootCmd.PersistentFlags().BoolVarP(&outputJSON, "json", "j", false, "Output in JSON format")
 	rootCmd.PersistentFlags().StringVarP(&apiKey, "api-key", "k", "", "API key for authentication")

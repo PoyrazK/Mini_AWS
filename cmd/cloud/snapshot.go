@@ -47,7 +47,7 @@ var snapshotListCmd = &cobra.Command{
 			if vol == "" {
 				vol = s.VolumeID.String()[:8]
 			}
-			table.Append([]string{
+			_ = table.Append([]string{
 				id,
 				vol,
 				fmt.Sprintf("%d GB", s.SizeGB),
@@ -55,7 +55,7 @@ var snapshotListCmd = &cobra.Command{
 				s.CreatedAt.Format("2006-01-02 15:04"),
 			})
 		}
-		table.Render()
+		_ = table.Render()
 	},
 }
 
@@ -128,5 +128,5 @@ func init() {
 
 	snapshotCreateCmd.Flags().StringP("desc", "d", "", "Description of the snapshot")
 	snapshotRestoreCmd.Flags().StringP("name", "n", "", "Name of the new volume (required)")
-	snapshotRestoreCmd.MarkFlagRequired("name")
+	_ = snapshotRestoreCmd.MarkFlagRequired("name")
 }
