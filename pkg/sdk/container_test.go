@@ -37,7 +37,7 @@ func TestClient_CreateDeployment(t *testing.T) {
 		assert.Equal(t, expectedDep.Replicas, req.Replicas)
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(expectedDep)
+		_ = json.NewEncoder(w).Encode(expectedDep)
 	}))
 	defer server.Close()
 
@@ -61,7 +61,7 @@ func TestClient_ListDeployments(t *testing.T) {
 		assert.Equal(t, http.MethodGet, r.Method)
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(expectedDeps)
+		_ = json.NewEncoder(w).Encode(expectedDeps)
 	}))
 	defer server.Close()
 
@@ -84,7 +84,7 @@ func TestClient_GetDeployment(t *testing.T) {
 		assert.Equal(t, http.MethodGet, r.Method)
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(expectedDep)
+		_ = json.NewEncoder(w).Encode(expectedDep)
 	}))
 	defer server.Close()
 

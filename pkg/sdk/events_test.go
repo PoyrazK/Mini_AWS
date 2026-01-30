@@ -38,7 +38,7 @@ func TestClientListEvents(t *testing.T) {
 
 		w.Header().Set("Content-Type", "application/json")
 		resp := Response[[]Event]{Data: expectedEvents}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -53,7 +53,7 @@ func TestClientListEvents(t *testing.T) {
 func TestClientListEventsError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("boom"))
+		_, _ = w.Write([]byte("boom"))
 	}))
 	defer server.Close()
 

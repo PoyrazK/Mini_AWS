@@ -34,7 +34,7 @@ func newCacheTestServer(t *testing.T) *httptest.Server {
 			_ = json.NewDecoder(r.Body).Decode(&body)
 			if body["name"] == cacheTestName {
 				w.WriteHeader(http.StatusCreated)
-				json.NewEncoder(w).Encode(map[string]interface{}{
+				_ = json.NewEncoder(w).Encode(map[string]interface{}{
 					"data": map[string]interface{}{
 						"id":   cacheTestID,
 						"name": cacheTestName,
@@ -44,13 +44,13 @@ func newCacheTestServer(t *testing.T) *httptest.Server {
 			}
 		case r.URL.Path == cacheTestBasePath && r.Method == http.MethodGet:
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"data": []map[string]interface{}{{"id": cacheTestID, "name": cacheTestName}},
 			})
 			return
 		case r.URL.Path == cacheTestBasePath+"/"+cacheTestID && r.Method == http.MethodGet:
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"data": map[string]interface{}{
 					"id":   cacheTestID,
 					"name": cacheTestName,
@@ -62,7 +62,7 @@ func newCacheTestServer(t *testing.T) *httptest.Server {
 			return
 		case r.URL.Path == cacheTestBasePath+"/"+cacheTestID+"/connection":
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"data": map[string]interface{}{
 					"connection_string": cacheTestConnString,
 				},
@@ -70,13 +70,13 @@ func newCacheTestServer(t *testing.T) *httptest.Server {
 			return
 		case r.URL.Path == cacheTestBasePath+"/"+cacheTestID+"/flush" && r.Method == http.MethodPost:
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"data": map[string]string{"result": "OK"},
 			})
 			return
 		case r.URL.Path == cacheTestBasePath+"/"+cacheTestID+"/stats":
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"data": map[string]interface{}{
 					"total_keys": cacheTestStatsTotal,
 				},
@@ -146,7 +146,7 @@ func TestCacheSDK(t *testing.T) {
 func TestCacheSDKErrors(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("boom"))
+		_, _ = w.Write([]byte("boom"))
 	}))
 	defer server.Close()
 

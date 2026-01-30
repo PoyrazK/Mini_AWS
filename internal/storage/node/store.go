@@ -111,7 +111,7 @@ func (s *LocalStore) Assemble(bucket, key string, parts []string) (int64, error)
 	if err != nil {
 		return 0, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	var totalSize int64
 	for _, partKey := range parts {

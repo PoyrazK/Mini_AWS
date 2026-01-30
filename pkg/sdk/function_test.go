@@ -71,12 +71,12 @@ func handleFunctionCreate(w http.ResponseWriter, r *http.Request) bool {
 		w.WriteHeader(http.StatusBadRequest)
 		return true
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	content, _ := io.ReadAll(file)
 
 	if name == functionName && runtime == functionRuntime && handler == functionHandler && string(content) == functionCode {
 		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"data": map[string]interface{}{
 				"id":      functionID,
 				"name":    functionName,
@@ -96,7 +96,7 @@ func handleFunctionList(w http.ResponseWriter, r *http.Request) bool {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"data": []map[string]interface{}{
 			{"id": functionID, "name": functionName},
 		},
@@ -110,7 +110,7 @@ func handleFunctionGet(w http.ResponseWriter, r *http.Request) bool {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"data": map[string]interface{}{
 			"id":   functionID,
 			"name": functionName,
@@ -135,7 +135,7 @@ func handleFunctionInvoke(w http.ResponseWriter, r *http.Request) bool {
 	body, _ := io.ReadAll(r.Body)
 	if string(body) == functionInvokePayload {
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"data": map[string]interface{}{
 				"id":          functionInvocationID,
 				"function_id": functionID,
@@ -153,7 +153,7 @@ func handleFunctionLogs(w http.ResponseWriter, r *http.Request) bool {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"data": []map[string]interface{}{
 			{"id": functionInvocationID, "logs": "hello"},
 		},
@@ -216,7 +216,7 @@ func TestFunctionSDK(t *testing.T) {
 func TestFunctionSDKErrors(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("boom"))
+		_, _ = w.Write([]byte("boom"))
 	}))
 	defer server.Close()
 

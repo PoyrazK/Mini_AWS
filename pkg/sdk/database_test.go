@@ -41,7 +41,7 @@ func TestClientCreateDatabase(t *testing.T) {
 
 		w.Header().Set(dbContentType, dbApplicationJSON)
 		resp := Response[Database]{Data: expectedDB}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -65,7 +65,7 @@ func TestClientListDatabases(t *testing.T) {
 
 		w.Header().Set(dbContentType, dbApplicationJSON)
 		resp := Response[[]*Database]{Data: expectedDBs}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -89,7 +89,7 @@ func TestClientGetDatabase(t *testing.T) {
 
 		w.Header().Set(dbContentType, dbApplicationJSON)
 		resp := Response[Database]{Data: expectedDB}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -128,7 +128,7 @@ func TestClientGetDatabaseConnectionString(t *testing.T) {
 
 		w.Header().Set(dbContentType, dbApplicationJSON)
 		resp := Response[map[string]string]{Data: map[string]string{"connection_string": connStr}}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -142,7 +142,7 @@ func TestClientGetDatabaseConnectionString(t *testing.T) {
 func TestClientDatabaseErrors(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("boom"))
+		_, _ = w.Write([]byte("boom"))
 	}))
 	defer server.Close()
 
