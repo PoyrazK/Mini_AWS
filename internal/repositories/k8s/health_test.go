@@ -45,8 +45,8 @@ func (m *mockClusterRepo) GetNodes(ctx context.Context, clusterID uuid.UUID) ([]
 func (m *mockClusterRepo) DeleteNode(ctx context.Context, nodeID uuid.UUID) error      { return nil }
 func (m *mockClusterRepo) UpdateNode(ctx context.Context, n *domain.ClusterNode) error { return nil }
 
-func (m *mockInstanceService) LaunchInstance(ctx context.Context, name, image, ports string, vpcID, subnetID *uuid.UUID, volumes []domain.VolumeAttachment) (*domain.Instance, error) {
-	args := m.Called(ctx, name, image, ports, vpcID, subnetID, volumes)
+func (m *mockInstanceService) LaunchInstance(ctx context.Context, name, image, ports, instanceType string, vpcID, subnetID *uuid.UUID, volumes []domain.VolumeAttachment) (*domain.Instance, error) {
+	args := m.Called(ctx, name, image, ports, instanceType, vpcID, subnetID, volumes)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}

@@ -36,6 +36,32 @@ func (r *NoopInstanceRepository) ListByUserID(ctx context.Context, userID uuid.U
 	return []*domain.Instance{}, nil
 }
 
+// NoopInstanceTypeRepository is a no-op instance type repository.
+type NoopInstanceTypeRepository struct{}
+
+func (r *NoopInstanceTypeRepository) List(ctx context.Context) ([]*domain.InstanceType, error) {
+	return []*domain.InstanceType{
+		{ID: "basic-1", Name: "Basic 1", VCPUs: 1, MemoryMB: 512, DiskGB: 8},
+		{ID: "basic-2", Name: "Basic 2", VCPUs: 1, MemoryMB: 1024, DiskGB: 10},
+	}, nil
+}
+
+func (r *NoopInstanceTypeRepository) GetByID(ctx context.Context, id string) (*domain.InstanceType, error) {
+	return &domain.InstanceType{ID: id, Name: id, VCPUs: 1, MemoryMB: 1024, DiskGB: 10}, nil
+}
+
+func (r *NoopInstanceTypeRepository) Create(ctx context.Context, it *domain.InstanceType) (*domain.InstanceType, error) {
+	return it, nil
+}
+
+func (r *NoopInstanceTypeRepository) Update(ctx context.Context, it *domain.InstanceType) (*domain.InstanceType, error) {
+	return it, nil
+}
+
+func (r *NoopInstanceTypeRepository) Delete(ctx context.Context, id string) error {
+	return nil
+}
+
 // NoopVpcRepository is a no-op VPC repository.
 type NoopVpcRepository struct{}
 

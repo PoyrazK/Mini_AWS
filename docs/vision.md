@@ -149,6 +149,7 @@ Making it enterprise-ready:
 - LVM block storage backend
 - RBAC and security
 - Prometheus/Grafana monitoring
+- Instance Types support (basic, standard, performance)
 
 ### Phase 9-10: High Availability (In Progress Q1-Q2 2026)
 Adding enterprise capabilities:

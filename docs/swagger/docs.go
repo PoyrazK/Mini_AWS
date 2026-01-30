@@ -1906,6 +1906,40 @@ const docTemplate = `{
                 }
             }
         },
+        "/instance-types": {
+            "get": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "description": "Gets a list of all available instance types with their resource limits and pricing",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "instances"
+                ],
+                "summary": "List instance types",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/domain.InstanceType"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/instances": {
             "get": {
                 "security": [
@@ -4956,6 +4990,9 @@ const docTemplate = `{
                     "description": "Container/VM image",
                     "type": "string"
                 },
+                "instance_type": {
+                    "type": "string"
+                },
                 "name": {
                     "description": "Unique per tenant",
                     "type": "string"
@@ -5031,6 +5068,42 @@ const docTemplate = `{
                 "StatusError",
                 "StatusDeleted"
             ]
+        },
+        "domain.InstanceType": {
+            "type": "object",
+            "properties": {
+                "category": {
+                    "description": "basic, standard, performance, gpu",
+                    "type": "string"
+                },
+                "disk_gb": {
+                    "description": "Root disk size",
+                    "type": "integer"
+                },
+                "id": {
+                    "description": "e.g., \"basic-1\"",
+                    "type": "string"
+                },
+                "memory_mb": {
+                    "description": "Memory in MB",
+                    "type": "integer"
+                },
+                "name": {
+                    "description": "Human-friendly name",
+                    "type": "string"
+                },
+                "network_mbps": {
+                    "description": "Network bandwidth",
+                    "type": "integer"
+                },
+                "price_per_hour": {
+                    "type": "number"
+                },
+                "vcpus": {
+                    "description": "Number of virtual CPUs",
+                    "type": "integer"
+                }
+            }
         },
         "domain.LBStatus": {
             "type": "string",
@@ -5497,6 +5570,10 @@ const docTemplate = `{
                 },
                 "image": {
                     "description": "Instance image (e.g. \"nginx\")",
+                    "type": "string"
+                },
+                "instance_type": {
+                    "description": "NEW: Configuration type",
                     "type": "string"
                 },
                 "last_failure_at": {
@@ -6348,6 +6425,9 @@ const docTemplate = `{
             ],
             "properties": {
                 "image": {
+                    "type": "string"
+                },
+                "instance_type": {
                     "type": "string"
                 },
                 "name": {

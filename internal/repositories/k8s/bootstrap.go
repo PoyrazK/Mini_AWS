@@ -16,7 +16,7 @@ func (p *KubeadmProvisioner) createNode(ctx context.Context, cluster *domain.Clu
 	// Using kindest/node image for better Docker-in-Docker support (includes systemd)
 	imageName := "kindest/node:v1.29.0"
 	// Don't expose port 22 to host; we access via internal network or Exec.
-	inst, err := p.instSvc.LaunchInstance(ctx, name, imageName, "", &cluster.VpcID, nil, nil)
+	inst, err := p.instSvc.LaunchInstance(ctx, name, imageName, "", "", &cluster.VpcID, nil, nil)
 	if err != nil {
 		return nil, err
 	}

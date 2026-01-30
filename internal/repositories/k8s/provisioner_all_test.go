@@ -56,7 +56,7 @@ func TestKubeadmProvisionerK8sOps(t *testing.T) {
 
 	t.Run("CreateNode", func(t *testing.T) {
 		p, instSvc, repo, _, sgSvc, _, _ := prepareProvisioner()
-		instSvc.On("LaunchInstance", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(&domain.Instance{ID: masterID}, nil).Once()
+		instSvc.On("LaunchInstance", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(&domain.Instance{ID: masterID}, nil).Once()
 		sgSvc.On("GetGroup", mock.Anything, sgName, vpcID).Return(&domain.SecurityGroup{ID: uuid.New()}, nil).Once()
 		sgSvc.On("AttachToInstance", mock.Anything, masterID, mock.Anything).Return(nil).Once()
 		repo.On("AddNode", mock.Anything, mock.Anything).Return(nil).Once()

@@ -27,6 +27,7 @@ type Deployment struct {
 	UserID       uuid.UUID        `json:"user_id"`
 	Name         string           `json:"name"`          // Unique name for the deployment
 	Image        string           `json:"image"`         // Container image (e.g., "redis:alpine")
+	InstanceType string           `json:"instance_type"` // NEW: Configuration type
 	Replicas     int              `json:"replicas"`      // Desired number of replicas
 	CurrentCount int              `json:"current_count"` // Actual number of running replicas
 	Ports        string           `json:"ports"`         // Exposed ports (e.g., "80:8080")

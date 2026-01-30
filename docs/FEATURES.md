@@ -178,11 +178,39 @@ This document provides a comprehensive overview of every feature currently imple
 - **Event & Audit Logging**: CREATE, ACCESS, DELETE events tracked.
 - **Production Safety**: Enforces encryption key requirement in production mode.
 
+### 12. Managed DNS (Route Cloud) 🆕
+**What it is**: Managed DNS zones and records with automatic instance registration.
+**Tech Stack**: PowerDNS, Go.
+**Implementation**:
+- **Zone Management**: Create and manage private DNS zones for VPCs.
+- **Auto-Registration**: Instances automatically register their private IP addresses in the VPC's DNS zone upon launch.
+- **Record Types**: Supports A, AAAA, CNAME, MX, and TXT records.
+- **PowerDNS Integration**: Powered by a PowerDNS backend for production-grade reliability.
+- **VPC Scoped**: Zones are scoped to VPCs for private network resolution.
+
+### 13. API Gateway 🆕
+**What it is**: Managed entry point for microservices with routing and rate limiting.
+**Tech Stack**: Go `httputil.ReverseProxy`, Redis.
+**Implementation**:
+- **Dynamic Routing**: Route external traffic to internal services based on path prefixes.
+- **Prefix Stripping**: Support for stripping path prefixes before forwarding.
+- **Rate Limiting**: Integrated rate limiting per route.
+- **Audit Logging**: Logs all route changes and gateway operations.
+
+### 14. CloudStacks (Native IaC) 🆕
+**What it is**: Declarative infrastructure management (similar to AWS CloudFormation).
+**Tech Stack**: YAML, Go, Hexagonal Orchestration.
+**Implementation**:
+- **Declarative Templates**: Define multiple resources (VPCs, Instances, Volumes) in a single YAML file.
+- **Dependency Management**: Automatically resolves references between resources (e.g., attaching a volume to an instance created in the same stack).
+- **Atomic Operations**: Support for rollback on failure during stack creation.
+- **Validation**: API endpoint for validating templates before deployment.
+
 ---
 
 ## 🧩 Platform Services
 
-### 12. Identity & Auth (IAM)
+### 15. Identity & Auth (IAM)
 **What it is**: Secure access to the platform.
 **Tech Stack**: JWT (JSON Web Tokens), BCrypt, RBAC.
 **Implementation**:
@@ -199,7 +227,7 @@ This document provides a comprehensive overview of every feature currently imple
 - **Authorization**: `Authorize()` checks user permissions before operations.
 - **Fallback Logic**: Default permissions apply if role not in DB.
 
-### 13. Observability
+### 16. Observability
 **What it is**: Monitor system health and logs.
 **Tech Stack**: Docker API, WebSockets, Prometheus, Grafana.
 **Implementation**:
@@ -211,19 +239,27 @@ This document provides a comprehensive overview of every feature currently imple
 - **Event System**: Event recording for all resource state changes.
 - **Audit Logs**: Comprehensive audit trail for compliance.
 
-### 13. CLI (Command Line Interface)
+### 17. CLI (Command Line Interface)
 **What it is**: Terminal tool to manage "The Cloud".
 **Tech Stack**: Cobra (CLI framework), Viper (Config).
 **Implementation**:
 - **Structure**: Command-based (`cloud <resource> <action>`).
 - **State**: Stateless client; talks to the Backend API via HTTP.
 
-### 14. Console (Frontend)
+### 18. Console (Frontend)
 **What it is**: Visual dashboard.
 **Tech Stack**: Next.js 14, Tailwind CSS, TypeScript.
 **Implementation**:
 - **SSR**: Server-Side Rendering for main dashboard views.
 - **Architecture**: Component-based modern React.
+
+### 19. Terraform Provider 🆕
+**What it is**: Infrastructure as Code (IaC) support via Terraform.
+**Tech Stack**: Terraform Plugin SDK v2, Go.
+**Implementation**:
+- **Custom Provider**: `terraform-provider-thecloud` allows defining resources in HCL.
+- **Supported Resources**: Lifecycle management for Instances, VPCs, DNS Zones, and Volumes.
+- **State Management**: Integrates with Terraform's state for consistent infrastructure management.
 
 ---
 

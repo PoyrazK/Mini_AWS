@@ -101,16 +101,17 @@ func TestProvisionWorkerRun(t *testing.T) {
 			}
 
 			instSvc := services.NewInstanceService(services.InstanceServiceParams{
-				Repo:       &noop.NoopInstanceRepository{},
-				VpcRepo:    &noop.NoopVpcRepository{},
-				SubnetRepo: &noop.NoopSubnetRepository{},
-				VolumeRepo: &noop.NoopVolumeRepository{},
-				Compute:    compute,
-				Network:    noop.NewNoopNetworkAdapter(slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))),
-				EventSvc:   &noop.NoopEventService{},
-				AuditSvc:   &noop.NoopAuditService{},
-				TaskQueue:  nil,
-				Logger:     slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)),
+				Repo:             &noop.NoopInstanceRepository{},
+				VpcRepo:          &noop.NoopVpcRepository{},
+				SubnetRepo:       &noop.NoopSubnetRepository{},
+				VolumeRepo:       &noop.NoopVolumeRepository{},
+				InstanceTypeRepo: &noop.NoopInstanceTypeRepository{},
+				Compute:          compute,
+				Network:          noop.NewNoopNetworkAdapter(slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))),
+				EventSvc:         &noop.NoopEventService{},
+				AuditSvc:         &noop.NoopAuditService{},
+				TaskQueue:        nil,
+				Logger:           slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)),
 			})
 
 			var buf bytes.Buffer
@@ -140,16 +141,17 @@ func TestProvisionWorkerRunDequeueError(t *testing.T) {
 	}
 
 	instSvc := services.NewInstanceService(services.InstanceServiceParams{
-		Repo:       &noop.NoopInstanceRepository{},
-		VpcRepo:    &noop.NoopVpcRepository{},
-		SubnetRepo: &noop.NoopSubnetRepository{},
-		VolumeRepo: &noop.NoopVolumeRepository{},
-		Compute:    &noop.NoopComputeBackend{},
-		Network:    noop.NewNoopNetworkAdapter(slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))),
-		EventSvc:   &noop.NoopEventService{},
-		AuditSvc:   &noop.NoopAuditService{},
-		TaskQueue:  nil,
-		Logger:     slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)),
+		Repo:             &noop.NoopInstanceRepository{},
+		VpcRepo:          &noop.NoopVpcRepository{},
+		SubnetRepo:       &noop.NoopSubnetRepository{},
+		VolumeRepo:       &noop.NoopVolumeRepository{},
+		InstanceTypeRepo: &noop.NoopInstanceTypeRepository{},
+		Compute:          &noop.NoopComputeBackend{},
+		Network:          noop.NewNoopNetworkAdapter(slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))),
+		EventSvc:         &noop.NoopEventService{},
+		AuditSvc:         &noop.NoopAuditService{},
+		TaskQueue:        nil,
+		Logger:           slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)),
 	})
 
 	var buf bytes.Buffer
