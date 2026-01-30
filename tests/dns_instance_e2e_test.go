@@ -154,7 +154,7 @@ func waitForInstanceRunning(t *testing.T, client *http.Client, token, instanceID
 	var privateIP string
 
 	for time.Since(start) < timeout {
-		resp := getRequest(t, client, fmt.Sprintf("%s/compute/instances/%s", testutil.TestBaseURL, instanceID), token)
+		resp := getRequest(t, client, fmt.Sprintf("%s/instances/%s", testutil.TestBaseURL, instanceID), token)
 		var res struct {
 			Data domain.Instance `json:"data"`
 		}
@@ -172,7 +172,7 @@ func waitForInstanceRunning(t *testing.T, client *http.Client, token, instanceID
 	}
 
 	if privateIP == "" {
-		resp := getRequest(t, client, fmt.Sprintf("%s/compute/instances/%s", testutil.TestBaseURL, instanceID), token)
+		resp := getRequest(t, client, fmt.Sprintf("%s/instances/%s", testutil.TestBaseURL, instanceID), token)
 		body, _ := io.ReadAll(resp.Body)
 		_ = resp.Body.Close()
 		t.Logf("Final instance state: %s", string(body))
