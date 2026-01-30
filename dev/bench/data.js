@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769790053865,
+  "lastUpdate": 1769790654145,
   "repoUrl": "https://github.com/PoyrazK/thecloud",
   "entries": {
     "Go Benchmarks": [
@@ -58240,6 +58240,78 @@ window.BENCHMARK_DATA = {
             "value": 2,
             "unit": "allocs/op",
             "extra": "8820908 times\n4 procs"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "83272398+PoyrazK@users.noreply.github.com",
+            "name": "Hüseyin Poyraz Küçükarslan",
+            "username": "PoyrazK"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "100cf9dca9b559080cb4a82ec7adf0ca267d4967",
+          "message": "Merge pull request #42 from PoyrazK/feature/instance-types\n\nfeat: implement instance types and resource limits",
+          "timestamp": "2026-01-30T19:30:13+03:00",
+          "tree_id": "474eefef6c88683f68eadc53e2927cfbd50b553e",
+          "url": "https://github.com/PoyrazK/thecloud/commit/100cf9dca9b559080cb4a82ec7adf0ca267d4967"
+        },
+        "date": 1769790650302,
+        "tool": "go",
+        "benches": [
+          {
+            "name": "BenchmarkInstanceServiceList",
+            "value": 1.501,
+            "unit": "ns/op\t       0 B/op\t       0 allocs/op",
+            "extra": "807635900 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkInstanceServiceList - ns/op",
+            "value": 1.501,
+            "unit": "ns/op",
+            "extra": "807635900 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkInstanceServiceList - B/op",
+            "value": 0,
+            "unit": "B/op",
+            "extra": "807635900 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkInstanceServiceList - allocs/op",
+            "value": 0,
+            "unit": "allocs/op",
+            "extra": "807635900 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVPCServiceGet",
+            "value": 134.7,
+            "unit": "ns/op\t     208 B/op\t       2 allocs/op",
+            "extra": "8880565 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVPCServiceGet - ns/op",
+            "value": 134.7,
+            "unit": "ns/op",
+            "extra": "8880565 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVPCServiceGet - B/op",
+            "value": 208,
+            "unit": "B/op",
+            "extra": "8880565 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVPCServiceGet - allocs/op",
+            "value": 2,
+            "unit": "allocs/op",
+            "extra": "8880565 times\n4 procs"
           }
         ]
       }
