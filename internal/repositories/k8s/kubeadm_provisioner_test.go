@@ -17,8 +17,8 @@ import (
 
 type MockInstanceService struct{ mock.Mock }
 
-func (m *MockInstanceService) LaunchInstance(ctx context.Context, name, image, ports string, vpcID, subnetID *uuid.UUID, volumes []domain.VolumeAttachment) (*domain.Instance, error) {
-	args := m.Called(ctx, name, image, ports, vpcID, subnetID, volumes)
+func (m *MockInstanceService) LaunchInstance(ctx context.Context, name, image, ports, instanceType string, vpcID, subnetID *uuid.UUID, volumes []domain.VolumeAttachment) (*domain.Instance, error) {
+	args := m.Called(ctx, name, image, ports, instanceType, vpcID, subnetID, volumes)
 	return args.Get(0).(*domain.Instance), args.Error(1)
 }
 func (m *MockInstanceService) GetInstance(ctx context.Context, id string) (*domain.Instance, error) {
@@ -302,7 +302,7 @@ func TestKubeadmProvisionerProvisionHA(t *testing.T) {
 			Role:       domain.NodeRoleControlPlane,
 		})
 
-		instSvc.On("LaunchInstance", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(instance, nil).Once()
+		instSvc.On("LaunchInstance", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(instance, nil).Once()
 		instSvc.On("GetInstance", mock.Anything, nodeID.String()).Return(instance, nil).Maybe()
 		lbSvc.On("AddTarget", mock.Anything, lbID, nodeID, 6443, 10).Return(nil)
 	}
