@@ -4956,6 +4956,9 @@ const docTemplate = `{
                     "description": "Container/VM image",
                     "type": "string"
                 },
+                "instance_type": {
+                    "type": "string"
+                },
                 "name": {
                     "description": "Unique per tenant",
                     "type": "string"
@@ -5497,6 +5500,10 @@ const docTemplate = `{
                 },
                 "image": {
                     "description": "Instance image (e.g. \"nginx\")",
+                    "type": "string"
+                },
+                "instance_type": {
+                    "description": "NEW: Configuration type",
                     "type": "string"
                 },
                 "last_failure_at": {
@@ -6348,6 +6355,9 @@ const docTemplate = `{
             ],
             "properties": {
                 "image": {
+                    "type": "string"
+                },
+                "instance_type": {
                     "type": "string"
                 },
                 "name": {
