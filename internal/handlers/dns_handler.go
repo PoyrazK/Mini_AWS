@@ -11,11 +11,6 @@ import (
 	"github.com/poyrazk/thecloud/pkg/httputil"
 )
 
-const (
-	errInvalidRecordID = "invalid record id"
-	errInvalidZoneID   = "invalid zone id"
-)
-
 // DNSHandler handles DNS operations via HTTP.
 type DNSHandler struct {
 	svc ports.DNSService

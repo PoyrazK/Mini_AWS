@@ -438,7 +438,7 @@ func (a *DockerAdapter) GetConsoleURL(ctx context.Context, id string) (string, e
 func (a *DockerAdapter) GetInstanceIP(ctx context.Context, id string) (string, error) {
 	// Inspect container
 	// Inspect container with retries to allow time for IP assignment
-	var json types.ContainerJSON
+	var json container.InspectResponse
 	var err error
 
 	// Retry up to 30 times with 500ms backoff (15 seconds total)
@@ -446,11 +446,6 @@ func (a *DockerAdapter) GetInstanceIP(ctx context.Context, id string) (string, e
 		json, err = a.cli.ContainerInspect(ctx, id)
 		if err != nil {
 			return "", fmt.Errorf("failed to inspect container: %w", err)
-		}
-
-		// Check status
-		if json.State != nil {
-			// fmt.Printf("Container status: %s\n", json.State.Status)
 		}
 
 		// Try to get IP from first network
@@ -511,7 +506,7 @@ func (a *DockerAdapter) RunTask(ctx context.Context, opts ports.RunTaskOptions) 
 	}
 
 	if opts.PidsLimit != nil {
-		hostConfig.Resources.PidsLimit = opts.PidsLimit
+		hostConfig.PidsLimit = opts.PidsLimit
 	}
 
 	// 3. Create container

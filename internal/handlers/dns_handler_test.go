@@ -54,7 +54,8 @@ func TestCreateZoneHandler(t *testing.T) {
 
 		dataJSON, _ := json.Marshal(resp.Data)
 		var response domain.DNSZone
-		json.Unmarshal(dataJSON, &response)
+		err = json.Unmarshal(dataJSON, &response)
+		assert.NoError(t, err)
 		assert.Equal(t, testZoneName, response.Name)
 	})
 
@@ -142,7 +143,8 @@ func TestListZonesHandler(t *testing.T) {
 
 		dataJSON, _ := json.Marshal(resp.Data)
 		var response []*domain.DNSZone
-		json.Unmarshal(dataJSON, &response)
+		err = json.Unmarshal(dataJSON, &response)
+		assert.NoError(t, err)
 		assert.Len(t, response, 1)
 	})
 }

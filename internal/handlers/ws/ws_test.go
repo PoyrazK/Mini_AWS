@@ -72,7 +72,7 @@ func TestWebSocketLifecycle(t *testing.T) {
 	dialer := websocket.Dialer{}
 	conn, _, err := dialer.Dial(wsURL, nil)
 	assert.NoError(t, err)
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	time.Sleep(100 * time.Millisecond)
 	assert.Equal(t, 1, hub.ClientCount())
@@ -84,7 +84,7 @@ func TestWebSocketLifecycle(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Contains(t, string(p), "INSTANCE_CREATED")
 
-	conn.Close()
+	_ = conn.Close()
 	time.Sleep(100 * time.Millisecond)
 	assert.Equal(t, 0, hub.ClientCount())
 }

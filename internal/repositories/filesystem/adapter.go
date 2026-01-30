@@ -108,7 +108,7 @@ func (s *LocalFileStore) Assemble(ctx context.Context, bucket, key string, parts
 	if err != nil {
 		return 0, errors.Wrap(errors.Internal, "failed to create dest file", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	var totalSize int64
 	for _, partKey := range parts {
@@ -122,12 +122,12 @@ func (s *LocalFileStore) Assemble(ctx context.Context, bucket, key string, parts
 		}
 
 		n, err := io.Copy(f, pf)
-		pf.Close()
+		_ = pf.Close()
 		if err != nil {
 			return 0, errors.Wrap(errors.Internal, "failed to copy part", err)
 		}
 		totalSize += n
-		os.Remove(partPath) // Cleanup part
+		_ = os.Remove(partPath) // Cleanup part
 	}
 
 	return totalSize, nil

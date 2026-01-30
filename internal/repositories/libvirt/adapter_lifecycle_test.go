@@ -215,7 +215,7 @@ func TestGetInstanceStatsSuccess(t *testing.T) {
 	rc, err := a.GetInstanceStats(ctx, testInstanceName)
 	assert.NoError(t, err)
 	assert.NotNil(t, rc)
-	rc.Close()
+	_ = rc.Close()
 	m.AssertExpectations(t)
 }
 
