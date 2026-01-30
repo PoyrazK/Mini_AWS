@@ -85,9 +85,9 @@ var asgListCmd = &cobra.Command{
 
 		for _, g := range groups {
 			instances := fmt.Sprintf("%d / %d / %d / %d", g.CurrentCount, g.DesiredCount, g.MinInstances, g.MaxInstances)
-			table.Append([]string{g.ID, g.Name, instances, g.Status})
+			_ = table.Append([]string{g.ID, g.Name, instances, g.Status})
 		}
-		table.Render()
+		_ = table.Render()
 	},
 }
 
@@ -144,9 +144,9 @@ func init() {
 	asgCreateCmd.Flags().Int("min", 1, "Min instances")
 	asgCreateCmd.Flags().Int("max", 5, "Max instances")
 	asgCreateCmd.Flags().Int("desired", 1, "Desired instances")
-	asgCreateCmd.MarkFlagRequired("name")
-	asgCreateCmd.MarkFlagRequired("vpc")
-	asgCreateCmd.MarkFlagRequired("image")
+	_ = asgCreateCmd.MarkFlagRequired("name")
+	_ = asgCreateCmd.MarkFlagRequired("vpc")
+	_ = asgCreateCmd.MarkFlagRequired("image")
 
 	asgPolicyAddCmd.Flags().String("name", "", "Policy Name")
 	asgPolicyAddCmd.Flags().String("metric", "cpu", "Metric Type (cpu|memory)")
@@ -154,7 +154,7 @@ func init() {
 	asgPolicyAddCmd.Flags().Int("scale-out", 1, "Scale out step")
 	asgPolicyAddCmd.Flags().Int("scale-in", 1, "Scale in step")
 	asgPolicyAddCmd.Flags().Int("cooldown", 300, "Cooldown seconds")
-	asgPolicyAddCmd.MarkFlagRequired("name")
+	_ = asgPolicyAddCmd.MarkFlagRequired("name")
 
 	autoscalingCmd.AddCommand(asgCreateCmd)
 	autoscalingCmd.AddCommand(asgListCmd)

@@ -44,14 +44,14 @@ var dnsListZonesCmd = &cobra.Command{
 			if z.VpcID != uuid.Nil {
 				vpcID = z.VpcID.String()[:8]
 			}
-			table.Append([]string{
+			_ = table.Append([]string{
 				z.ID.String()[:8],
 				z.Name,
 				vpcID,
 				z.CreatedAt.Format("2006-01-02 15:04:05"),
 			})
 		}
-		table.Render()
+		_ = table.Render()
 	},
 }
 
@@ -132,7 +132,7 @@ var dnsListRecordsCmd = &cobra.Command{
 			if r.AutoManaged {
 				auto = "Yes"
 			}
-			table.Append([]string{
+			_ = table.Append([]string{
 				r.ID.String()[:8],
 				r.Name,
 				string(r.Type),
@@ -142,7 +142,7 @@ var dnsListRecordsCmd = &cobra.Command{
 				auto,
 			})
 		}
-		table.Render()
+		_ = table.Render()
 	},
 }
 
@@ -206,8 +206,8 @@ func init() {
 	dnsCreateRecordCmd.Flags().Int("ttl", 3600, "Time To Live in seconds")
 	dnsCreateRecordCmd.Flags().Int("priority", 0, "Priority for MX records")
 
-	dnsCreateRecordCmd.MarkFlagRequired("name")
-	dnsCreateRecordCmd.MarkFlagRequired("content")
+	_ = dnsCreateRecordCmd.MarkFlagRequired("name")
+	_ = dnsCreateRecordCmd.MarkFlagRequired("content")
 
 	dnsCmd.AddCommand(dnsListZonesCmd)
 	dnsCmd.AddCommand(dnsCreateZoneCmd)

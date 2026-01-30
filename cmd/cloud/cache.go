@@ -68,11 +68,11 @@ var listCacheCmd = &cobra.Command{
 		}
 
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-		fmt.Fprintln(w, "ID\tNAME\tSTATUS\tPORT\tVERSION\tMEMORY")
+		_, _ = fmt.Fprintln(w, "ID\tNAME\tSTATUS\tPORT\tVERSION\tMEMORY")
 		for _, c := range caches {
-			fmt.Fprintf(w, "%s\t%s\t%s\t%d\t%s\t%dMB\n", c.ID, c.Name, c.Status, c.Port, c.Version, c.MemoryMB)
+			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%d\t%s\t%dMB\n", c.ID, c.Name, c.Status, c.Port, c.Version, c.MemoryMB)
 		}
-		w.Flush()
+		_ = w.Flush()
 	},
 }
 
@@ -177,7 +177,7 @@ func init() {
 	createCacheCmd.Flags().Int("memory", 128, "Memory limit in MB")
 	createCacheCmd.Flags().String("vpc", "", "VPC ID to attach to")
 	createCacheCmd.Flags().Bool("wait", false, "Wait for cache to be ready")
-	createCacheCmd.MarkFlagRequired("name")
+	_ = createCacheCmd.MarkFlagRequired("name")
 
 	flushCacheCmd.Flags().Bool("yes", false, "Confirm flush")
 

@@ -57,9 +57,9 @@ var listFnCmd = &cobra.Command{
 		table := tablewriter.NewWriter(os.Stdout)
 		table.Header([]string{"ID", "Name", "Runtime", "Status", "Created At"})
 		for _, f := range functions {
-			table.Append([]string{f.ID, f.Name, f.Runtime, f.Status, f.CreatedAt.Format("2006-01-02 15:04:05")})
+			_ = table.Append([]string{f.ID, f.Name, f.Runtime, f.Status, f.CreatedAt.Format("2006-01-02 15:04:05")})
 		}
-		table.Render()
+		_ = table.Render()
 		return nil
 	},
 }
@@ -183,8 +183,8 @@ func init() {
 	createFnCmd.Flags().StringP("runtime", "r", "nodejs20", "Runtime (nodejs20, python312, go122, ruby33, java21)")
 	createFnCmd.Flags().StringP("handler", "H", "index.handler", "Handler name")
 	createFnCmd.Flags().StringP("code", "c", "", "Path to code zip file")
-	createFnCmd.MarkFlagRequired("name")
-	createFnCmd.MarkFlagRequired("code")
+	_ = createFnCmd.MarkFlagRequired("name")
+	_ = createFnCmd.MarkFlagRequired("code")
 
 	invokeFnCmd.Flags().StringP("payload", "p", "{}", "JSON payload")
 	invokeFnCmd.Flags().StringP("payload-file", "f", "", "Path to payload file")

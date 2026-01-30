@@ -47,7 +47,7 @@ var dbListCmd = &cobra.Command{
 				id = id[:8]
 			}
 
-			table.Append([]string{
+			_ = table.Append([]string{
 				id,
 				db.Name,
 				db.Engine,
@@ -56,7 +56,7 @@ var dbListCmd = &cobra.Command{
 				fmt.Sprintf("%d", db.Port),
 			})
 		}
-		table.Render()
+		_ = table.Render()
 	},
 }
 
@@ -176,5 +176,5 @@ func init() {
 	dbCreateCmd.Flags().StringP("engine", "e", "postgres", "Database engine (postgres/mysql)")
 	dbCreateCmd.Flags().StringP("version", "v", "16", "Engine version")
 	dbCreateCmd.Flags().StringP("vpc", "V", "", "VPC ID to attach to")
-	dbCreateCmd.MarkFlagRequired("name")
+	_ = dbCreateCmd.MarkFlagRequired("name")
 }
