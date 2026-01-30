@@ -358,6 +358,32 @@ definitions:
     - StatusStopped
     - StatusError
     - StatusDeleted
+  domain.InstanceType:
+    properties:
+      category:
+        description: basic, standard, performance, gpu
+        type: string
+      disk_gb:
+        description: Root disk size
+        type: integer
+      id:
+        description: e.g., "basic-1"
+        type: string
+      memory_mb:
+        description: Memory in MB
+        type: integer
+      name:
+        description: Human-friendly name
+        type: string
+      network_mbps:
+        description: Network bandwidth
+        type: integer
+      price_per_hour:
+        type: number
+      vcpus:
+        description: Number of virtual CPUs
+        type: integer
+    type: object
   domain.LBStatus:
     enum:
     - CREATING
@@ -2678,6 +2704,28 @@ paths:
       summary: Validate template
       tags:
       - IaC
+  /instance-types:
+    get:
+      description: Gets a list of all available instance types with their resource
+        limits and pricing
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.InstanceType'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: List instance types
+      tags:
+      - instances
   /instances:
     get:
       description: Gets a list of all compute instances
