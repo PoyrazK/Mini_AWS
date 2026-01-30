@@ -7,6 +7,7 @@ import (
 
 	"strings"
 
+	dnsadapter "github.com/poyrazk/thecloud/internal/adapters/dns"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/poyrazk/thecloud/internal/handlers/ws"
@@ -56,6 +57,7 @@ type Repositories struct {
 	Image         ports.ImageRepository
 	Cluster       ports.ClusterRepository
 	Lifecycle     ports.LifecycleRepository
+	DNS           ports.DNSRepository
 }
 
 // InitRepositories constructs repositories using the provided database clients.
@@ -92,6 +94,7 @@ func InitRepositories(db postgres.DB, rdb *redisv9.Client) *Repositories {
 		Image:         postgres.NewImageRepository(db),
 		Cluster:       postgres.NewClusterRepository(db),
 		Lifecycle:     postgres.NewLifecycleRepository(db),
+		DNS:           postgres.NewDNSRepository(db),
 	}
 }
 
@@ -130,6 +133,7 @@ type Services struct {
 	Image         ports.ImageService
 	Cluster       ports.ClusterService
 	Lifecycle     ports.LifecycleService
+	DNS           ports.DNSService
 }
 
 // Workers struct to return background workers
@@ -178,9 +182,20 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 	vpcSvc := services.NewVpcService(c.Repos.Vpc, c.Repos.LB, c.Network, auditSvc, c.Logger, c.Config.DefaultVPCCIDR)
 	subnetSvc := services.NewSubnetService(c.Repos.Subnet, c.Repos.Vpc, auditSvc, c.Logger)
 	volumeSvc := services.NewVolumeService(c.Repos.Volume, c.Storage, eventSvc, auditSvc, c.Logger)
+
+	// DNS Service
+	pdnsBackend, err := dnsadapter.NewPowerDNSBackend(c.Config.PowerDNSAPIURL, c.Config.PowerDNSAPIKey, c.Config.PowerDNSServerID, c.Logger)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to init powerdns backend: %w", err)
+	}
+	dnsSvc := services.NewDNSService(services.DNSServiceParams{
+		Repo: c.Repos.DNS, Backend: pdnsBackend, VpcRepo: c.Repos.Vpc,
+		AuditSvc: auditSvc, EventSvc: eventSvc, Logger: c.Logger,
+	})
+
 	instSvcConcrete := services.NewInstanceService(services.InstanceServiceParams{
 		Repo: c.Repos.Instance, VpcRepo: c.Repos.Vpc, SubnetRepo: c.Repos.Subnet, VolumeRepo: c.Repos.Volume,
-		Compute: c.Compute, Network: c.Network, EventSvc: eventSvc, AuditSvc: auditSvc, TaskQueue: c.Repos.TaskQueue, Logger: c.Logger,
+		Compute: c.Compute, Network: c.Network, EventSvc: eventSvc, AuditSvc: auditSvc, DNSSvc: dnsSvc, TaskQueue: c.Repos.TaskQueue, Logger: c.Logger,
 	})
 	sgSvc := services.NewSecurityGroupService(c.Repos.SecurityGroup, c.Repos.Vpc, c.Network, auditSvc, c.Logger)
 
@@ -239,6 +254,7 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 		Cluster:   clusterSvc,
 		Dashboard: services.NewDashboardService(c.Repos.Instance, c.Repos.Volume, c.Repos.Vpc, c.Repos.Event, c.Logger),
 		Lifecycle: services.NewLifecycleService(c.Repos.Lifecycle, c.Repos.Storage),
+		DNS:       dnsSvc,
 	}
 
 	// 7. High Availability & Monitoring

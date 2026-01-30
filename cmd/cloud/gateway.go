@@ -49,9 +49,9 @@ var listRoutesCmd = &cobra.Command{
 		table := tablewriter.NewWriter(os.Stdout)
 		table.Header([]string{"ID", "NAME", "PREFIX", "TARGET", "STRIP"})
 		for _, r := range routes {
-			table.Append([]string{r.ID, r.Name, r.PathPrefix, r.TargetURL, fmt.Sprintf("%v", r.StripPrefix)})
+			_ = table.Append([]string{r.ID, r.Name, r.PathPrefix, r.TargetURL, fmt.Sprintf("%v", r.StripPrefix)})
 		}
-		table.Render()
+		_ = table.Render()
 	},
 }
 

@@ -37,7 +37,7 @@ func TestClient_CreateCronJob(t *testing.T) {
 		assert.Equal(t, expectedJob.Schedule, req.Schedule)
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(expectedJob)
+		_ = json.NewEncoder(w).Encode(expectedJob)
 	}))
 	defer server.Close()
 
@@ -60,7 +60,7 @@ func TestClient_ListCronJobs(t *testing.T) {
 		assert.Equal(t, http.MethodGet, r.Method)
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(expectedJobs)
+		_ = json.NewEncoder(w).Encode(expectedJobs)
 	}))
 	defer server.Close()
 
@@ -83,7 +83,7 @@ func TestClient_GetCronJob(t *testing.T) {
 		assert.Equal(t, http.MethodGet, r.Method)
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(expectedJob)
+		_ = json.NewEncoder(w).Encode(expectedJob)
 	}))
 	defer server.Close()
 

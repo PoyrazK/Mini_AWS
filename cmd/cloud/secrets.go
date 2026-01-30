@@ -43,14 +43,14 @@ var secretsListCmd = &cobra.Command{
 				id = id[:8]
 			}
 
-			table.Append([]string{
+			_ = table.Append([]string{
 				id,
 				s.Name,
 				s.Description,
 				s.CreatedAt.Format("2006-01-02 15:04:05"),
 			})
 		}
-		table.Render()
+		_ = table.Render()
 	},
 }
 
@@ -129,6 +129,6 @@ func init() {
 	secretsCreateCmd.Flags().StringP("name", "n", "", "Unique name of the secret (required)")
 	secretsCreateCmd.Flags().StringP("value", "v", "", "Value to encrypt (required)")
 	secretsCreateCmd.Flags().StringP("description", "d", "", "Optional description")
-	secretsCreateCmd.MarkFlagRequired("name")
-	secretsCreateCmd.MarkFlagRequired("value")
+	_ = secretsCreateCmd.MarkFlagRequired("name")
+	_ = secretsCreateCmd.MarkFlagRequired("value")
 }

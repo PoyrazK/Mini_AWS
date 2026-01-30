@@ -34,7 +34,7 @@ func TestClientListInstances(t *testing.T) {
 
 		w.Header().Set(computeContentType, computeApplicationJSON)
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(Response[[]Instance]{Data: mockInstances})
+		_ = json.NewEncoder(w).Encode(Response[[]Instance]{Data: mockInstances})
 	}))
 	defer server.Close()
 
@@ -59,7 +59,7 @@ func TestClientGetInstance(t *testing.T) {
 
 		w.Header().Set(computeContentType, computeApplicationJSON)
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(Response[Instance]{Data: mockInstance})
+		_ = json.NewEncoder(w).Encode(Response[Instance]{Data: mockInstance})
 	}))
 	defer server.Close()
 
@@ -82,13 +82,13 @@ func TestClientLaunchInstance(t *testing.T) {
 		assert.Equal(t, "POST", r.Method)
 
 		var body map[string]interface{}
-		json.NewDecoder(r.Body).Decode(&body)
+		_ = json.NewDecoder(r.Body).Decode(&body)
 		assert.Equal(t, computeNewInstance, body["name"])
 		assert.Equal(t, "nginx", body["image"])
 
 		w.Header().Set(computeContentType, computeApplicationJSON)
 		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(Response[Instance]{Data: mockInstance})
+		_ = json.NewEncoder(w).Encode(Response[Instance]{Data: mockInstance})
 	}))
 	defer server.Close()
 
@@ -135,7 +135,7 @@ func TestClientGetInstanceLogs(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, computeInstancesPath+computeInstanceID+"/logs", r.URL.Path)
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(mockLogs))
+		_, _ = w.Write([]byte(mockLogs))
 	}))
 	defer server.Close()
 
@@ -150,7 +150,7 @@ func TestClientGetInstanceLogsErrorStatus(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, computeInstancesPath+computeInstanceID+"/logs", r.URL.Path)
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("boom"))
+		_, _ = w.Write([]byte("boom"))
 	}))
 	defer server.Close()
 
@@ -178,7 +178,7 @@ func TestClientGetInstanceStats(t *testing.T) {
 		assert.Equal(t, computeInstancesPath+computeInstanceID+"/stats", r.URL.Path)
 		w.Header().Set(computeContentType, computeApplicationJSON)
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(Response[InstanceStats]{Data: mockStats})
+		_ = json.NewEncoder(w).Encode(Response[InstanceStats]{Data: mockStats})
 	}))
 	defer server.Close()
 
@@ -192,7 +192,7 @@ func TestClientGetInstanceStats(t *testing.T) {
 func TestClientComputeErrors(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("boom"))
+		_, _ = w.Write([]byte("boom"))
 	}))
 	defer server.Close()
 
@@ -207,7 +207,7 @@ func TestClientComputeErrors(t *testing.T) {
 func TestClientLaunchInstanceError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("boom"))
+		_, _ = w.Write([]byte("boom"))
 	}))
 	defer server.Close()
 
@@ -220,7 +220,7 @@ func TestClientAPIError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set(computeContentType, computeApplicationJSON)
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(`{"error": {"type": "bad_request", "message": "invalid input"}}`))
+		_, _ = w.Write([]byte(`{"error": {"type": "bad_request", "message": "invalid input"}}`))
 	}))
 	defer server.Close()
 

@@ -38,21 +38,21 @@ func newAutoscalingTestServer(t *testing.T) *httptest.Server {
 func handleAutoscalingGroup(w http.ResponseWriter, r *http.Request) bool {
 	if r.Method == http.MethodPost && r.URL.Path == autoScaleGroupPath {
 		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(Response[ScalingGroup]{
+		_ = json.NewEncoder(w).Encode(Response[ScalingGroup]{
 			Data: ScalingGroup{ID: autoScaleGroupID, Name: autoScaleGroupName, Status: "ACTIVE"},
 		})
 		return true
 	}
 	if r.Method == http.MethodGet && r.URL.Path == autoScaleGroupPath {
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(Response[[]ScalingGroup]{
+		_ = json.NewEncoder(w).Encode(Response[[]ScalingGroup]{
 			Data: []ScalingGroup{{ID: autoScaleGroupID, Name: autoScaleGroupName}},
 		})
 		return true
 	}
 	if r.Method == http.MethodGet && r.URL.Path == autoScaleGroupPath+"/"+autoScaleGroupID {
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(Response[ScalingGroup]{
+		_ = json.NewEncoder(w).Encode(Response[ScalingGroup]{
 			Data: ScalingGroup{ID: autoScaleGroupID, Name: autoScaleGroupName, Status: "ACTIVE"},
 		})
 		return true
@@ -132,7 +132,7 @@ func TestClientAutoScaling(t *testing.T) {
 func TestClientAutoScalingErrors(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("boom"))
+		_, _ = w.Write([]byte("boom"))
 	}))
 	defer server.Close()
 

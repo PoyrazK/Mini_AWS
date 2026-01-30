@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/containerd/errdefs"
 	"github.com/docker/docker/api/types/container"
@@ -47,7 +48,10 @@ func TestDockerAdapterGetInstanceIPNoNetworks(t *testing.T) {
 	inspect.NetworkSettings = &container.NetworkSettings{Networks: map[string]*network.EndpointSettings{}}
 
 	a := &DockerAdapter{cli: &fakeDockerClient{inspect: inspect}}
-	_, err := a.GetInstanceIP(context.Background(), "cid")
+	// Use short timeout to avoid waiting full retry duration (15s) in test
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	_, err := a.GetInstanceIP(ctx, "cid")
 	require.Error(t, err)
 }
 

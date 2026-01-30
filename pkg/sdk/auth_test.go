@@ -17,7 +17,7 @@ func TestClientCreateKeySuccess(t *testing.T) {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(Response[struct {
+		_ = json.NewEncoder(w).Encode(Response[struct {
 			Key string `json:"key"`
 		}]{Data: struct {
 			Key string `json:"key"`
@@ -38,7 +38,7 @@ func TestClientCreateKeyStatusError(t *testing.T) {
 		assert.Equal(t, "/auth/keys", r.URL.Path)
 
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("boom"))
+		_, _ = w.Write([]byte("boom"))
 	}))
 	defer server.Close()
 

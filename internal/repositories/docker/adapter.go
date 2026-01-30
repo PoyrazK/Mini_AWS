@@ -6,9 +6,8 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
-	"time"
-
 	"strings"
+	"time"
 
 	"github.com/containerd/errdefs"
 	"github.com/docker/docker/api/types"
@@ -126,7 +125,7 @@ func (a *DockerAdapter) CreateInstance(ctx context.Context, opts ports.CreateIns
 	// HACK: For kindest/node, we MUST NOT override the entrypoint/command as it starts systemd.
 	isKIND := strings.Contains(opts.ImageName, "kindest/node")
 	if len(config.Cmd) == 0 && !isKIND {
-		config.Cmd = []string{"/bin/bash", "-c", "tail -f /dev/null"}
+		config.Cmd = []string{"/bin/sh", "-c", "tail -f /dev/null"}
 	}
 
 	hostConfig := &container.HostConfig{
@@ -196,7 +195,10 @@ func (a *DockerAdapter) CreateInstance(ctx context.Context, opts ports.CreateIns
 }
 
 func (a *DockerAdapter) StopInstance(ctx context.Context, name string) error {
-	err := a.cli.ContainerStop(ctx, name, container.StopOptions{})
+	timeout := 30
+	err := a.cli.ContainerStop(ctx, name, container.StopOptions{
+		Timeout: &timeout,
+	})
 	if err != nil {
 		return fmt.Errorf("failed to stop container %s: %w", name, err)
 	}
@@ -436,19 +438,45 @@ func (a *DockerAdapter) GetConsoleURL(ctx context.Context, id string) (string, e
 }
 
 func (a *DockerAdapter) GetInstanceIP(ctx context.Context, id string) (string, error) {
-	// Inspect container
-	json, err := a.cli.ContainerInspect(ctx, id)
-	if err != nil {
-		return "", fmt.Errorf("failed to inspect container: %w", err)
-	}
+	// Inspect container with retries to allow time for IP assignment
+	var json container.InspectResponse
+	var err error
 
-	// Try to get IP from first network
-	for _, net := range json.NetworkSettings.Networks {
-		if net.IPAddress != "" {
-			return net.IPAddress, nil
+	// Retry up to 30 times with 500ms backoff (15 seconds total)
+	for i := 0; i < 30; i++ {
+		json, err = a.cli.ContainerInspect(ctx, id)
+		if err != nil {
+			return "", fmt.Errorf("failed to inspect container: %w", err)
+		}
+
+		// Add nil check for NetworkSettings
+		if json.NetworkSettings == nil {
+			goto retry
+		}
+
+		// Add nil check for Networks map
+		if len(json.NetworkSettings.Networks) == 0 {
+			goto retry
+		}
+
+		// Try to get IP from first network
+		for _, net := range json.NetworkSettings.Networks {
+			if net != nil && net.IPAddress != "" {
+				return net.IPAddress, nil
+			}
+		}
+
+	retry:
+		// Wait and retry
+		select {
+		case <-ctx.Done():
+			return "", ctx.Err()
+		case <-time.After(500 * time.Millisecond):
+			continue
 		}
 	}
-	return "", fmt.Errorf("no IP address found for container %s", id)
+
+	return "", fmt.Errorf("no IP address found for container %s after retries", id)
 }
 
 func (a *DockerAdapter) RunTask(ctx context.Context, opts ports.RunTaskOptions) (string, error) {
@@ -483,7 +511,7 @@ func (a *DockerAdapter) RunTask(ctx context.Context, opts ports.RunTaskOptions) 
 	}
 
 	if opts.PidsLimit != nil {
-		hostConfig.Resources.PidsLimit = opts.PidsLimit
+		hostConfig.PidsLimit = opts.PidsLimit
 	}
 
 	// 3. Create container

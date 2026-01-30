@@ -44,7 +44,7 @@ var listClustersCmd = &cobra.Command{
 			if len(id) > 8 {
 				id = id[:8]
 			}
-			table.Append([]string{
+			_ = table.Append([]string{
 				id,
 				c.Name,
 				c.Version,
@@ -52,7 +52,7 @@ var listClustersCmd = &cobra.Command{
 				c.Status,
 			})
 		}
-		table.Render()
+		_ = table.Render()
 	},
 }
 
@@ -302,16 +302,16 @@ func init() {
 	createClusterCmd.Flags().IntP("workers", "w", 2, "Number of worker nodes")
 	createClusterCmd.Flags().Bool("isolate", false, "Enable strict network isolation (NetworkPolicies)")
 	createClusterCmd.Flags().Bool("ha", false, "Enable High-Availability control plane (3 masters + LB)")
-	createClusterCmd.MarkFlagRequired("name")
-	createClusterCmd.MarkFlagRequired("vpc")
+	_ = createClusterCmd.MarkFlagRequired("name")
+	_ = createClusterCmd.MarkFlagRequired("vpc")
 
 	getKubeconfigCmd.Flags().StringP("role", "r", "admin", "Role for kubeconfig (admin, viewer)")
 	scaleClusterCmd.Flags().IntP("workers", "w", 2, "Target number of worker nodes")
-	scaleClusterCmd.MarkFlagRequired("workers")
+	_ = scaleClusterCmd.MarkFlagRequired("workers")
 
 	upgradeClusterCmd.Flags().StringP("version", "V", "", "Target Kubernetes version (required)")
-	upgradeClusterCmd.MarkFlagRequired("version")
+	_ = upgradeClusterCmd.MarkFlagRequired("version")
 
 	restoreClusterCmd.Flags().StringP("path", "p", "", "Path to backup file (required)")
-	restoreClusterCmd.MarkFlagRequired("path")
+	_ = restoreClusterCmd.MarkFlagRequired("path")
 }

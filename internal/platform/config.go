@@ -30,6 +30,9 @@ type Config struct {
 	LvmVgName          string
 	ObjectStorageMode  string
 	ObjectStorageNodes string
+	PowerDNSAPIURL     string
+	PowerDNSAPIKey     string
+	PowerDNSServerID   string
 }
 
 // NewConfig loads configuration from the environment with defaults.
@@ -56,7 +59,11 @@ func NewConfig() (*Config, error) {
 		StorageSecret:        getEnv("STORAGE_SECRET", "storage-secret-key"),
 		LvmVgName:            getEnv("LVM_VG_NAME", "thecloud-vg"),
 		ObjectStorageMode:    getEnv("OBJECT_STORAGE_MODE", "local"),
-		ObjectStorageNodes:   getEnv("OBJECT_STORAGE_NODES", ""),
+
+		ObjectStorageNodes: getEnv("OBJECT_STORAGE_NODES", ""),
+		PowerDNSAPIURL:     getEnv("POWERDNS_API_URL", "http://localhost:8081"),
+		PowerDNSAPIKey:     getEnv("POWERDNS_API_KEY", "thecloud-dns-secret"),
+		PowerDNSServerID:   getEnv("POWERDNS_SERVER_ID", "localhost"),
 	}, nil
 }
 

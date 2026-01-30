@@ -243,7 +243,7 @@ func (p *KubeadmProvisioner) Restore(ctx context.Context, cluster *domain.Cluste
 	if err != nil {
 		return fmt.Errorf("failed to download backup from storage: %w", err)
 	}
-	defer rc.Close()
+	defer func() { _ = rc.Close() }()
 
 	snapshotBytes, err := io.ReadAll(rc)
 	if err != nil {

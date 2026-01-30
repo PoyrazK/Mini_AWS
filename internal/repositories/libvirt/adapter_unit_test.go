@@ -397,7 +397,7 @@ func TestCleanupCreateFailure(t *testing.T) {
 func TestGetInstanceLogs(t *testing.T) {
 	// Mock osOpen
 	tmpFile, _ := os.CreateTemp("", "log")
-	defer os.Remove(tmpFile.Name())
+	defer func() { _ = os.Remove(tmpFile.Name()) }()
 	_, _ = tmpFile.WriteString("log data")
 	_ = tmpFile.Close()
 

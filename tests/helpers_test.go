@@ -38,9 +38,9 @@ func waitForServer() error {
 
 	client := &http.Client{Timeout: 1 * time.Second}
 	for i := 0; i < 60; i++ {
-		resp, err := client.Get(testutil.TestBaseURL + "/health")
+		resp, err := client.Get(testutil.TestBaseURL + "/health/live")
 		if err == nil {
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			if resp.StatusCode == 200 {
 				return nil
 			}
