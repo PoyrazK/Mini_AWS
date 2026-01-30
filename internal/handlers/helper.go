@@ -8,6 +8,11 @@ import (
 	"github.com/poyrazk/thecloud/pkg/httputil"
 )
 
+const (
+	errInvalidRequestBody = "invalid request body"
+	errInvalidID          = "invalid id"
+)
+
 // parseUUID extracts a UUID from a path parameter and handles error reporting.
 func parseUUID(c *gin.Context, paramName string) (*uuid.UUID, bool) {
 	val := c.Param(paramName)
