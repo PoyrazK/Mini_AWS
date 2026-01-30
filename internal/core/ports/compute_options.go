@@ -10,4 +10,7 @@ type CreateInstanceOptions struct {
 	VolumeBinds []string // Storage mappings (e.g., ["/host/path:/container/path"])
 	Env         []string // Environment variables (e.g., ["KEY=VALUE"])
 	Cmd         []string // Optional override command for the instance entrypoint
+	CPULimit    int64    // CPU cores (or millicores)
+	MemoryLimit int64    // Memory in bytes
+	DiskLimit   int64    // Disk in bytes
 }

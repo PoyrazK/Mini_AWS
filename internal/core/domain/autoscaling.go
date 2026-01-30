@@ -39,6 +39,7 @@ type ScalingGroup struct {
 	VpcID          uuid.UUID          `json:"vpc_id"`
 	LoadBalancerID *uuid.UUID         `json:"load_balancer_id,omitempty"` // Optional LB integration
 	Image          string             `json:"image"`                      // Instance image (e.g. "nginx")
+	InstanceType   string             `json:"instance_type"`              // NEW: Configuration type
 	Ports          string             `json:"ports,omitempty"`            // Ports exposed by instances
 	MinInstances   int                `json:"min_instances"`              // Floor for scaling
 	MaxInstances   int                `json:"max_instances"`              // Ceiling for scaling
