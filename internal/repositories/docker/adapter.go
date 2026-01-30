@@ -449,9 +449,11 @@ func (a *DockerAdapter) GetInstanceIP(ctx context.Context, id string) (string, e
 		}
 
 		// Try to get IP from first network
-		for _, net := range json.NetworkSettings.Networks {
-			if net.IPAddress != "" {
-				return net.IPAddress, nil
+		if json.NetworkSettings != nil {
+			for _, net := range json.NetworkSettings.Networks {
+				if net.IPAddress != "" {
+					return net.IPAddress, nil
+				}
 			}
 		}
 
