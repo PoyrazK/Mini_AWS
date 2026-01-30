@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -24,7 +25,7 @@ func TestComputeE2E(t *testing.T) {
 	token := registerAndLogin(t, client, "compute-tester@thecloud.local", "Compute Tester")
 
 	var instanceID string
-	instanceName := fmt.Sprintf("e2e-inst-%d", time.Now().UnixNano()%1000)
+	instanceName := fmt.Sprintf("e2e-inst-%d-%s", time.Now().UnixNano()%1000, uuid.New().String())
 
 	// 1. Launch Instance
 	t.Run("LaunchInstance", func(t *testing.T) {
