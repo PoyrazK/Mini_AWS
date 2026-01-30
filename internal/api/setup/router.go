@@ -60,6 +60,7 @@ type Handlers struct {
 	Image         *httphandlers.ImageHandler
 	Cluster       *httphandlers.ClusterHandler
 	Lifecycle     *httphandlers.LifecycleHandler
+	DNS           *httphandlers.DNSHandler
 	Ws            *ws.Handler
 }
 
@@ -100,6 +101,7 @@ func InitHandlers(svcs *Services, cfg *platform.Config, logger *slog.Logger) *Ha
 		Image:         httphandlers.NewImageHandler(svcs.Image),
 		Cluster:       httphandlers.NewClusterHandler(svcs.Cluster),
 		Lifecycle:     httphandlers.NewLifecycleHandler(svcs.Lifecycle),
+		DNS:           httphandlers.NewDNSHandler(svcs.DNS),
 		Ws:            ws.NewHandler(hub, svcs.Identity, logger),
 	}
 }
@@ -172,6 +174,22 @@ func SetupRouter(cfg *platform.Config, logger *slog.Logger, handlers *Handlers, 
 
 	// The actual Gateway Proxy (Public)
 	r.Any("/gw/*proxy", handlers.Gateway.Proxy)
+
+	// DNS Routes
+	dns := r.Group("/dns")
+	dns.Use(httputil.Auth(services.Identity, services.Tenant))
+	{
+		dns.POST("/zones", handlers.DNS.CreateZone)
+		dns.GET("/zones", handlers.DNS.ListZones)
+		dns.GET("/zones/:id", handlers.DNS.GetZone)
+		dns.DELETE("/zones/:id", handlers.DNS.DeleteZone)
+
+		dns.POST("/zones/:id/records", handlers.DNS.CreateRecord)
+		dns.GET("/zones/:id/records", handlers.DNS.ListRecords)
+		dns.GET("/records/:id", handlers.DNS.GetRecord)
+		dns.PUT("/records/:id", handlers.DNS.UpdateRecord)
+		dns.DELETE("/records/:id", handlers.DNS.DeleteRecord)
+	}
 
 	return r
 }
