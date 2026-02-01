@@ -78,10 +78,17 @@ func (h *GatewayHandler) Proxy(c *gin.Context) {
 		path = "/" + path
 	}
 
-	proxy, ok := h.svc.GetProxy(path)
+	proxy, params, ok := h.svc.GetProxy(path)
 	if !ok {
 		c.JSON(http.StatusNotFound, gin.H{"error": "No route found for " + path})
 		return
+	}
+
+	// Inject parameters into request context for downstream services if needed
+	if len(params) > 0 {
+		for k, v := range params {
+			c.Set("path_param_"+k, v)
+		}
 	}
 
 	proxy.ServeHTTP(c.Writer, c.Request)
