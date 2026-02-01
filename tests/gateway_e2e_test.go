@@ -298,7 +298,8 @@ func TestGatewayE2E(t *testing.T) {
 		var resGet struct {
 			URL string `json:"url"`
 		}
-		json.NewDecoder(respGet.Body).Decode(&resGet)
+		err = json.NewDecoder(respGet.Body).Decode(&resGet)
+		require.NoError(t, err)
 		assert.Contains(t, resGet.URL, "/get-only")
 
 		// Test POST request
@@ -310,7 +311,8 @@ func TestGatewayE2E(t *testing.T) {
 		var resPost struct {
 			URL string `json:"url"`
 		}
-		json.NewDecoder(respPost.Body).Decode(&resPost)
+		err = json.NewDecoder(respPost.Body).Decode(&resPost)
+		require.NoError(t, err)
 		assert.Contains(t, resPost.URL, "/post-only")
 
 		// Test DELETE request (should fail)
