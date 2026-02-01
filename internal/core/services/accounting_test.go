@@ -108,3 +108,50 @@ func TestGetSummary(t *testing.T) {
 	assert.Equal(t, 2.0, summary.TotalAmount)
 	repo.AssertExpectations(t)
 }
+
+func TestProcessHourlyBillingError(t *testing.T) {
+	repo := new(MockAccountingRepo)
+	instRepo := new(MockInstanceRepo)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	svc := services.NewAccountingService(repo, instRepo, logger)
+
+	instRepo.On("List", mock.Anything).Return(nil, assert.AnError)
+
+	err := svc.ProcessHourlyBilling(context.Background())
+	assert.Error(t, err)
+}
+
+func TestProcessHourlyBillingRecordError(t *testing.T) {
+	repo := new(MockAccountingRepo)
+	instRepo := new(MockInstanceRepo)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	svc := services.NewAccountingService(repo, instRepo, logger)
+
+	userID := uuid.New()
+	instID := uuid.New()
+	instances := []*domain.Instance{
+		{ID: instID, UserID: userID, Status: domain.StatusRunning},
+	}
+
+	instRepo.On("List", mock.Anything).Return(instances, nil)
+	repo.On("CreateRecord", mock.Anything, mock.Anything).Return(assert.AnError)
+
+	err := svc.ProcessHourlyBilling(context.Background())
+	// It continues on error but logs it
+	assert.NoError(t, err)
+}
+
+func TestListUsage(t *testing.T) {
+	repo := new(MockAccountingRepo)
+	instRepo := new(MockInstanceRepo)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	svc := services.NewAccountingService(repo, instRepo, logger)
+
+	userID := uuid.New()
+	records := []domain.UsageRecord{{ID: uuid.New()}}
+	repo.On("ListRecords", mock.Anything, userID, mock.Anything, mock.Anything).Return(records, nil)
+
+	res, err := svc.ListUsage(context.Background(), userID, time.Now(), time.Now())
+	assert.NoError(t, err)
+	assert.Equal(t, records, res)
+}
