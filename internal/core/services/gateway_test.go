@@ -92,10 +92,34 @@ func TestGatewayServiceGetProxy(t *testing.T) {
 
 	svc := services.NewGatewayService(repo, auditSvc)
 
-	proxy, ok := svc.GetProxy("/api/users")
+	proxy, params, ok := svc.GetProxy("/api/users")
 	assert.True(t, ok)
 	assert.NotNil(t, proxy)
+	assert.Nil(t, params)
 
-	_, ok = svc.GetProxy("/other")
+	_, _, ok = svc.GetProxy("/other")
+	assert.False(t, ok)
+}
+
+func TestGatewayServiceGetProxy_Pattern(t *testing.T) {
+	repo := new(MockGatewayRepo)
+	auditSvc := new(MockAuditService)
+
+	route := &domain.GatewayRoute{
+		ID:          uuid.New(),
+		PathPattern: "/users/{id}",
+		PatternType: "pattern",
+		TargetURL:   "http://localhost:8080",
+	}
+	repo.On("GetAllActiveRoutes", mock.Anything).Return([]*domain.GatewayRoute{route}, nil)
+
+	svc := services.NewGatewayService(repo, auditSvc)
+
+	proxy, params, ok := svc.GetProxy("/users/123")
+	assert.True(t, ok)
+	assert.NotNil(t, proxy)
+	assert.Equal(t, "123", params["id"])
+
+	_, _, ok = svc.GetProxy("/users/123/posts")
 	assert.False(t, ok)
 }
