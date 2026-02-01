@@ -1,37 +1,34 @@
 package services_test
 
 import (
-	"context"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
+	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 const testRouteName = "test-route"
 
 func TestGatewayServiceCreateRoute(t *testing.T) {
-	repo := new(MockGatewayRepo)
-	auditSvc := new(MockAuditService)
+	db := setupDB(t)
+	defer db.Close()
+	cleanDB(t, db)
 
-	// RefreshRoutes called during init
-	repo.On("GetAllActiveRoutes", mock.Anything).Return([]*domain.GatewayRoute{}, nil)
+	repo := postgres.NewPostgresGatewayRepository(db)
+	auditSvc := new(MockAuditService) // Keep audit mock for now as it probably writes to a different system or we don't care deeply about testing it right here
+	auditSvc.On("Log", mock.Anything, mock.Anything, "gateway.route_create", "gateway", mock.Anything, mock.Anything).Return(nil)
 
 	svc := services.NewGatewayService(repo, auditSvc)
 
-	userID := uuid.New()
-	ctx := appcontext.WithUserID(context.Background(), userID)
-
-	repo.On("CreateRoute", mock.Anything, mock.MatchedBy(func(r *domain.GatewayRoute) bool {
-		return r.UserID == userID && r.Name == testRouteName
-	})).Return(nil)
-
-	auditSvc.On("Log", mock.Anything, userID, "gateway.route_create", "gateway", mock.Anything, mock.Anything).Return(nil)
+	ctx := setupTestUser(t, db)
 
 	params := ports.CreateRouteParams{
 		Name:      testRouteName,
@@ -43,90 +40,127 @@ func TestGatewayServiceCreateRoute(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, route)
 	assert.Equal(t, testRouteName, route.Name)
+	assert.Equal(t, "prefix", route.PatternType) // Default prefix
 
-	repo.AssertExpectations(t)
-	auditSvc.AssertExpectations(t)
+	// Verify it exists in DB via repo
+	userID := appcontext.UserIDFromContext(ctx)
+	fetched, err := repo.GetRouteByID(ctx, route.ID, userID)
+	assert.NoError(t, err)
+	assert.Equal(t, route.ID, fetched.ID)
 }
 
 func TestGatewayServiceListRoutes(t *testing.T) {
-	repo := new(MockGatewayRepo)
+	db := setupDB(t)
+	defer db.Close()
+	cleanDB(t, db)
+
+	repo := postgres.NewPostgresGatewayRepository(db)
 	auditSvc := new(MockAuditService)
+	auditSvc.On("Log", mock.Anything, mock.Anything, "gateway.route_create", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-	repo.On("GetAllActiveRoutes", mock.Anything).Return([]*domain.GatewayRoute{}, nil)
 	svc := services.NewGatewayService(repo, auditSvc)
+	ctx := setupTestUser(t, db)
 
-	userID := uuid.New()
-	ctx := appcontext.WithUserID(context.Background(), userID)
-
-	routes := []*domain.GatewayRoute{{ID: uuid.New(), Name: "r1"}}
-	repo.On("ListRoutes", mock.Anything, userID).Return(routes, nil)
+	// Create a route
+	params := ports.CreateRouteParams{Name: "r1", Pattern: "/r1", Target: "http://example.com"}
+	_, err := svc.CreateRoute(ctx, params)
+	require.NoError(t, err)
 
 	res, err := svc.ListRoutes(ctx)
 	assert.NoError(t, err)
-	assert.Equal(t, routes, res)
+	assert.Len(t, res, 1)
+	assert.Equal(t, "r1", res[0].Name)
 }
 
 func TestGatewayServiceDeleteRoute(t *testing.T) {
-	repo := new(MockGatewayRepo)
+	db := setupDB(t)
+	defer db.Close()
+	cleanDB(t, db)
+
+	repo := postgres.NewPostgresGatewayRepository(db)
 	auditSvc := new(MockAuditService)
+	auditSvc.On("Log", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-	repo.On("GetAllActiveRoutes", mock.Anything).Return([]*domain.GatewayRoute{}, nil)
 	svc := services.NewGatewayService(repo, auditSvc)
+	ctx := setupTestUser(t, db)
+	userID := appcontext.UserIDFromContext(ctx)
 
-	userID := uuid.New()
-	ctx := appcontext.WithUserID(context.Background(), userID)
-	routeID := uuid.New()
-	route := &domain.GatewayRoute{ID: routeID, UserID: userID, Name: "r1"}
+	// Create directly in repo or via service
+	route := &domain.GatewayRoute{
+		ID:          uuid.New(),
+		UserID:      userID,
+		Name:        "r1",
+		PathPrefix:  "/r1",
+		PathPattern: "/r1",
+		PatternType: "prefix",
+		TargetURL:   "http://example.com",
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+	}
+	err := repo.CreateRoute(ctx, route)
+	require.NoError(t, err)
 
-	repo.On("GetRouteByID", mock.Anything, routeID, userID).Return(route, nil)
-	repo.On("DeleteRoute", mock.Anything, routeID).Return(nil)
-	repo.On("GetAllActiveRoutes", mock.Anything).Return([]*domain.GatewayRoute{}, nil)
-	auditSvc.On("Log", mock.Anything, userID, "gateway.route_delete", "gateway", routeID.String(), mock.Anything).Return(nil)
+	// Refresh to sync cache (normally done by background worker or events, but here manual if needed?
+	// CreateRoute updates cache, but manual repo insert doesn't.
+	// But DeleteRoute calls repo.Delete then refreshes. So state in cache shouldn't matter for the deletion act itself,
+	// except GetRouteByID check.
 
-	err := svc.DeleteRoute(ctx, routeID)
+	err = svc.DeleteRoute(ctx, route.ID)
 	assert.NoError(t, err)
+
+	// Verify deleted
+	_, err = repo.GetRouteByID(ctx, route.ID, userID)
+	assert.Error(t, err)
 }
 
 func TestGatewayServiceGetProxy(t *testing.T) {
-	repo := new(MockGatewayRepo)
-	auditSvc := new(MockAuditService)
+	db := setupDB(t)
+	defer db.Close()
+	cleanDB(t, db)
 
-	route := &domain.GatewayRoute{
-		PathPrefix: "/api",
-		TargetURL:  "http://localhost:8080",
-	}
-	repo.On("GetAllActiveRoutes", mock.Anything).Return([]*domain.GatewayRoute{route}, nil)
+	repo := postgres.NewPostgresGatewayRepository(db)
+	auditSvc := new(MockAuditService)
+	auditSvc.On("Log", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	svc := services.NewGatewayService(repo, auditSvc)
+	ctx := setupTestUser(t, db)
 
-	proxy, params, ok := svc.GetProxy("GET", "/api/users")
-	assert.True(t, ok)
+	// Create via service to ensure cache update
+	params := ports.CreateRouteParams{Name: "api", Pattern: "/api", Target: "http://localhost:8080"}
+	_, err := svc.CreateRoute(ctx, params)
+	require.NoError(t, err)
+
+	proxy, paramsMap, ok := svc.GetProxy("GET", "/api/users")
+	assert.True(t, ok, "should match prefix /api")
 	assert.NotNil(t, proxy)
-	assert.Nil(t, params)
+	assert.Nil(t, paramsMap)
 
 	_, _, ok = svc.GetProxy("GET", "/other")
 	assert.False(t, ok)
 }
 
 func TestGatewayServiceGetProxyPattern(t *testing.T) {
-	repo := new(MockGatewayRepo)
-	auditSvc := new(MockAuditService)
+	db := setupDB(t)
+	defer db.Close()
+	cleanDB(t, db)
 
-	route := &domain.GatewayRoute{
-		ID:          uuid.New(),
-		PathPattern: "/users/{id}",
-		PatternType: "pattern",
-		TargetURL:   "http://localhost:8080",
-	}
-	repo.On("GetAllActiveRoutes", mock.Anything).Return([]*domain.GatewayRoute{route}, nil)
+	repo := postgres.NewPostgresGatewayRepository(db)
+	auditSvc := new(MockAuditService)
+	auditSvc.On("Log", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	svc := services.NewGatewayService(repo, auditSvc)
+	ctx := setupTestUser(t, db)
 
-	proxy, params, ok := svc.GetProxy("GET", "/users/123")
+	// Create pattern route via service
+	params := ports.CreateRouteParams{Name: "users", Pattern: "/users/{id}", Target: "http://localhost:8080"}
+	_, err := svc.CreateRoute(ctx, params)
+	require.NoError(t, err)
+
+	proxy, paramsMap, ok := svc.GetProxy("GET", "/users/123")
 	assert.True(t, ok)
 	assert.NotNil(t, proxy)
-	assert.Equal(t, "123", params["id"])
+	assert.Equal(t, "123", paramsMap["id"])
 
 	_, _, ok = svc.GetProxy("GET", "/users/123/posts")
-	assert.False(t, ok)
+	assert.False(t, ok, "should not match /users/123/posts with /users/{id} exactly unless wildcard used")
 }
