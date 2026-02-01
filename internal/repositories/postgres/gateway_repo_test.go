@@ -29,7 +29,7 @@ func TestPostgresGatewayRepository(t *testing.T) {
 			Name:        "test-route",
 			PathPrefix:  "/v1-test",
 			PathPattern: "/v1-test/*",
-			PatternType: "wildcard",
+			PatternType: "pattern",
 			ParamNames:  []string{},
 			TargetURL:   "http://test:80",
 			Methods:     []string{"GET", "POST"},

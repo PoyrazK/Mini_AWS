@@ -29,7 +29,7 @@ func TestGatewayCreateRoute(t *testing.T) {
 		Name:        testRouteName,
 		PathPrefix:  "/api",
 		PathPattern: testRoutePattern,
-		PatternType: "wildcard",
+		PatternType: "pattern",
 		ParamNames:  []string{},
 		TargetURL:   testTargetURL,
 		Methods:     []string{"GET"},
@@ -62,7 +62,7 @@ func TestGatewayGetRouteByID(t *testing.T) {
 	mock.ExpectQuery("SELECT id, user_id, name, path_prefix, path_pattern, pattern_type, param_names, target_url, methods, strip_prefix, rate_limit, priority, created_at, updated_at FROM gateway_routes").
 		WithArgs(id, userID).
 		WillReturnRows(pgxmock.NewRows(columns).
-			AddRow(id, userID, testRouteName, "/api", testRoutePattern, "wildcard", []string{}, testTargetURL, []string{"GET"}, true, 100, 1, now, now))
+			AddRow(id, userID, testRouteName, "/api", testRoutePattern, "pattern", []string{}, testTargetURL, []string{"GET"}, true, 100, 1, now, now))
 
 	route, err := repo.GetRouteByID(context.Background(), id, userID)
 	assert.NoError(t, err)
@@ -83,7 +83,7 @@ func TestGatewayListRoutes(t *testing.T) {
 	mock.ExpectQuery("SELECT id, user_id, name, path_prefix, path_pattern, pattern_type, param_names, target_url, methods, strip_prefix, rate_limit, priority, created_at, updated_at FROM gateway_routes").
 		WithArgs(userID).
 		WillReturnRows(pgxmock.NewRows(columns).
-			AddRow(uuid.New(), userID, testRouteName, "/api", testRoutePattern, "wildcard", []string{}, testTargetURL, []string{"GET"}, true, 100, 1, now, now))
+			AddRow(uuid.New(), userID, testRouteName, "/api", testRoutePattern, "pattern", []string{}, testTargetURL, []string{"GET"}, true, 100, 1, now, now))
 
 	routes, err := repo.ListRoutes(context.Background(), userID)
 	assert.NoError(t, err)
