@@ -1724,6 +1724,135 @@ const docTemplate = `{
                 }
             }
         },
+        "/gateway/routes": {
+            "get": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "description": "Gets a list of all registered API gateway routes",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "gateway"
+                ],
+                "summary": "List all gateway routes",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/domain.GatewayRoute"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "description": "Registers a new path pattern for the API gateway to proxy to a backend",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "gateway"
+                ],
+                "summary": "Create a new gateway route",
+                "parameters": [
+                    {
+                        "description": "Create route request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httphandlers.CreateRouteRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/domain.GatewayRoute"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/gateway/routes/{id}": {
+            "delete": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "description": "Removes an existing API gateway route by ID",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "gateway"
+                ],
+                "summary": "Delete a gateway route",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Route ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/health/live": {
             "get": {
                 "tags": [
@@ -4907,6 +5036,68 @@ const docTemplate = `{
                 }
             }
         },
+        "domain.GatewayRoute": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "methods": {
+                    "description": "New: HTTP methods to match (empty = all)",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "param_names": {
+                    "description": "Extracted parameter names",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "path_pattern": {
+                    "description": "New: Pattern with {params}",
+                    "type": "string"
+                },
+                "path_prefix": {
+                    "description": "Legacy: Request path to match (e.g., \"/api/v1\")",
+                    "type": "string"
+                },
+                "pattern_type": {
+                    "description": "\"prefix\" or \"pattern\"",
+                    "type": "string"
+                },
+                "priority": {
+                    "description": "Manual priority for tie-breaking",
+                    "type": "integer"
+                },
+                "rate_limit": {
+                    "description": "Maximum allowed requests per second per IP",
+                    "type": "integer"
+                },
+                "strip_prefix": {
+                    "description": "If true, removes path_prefix from request before forwarding",
+                    "type": "boolean"
+                },
+                "target_url": {
+                    "description": "Internal destination (e.g., \"http://service-a:8080\")",
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
         "domain.Image": {
             "type": "object",
             "properties": {
@@ -6313,6 +6504,40 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/domain.Permission"
                     }
+                }
+            }
+        },
+        "httphandlers.CreateRouteRequest": {
+            "type": "object",
+            "required": [
+                "name",
+                "path_prefix",
+                "target_url"
+            ],
+            "properties": {
+                "methods": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "path_prefix": {
+                    "type": "string"
+                },
+                "priority": {
+                    "type": "integer"
+                },
+                "rate_limit": {
+                    "type": "integer"
+                },
+                "strip_prefix": {
+                    "type": "boolean"
+                },
+                "target_url": {
+                    "type": "string"
                 }
             }
         },

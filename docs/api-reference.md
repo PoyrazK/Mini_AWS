@@ -366,15 +366,28 @@ Create an ASG.
 List all registered routes.
 
 ### POST /routes
-Register a new route.
+Register a new gateway route. Supports advanced pattern matching and HTTP method filtering.
+
+**Request:**
 ```json
 {
-  "name": "auth-service",
-  "prefix": "/auth",
-  "target": "http://auth-service:8080",
-  "strip_prefix": true
+  "name": "users-api",
+  "path_prefix": "/users/{id}",
+  "target_url": "http://user-service:8080",
+  "methods": ["GET", "PUT"],
+  "strip_prefix": true,
+  "priority": 10
 }
 ```
+
+**Fields:**
+- `path_prefix`: The pattern to match (e.g., `/api/*`, `/users/{id}`, `/id/{id:[0-9]+}`).
+- `methods`: Array of allowed HTTP methods (empty/null = all).
+- `priority`: Higher values take precedence when multiple patterns match.
+- `strip_prefix`: If true, the matched part of the path is removed before forwarding.
+
+**Extracted Parameters:**
+Matched parameters like `{id}` are made available to downstream services as headers (in the future) and are currently injected into the gateway context.
 
 ### DELETE /routes/:id
 Remove a route.
