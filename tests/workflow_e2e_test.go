@@ -84,15 +84,15 @@ func TestFullWorkflowE2E(t *testing.T) {
 	// 3. Launch Instance
 	t.Run("LaunchInstance", func(t *testing.T) {
 		payload := map[string]interface{}{
-			"name":             "workflow-inst",
-			"image":            "alpine",
-			"vpc_id":           vpcID,
-			"subnet_id":        subnetID,
-			"instance_type_id": instanceTypeID,
+			"name":          "workflow-inst",
+			"image":         "alpine",
+			"vpc_id":        vpcID,
+			"subnet_id":     subnetID,
+			"instance_type": instanceTypeID,
 		}
 		resp := postRequest(t, client, testutil.TestBaseURL+testutil.TestRouteInstances, token, payload)
 		defer resp.Body.Close()
-		require.Equal(t, http.StatusCreated, resp.StatusCode)
+		require.Equal(t, http.StatusAccepted, resp.StatusCode)
 
 		var res struct {
 			Data domain.Instance `json:"data"`
@@ -134,7 +134,7 @@ func TestFullWorkflowE2E(t *testing.T) {
 			Data domain.DNSRecord `json:"data"`
 		}
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(&res))
-		assert.Contains(t, res.Data.Name, "app.")
+		assert.Equal(t, "app", res.Data.Name)
 	})
 
 	// 6. Cleanup
@@ -142,16 +142,21 @@ func TestFullWorkflowE2E(t *testing.T) {
 		// Delete Instance
 		resp := deleteRequest(t, client, fmt.Sprintf(routeFormat, testutil.TestBaseURL, testutil.TestRouteInstances, instanceID), token)
 		resp.Body.Close()
-		assert.Equal(t, http.StatusNoContent, resp.StatusCode)
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
 
 		// Delete Zone
 		resp = deleteRequest(t, client, fmt.Sprintf(routeFormat, testutil.TestBaseURL, testutil.TestRouteDNSZones, zoneID), token)
 		resp.Body.Close()
 		assert.Equal(t, http.StatusNoContent, resp.StatusCode)
 
+		// Delete Subnet
+		resp = deleteRequest(t, client, fmt.Sprintf("%s/subnets/%s", testutil.TestBaseURL, subnetID), token)
+		resp.Body.Close()
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+
 		// Delete VPC
 		resp = deleteRequest(t, client, fmt.Sprintf(routeFormat, testutil.TestBaseURL, testutil.TestRouteVpcs, vpcID), token)
 		resp.Body.Close()
-		assert.Contains(t, []int{http.StatusOK, http.StatusNoContent}, resp.StatusCode)
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
 	})
 }

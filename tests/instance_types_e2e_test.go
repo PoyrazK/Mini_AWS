@@ -30,7 +30,7 @@ func TestInstanceTypesE2E(t *testing.T) {
 
 	// 1. List Instance Types
 	t.Run("ListInstanceTypes", func(t *testing.T) {
-		resp := getRequest(t, client, testutil.TestBaseURL+"/api/v1/instance-types", token)
+		resp := getRequest(t, client, testutil.TestBaseURL+"/instance-types", token)
 		defer func() { _ = resp.Body.Close() }()
 
 		require.Equal(t, http.StatusOK, resp.StatusCode)
