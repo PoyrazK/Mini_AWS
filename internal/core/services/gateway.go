@@ -138,12 +138,9 @@ func (s *GatewayService) RefreshRoutes(ctx context.Context) error {
 		proxy.Director = func(req *http.Request) {
 			originalDirector(req)
 			if route.StripPrefix {
-				// For prefix routes, we use PathPrefix
-				// For pattern routes, we currently don't have a specific strip logic
-				// other than what worked for prefix. Let's keep it simple for now.
 				prefix := route.PathPrefix
 				if route.PatternType == "pattern" {
-					prefix = route.PathPattern
+					prefix = routing.GetLiteralPrefix(route.PathPattern)
 				}
 				req.URL.Path = strings.TrimPrefix(req.URL.Path, "/gw"+prefix)
 				if !strings.HasPrefix(req.URL.Path, "/") {

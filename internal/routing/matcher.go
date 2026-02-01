@@ -96,3 +96,12 @@ func extractParamNames(pattern string) []string {
 	}
 	return names
 }
+
+// GetLiteralPrefix returns the literal part of the pattern before the first parameter or wildcard.
+func GetLiteralPrefix(pattern string) string {
+	idx := strings.IndexAny(pattern, "{*")
+	if idx == -1 {
+		return pattern
+	}
+	return pattern[:idx]
+}
