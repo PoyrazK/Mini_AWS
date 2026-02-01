@@ -29,6 +29,7 @@ func (h *GatewayHandler) CreateRoute(c *gin.Context) {
 		TargetURL   string `json:"target_url" binding:"required"`
 		StripPrefix bool   `json:"strip_prefix"`
 		RateLimit   int    `json:"rate_limit"`
+		Priority    int    `json:"priority"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		httputil.Error(c, errors.New(errors.InvalidInput, "Invalid request body"))
@@ -39,7 +40,7 @@ func (h *GatewayHandler) CreateRoute(c *gin.Context) {
 		req.RateLimit = 100
 	}
 
-	route, err := h.svc.CreateRoute(c.Request.Context(), req.Name, req.PathPrefix, req.TargetURL, req.StripPrefix, req.RateLimit)
+	route, err := h.svc.CreateRoute(c.Request.Context(), req.Name, req.PathPrefix, req.TargetURL, req.StripPrefix, req.RateLimit, req.Priority)
 	if err != nil {
 		httputil.Error(c, err)
 		return

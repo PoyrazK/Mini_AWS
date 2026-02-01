@@ -20,19 +20,21 @@ type GatewayRoute struct {
 	UpdatedAt   string   `json:"updated_at"`
 }
 
-func (c *Client) CreateGatewayRoute(name, prefix, target string, strip bool, rateLimit int) (*GatewayRoute, error) {
+func (c *Client) CreateGatewayRoute(name, prefix, target string, strip bool, rateLimit int, priority int) (*GatewayRoute, error) {
 	req := struct {
 		Name        string `json:"name"`
 		PathPrefix  string `json:"path_prefix"`
 		TargetURL   string `json:"target_url"`
 		StripPrefix bool   `json:"strip_prefix"`
 		RateLimit   int    `json:"rate_limit"`
+		Priority    int    `json:"priority"`
 	}{
 		Name:        name,
 		PathPrefix:  prefix,
 		TargetURL:   target,
 		StripPrefix: strip,
 		RateLimit:   rateLimit,
+		Priority:    priority,
 	}
 
 	var route GatewayRoute

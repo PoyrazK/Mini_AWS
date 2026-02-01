@@ -14,6 +14,7 @@ import (
 )
 
 const gatewayRoutesPath = "/gateway/routes"
+const httpbinAnything = "https://httpbin.org/anything"
 
 func TestGatewayE2E(t *testing.T) {
 	if err := waitForServer(); err != nil {
@@ -158,5 +159,110 @@ func TestGatewayE2E(t *testing.T) {
 		}
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(&httpbinResp))
 		assert.Contains(t, httpbinResp.URL, "/anything/foo/bar")
+	})
+
+	t.Run("VerifyMultiParamProxying", func(t *testing.T) {
+		pattern := fmt.Sprintf("/orgs-%d/{org}/projects/{project}", ts)
+		routeName := fmt.Sprintf("multi-param-%d", ts)
+		targetURL := "https://httpbin.org/anything"
+
+		payload := map[string]interface{}{
+			"name":         routeName,
+			"path_prefix":  pattern,
+			"target_url":   targetURL,
+			"strip_prefix": true,
+			"rate_limit":   100,
+		}
+
+		resp := postRequest(t, client, testutil.TestBaseURL+gatewayRoutesPath, token, payload)
+		require.Equal(t, http.StatusCreated, resp.StatusCode)
+		resp.Body.Close()
+
+		time.Sleep(2 * time.Second)
+
+		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/gw/orgs-%d/google/projects/chrome", testutil.TestBaseURL, ts), nil)
+		req.Header.Set(testutil.TestHeaderAPIKey, token)
+		resp, err := client.Do(req)
+		require.NoError(t, err)
+		defer resp.Body.Close()
+
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+		var httpbinResp struct {
+			URL string `json:"url"`
+		}
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(&httpbinResp))
+		// httpbin /anything echoes everything. The path should be /google/projects/chrome if stripped correctly
+		assert.Contains(t, httpbinResp.URL, "/google/projects/chrome")
+	})
+
+	t.Run("VerifyPriorityMatching", func(t *testing.T) {
+		// 1. General pattern route (Low priority)
+		patternGen := fmt.Sprintf("/users-%d/{id}", ts)
+		payloadGen := map[string]interface{}{
+			"name":         fmt.Sprintf("user-gen-%d", ts),
+			"path_prefix":  patternGen,
+			"target_url":   "https://httpbin.org/anything/general",
+			"strip_prefix": true,
+			"priority":     1,
+		}
+		postRequest(t, client, testutil.TestBaseURL+gatewayRoutesPath, token, payloadGen).Body.Close()
+
+		// 2. Specific exact route (High priority implied by length or explicit)
+		patternSpec := fmt.Sprintf("/users-%d/me", ts)
+		payloadSpec := map[string]interface{}{
+			"name":         fmt.Sprintf("user-spec-%d", ts),
+			"path_prefix":  patternSpec,
+			"target_url":   "https://httpbin.org/anything/specific",
+			"strip_prefix": true,
+			"priority":     10,
+		}
+		postRequest(t, client, testutil.TestBaseURL+gatewayRoutesPath, token, payloadSpec).Body.Close()
+
+		time.Sleep(2 * time.Second)
+
+		// Test matching "me" -> should hit the specific route because of higher priority
+		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/gw/users-%d/me", testutil.TestBaseURL, ts), nil)
+		req.Header.Set(testutil.TestHeaderAPIKey, token)
+		resp, err := client.Do(req)
+		require.NoError(t, err)
+		defer resp.Body.Close()
+
+		var httpbinResp struct {
+			URL string `json:"url"`
+		}
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(&httpbinResp))
+		assert.Contains(t, httpbinResp.URL, "/specific")
+	})
+
+	t.Run("VerifyExtensionMatching", func(t *testing.T) {
+		pattern := fmt.Sprintf("/static-%d/*.{ext}", ts)
+		routeName := fmt.Sprintf("extension-route-%d", ts)
+		targetURL := "https://httpbin.org/anything"
+
+		payload := map[string]interface{}{
+			"name":         routeName,
+			"path_prefix":  pattern,
+			"target_url":   targetURL,
+			"strip_prefix": true,
+		}
+
+		postRequest(t, client, testutil.TestBaseURL+gatewayRoutesPath, token, payload).Body.Close()
+
+		time.Sleep(2 * time.Second)
+
+		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/gw/static-%d/image.png", testutil.TestBaseURL, ts), nil)
+		req.Header.Set(testutil.TestHeaderAPIKey, token)
+		resp, err := client.Do(req)
+		require.NoError(t, err)
+		defer resp.Body.Close()
+
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+		var httpbinResp struct {
+			URL string `json:"url"`
+		}
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(&httpbinResp))
+		assert.Contains(t, httpbinResp.URL, "/image.png")
 	})
 }

@@ -38,8 +38,8 @@ type mockGatewayService struct {
 	mock.Mock
 }
 
-func (m *mockGatewayService) CreateRoute(ctx context.Context, name, prefix, target string, strip bool, rateLimit int) (*domain.GatewayRoute, error) {
-	args := m.Called(ctx, name, prefix, target, strip, rateLimit)
+func (m *mockGatewayService) CreateRoute(ctx context.Context, name, prefix, target string, strip bool, rateLimit int, priority int) (*domain.GatewayRoute, error) {
+	args := m.Called(ctx, name, prefix, target, strip, rateLimit, priority)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -88,7 +88,7 @@ func TestGatewayHandlerCreateRoute(t *testing.T) {
 	r.POST(routesPath, handler.CreateRoute)
 
 	route := &domain.GatewayRoute{ID: uuid.New(), Name: testRouteName}
-	svc.On("CreateRoute", mock.Anything, testRouteName, "/api/v1", "http://example.com", false, 100).Return(route, nil)
+	svc.On("CreateRoute", mock.Anything, testRouteName, "/api/v1", "http://example.com", false, 100, 0).Return(route, nil)
 
 	body, err := json.Marshal(map[string]interface{}{
 		"name":        testRouteName,
@@ -241,7 +241,7 @@ func TestGatewayHandlerCreateError(t *testing.T) {
 	t.Run("ServiceError", func(t *testing.T) {
 		svc, handler, r := setupGatewayHandlerTest(t)
 		r.POST(routesPath, handler.CreateRoute)
-		svc.On("CreateRoute", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+		svc.On("CreateRoute", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 			Return(nil, errors.New(errors.Internal, "error"))
 		body, _ := json.Marshal(map[string]interface{}{"name": "n", "path_prefix": "/p", "target_url": "u"})
 		req, _ := http.NewRequest("POST", routesPath, bytes.NewBuffer(body))

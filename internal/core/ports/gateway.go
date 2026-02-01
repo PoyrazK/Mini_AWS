@@ -29,7 +29,7 @@ type GatewayRepository interface {
 // GatewayService provides business logic for managing the API gateway and ingress traffic.
 type GatewayService interface {
 	// CreateRoute establishes a new ingress mapping.
-	CreateRoute(ctx context.Context, name, prefix, target string, strip bool, rateLimit int) (*domain.GatewayRoute, error)
+	CreateRoute(ctx context.Context, name, pattern, target string, strip bool, rateLimit int, priority int) (*domain.GatewayRoute, error)
 	// ListRoutes returns all ingress rules for the current user.
 	ListRoutes(ctx context.Context) ([]*domain.GatewayRoute, error)
 	// DeleteRoute decommission an existing ingress rule.

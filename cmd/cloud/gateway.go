@@ -34,15 +34,16 @@ Examples:
 	Run: func(cmd *cobra.Command, args []string) {
 		strip, _ := cmd.Flags().GetBool("strip")
 		limit, _ := cmd.Flags().GetInt("rate-limit")
+		priority, _ := cmd.Flags().GetInt("priority")
 
 		client := getClient()
-		route, err := client.CreateGatewayRoute(args[0], args[1], args[2], strip, limit)
+		route, err := client.CreateGatewayRoute(args[0], args[1], args[2], strip, limit, priority)
 		if err != nil {
 			fmt.Printf(gatewayErrorFormat, err)
 			return
 		}
 
-		fmt.Printf("[SUCCESS] Route created: %s (Prefix: %s -> %s)\n", route.Name, route.PathPrefix, route.TargetURL)
+		fmt.Printf("[SUCCESS] Route created: %s (Pattern: %s -> %s)\n", route.Name, route.PathPattern, route.TargetURL)
 	},
 }
 
@@ -84,6 +85,7 @@ var deleteRouteCmd = &cobra.Command{
 func init() {
 	createRouteCmd.Flags().Bool("strip", true, "Strip prefix from target request")
 	createRouteCmd.Flags().Int("rate-limit", 100, "Rate limit (req/sec)")
+	createRouteCmd.Flags().Int("priority", 0, "Relative priority for overlapping routes (higher wins)")
 
 	gatewayCmd.AddCommand(createRouteCmd)
 	gatewayCmd.AddCommand(listRoutesCmd)

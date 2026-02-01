@@ -32,7 +32,7 @@ func TestGatewayServiceCreateRoute(t *testing.T) {
 
 	auditSvc.On("Log", mock.Anything, userID, "gateway.route_create", "gateway", mock.Anything, mock.Anything).Return(nil)
 
-	route, err := svc.CreateRoute(ctx, testRouteName, "/test", "http://example.com", false, 100)
+	route, err := svc.CreateRoute(ctx, testRouteName, "/test", "http://example.com", false, 100, 0)
 	assert.NoError(t, err)
 	assert.NotNil(t, route)
 	assert.Equal(t, testRouteName, route.Name)

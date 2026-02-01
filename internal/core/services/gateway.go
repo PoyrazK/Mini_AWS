@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -42,7 +43,7 @@ func NewGatewayService(repo ports.GatewayRepository, auditSvc ports.AuditService
 	return s
 }
 
-func (s *GatewayService) CreateRoute(ctx context.Context, name, pattern, target string, strip bool, rateLimit int) (*domain.GatewayRoute, error) {
+func (s *GatewayService) CreateRoute(ctx context.Context, name, pattern, target string, strip bool, rateLimit int, priority int) (*domain.GatewayRoute, error) {
 	userID := appcontext.UserIDFromContext(ctx)
 	if userID == uuid.Nil {
 		return nil, fmt.Errorf("unauthorized")
@@ -71,6 +72,7 @@ func (s *GatewayService) CreateRoute(ctx context.Context, name, pattern, target 
 		TargetURL:   target,
 		StripPrefix: strip,
 		RateLimit:   rateLimit,
+		Priority:    priority,
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
 	}
@@ -136,7 +138,6 @@ func (s *GatewayService) RefreshRoutes(ctx context.Context) error {
 		// Custom director to handle prefix stripping if needed
 		originalDirector := proxy.Director
 		proxy.Director = func(req *http.Request) {
-			originalDirector(req)
 			if route.StripPrefix {
 				prefix := route.PathPrefix
 				if route.PatternType == "pattern" {
@@ -147,6 +148,7 @@ func (s *GatewayService) RefreshRoutes(ctx context.Context) error {
 					req.URL.Path = "/" + req.URL.Path
 				}
 			}
+			originalDirector(req)
 			req.Host = target.Host
 		}
 
@@ -158,6 +160,26 @@ func (s *GatewayService) RefreshRoutes(ctx context.Context) error {
 			}
 		}
 	}
+
+	// Sort routes by specificity (longer literal prefixes and higher priority first)
+	sort.Slice(routes, func(i, j int) bool {
+		scoreI := len(routing.GetLiteralPrefix(routes[i].PathPattern))
+		if !strings.ContainsAny(routes[i].PathPattern, "{*") {
+			scoreI += 100
+		}
+		if routes[i].Priority > 0 {
+			scoreI += routes[i].Priority * 1000
+		}
+
+		scoreJ := len(routing.GetLiteralPrefix(routes[j].PathPattern))
+		if !strings.ContainsAny(routes[j].PathPattern, "{*") {
+			scoreJ += 100
+		}
+		if routes[j].Priority > 0 {
+			scoreJ += routes[j].Priority * 1000
+		}
+		return scoreI > scoreJ // Descending order
+	})
 
 	s.proxyMu.Lock()
 	s.proxies = newProxies
@@ -196,7 +218,7 @@ func (s *GatewayService) GetProxy(path string) (*httputil.ReverseProxy, map[stri
 				match = &domain.RouteMatch{
 					Route:      route,
 					Params:     nil,
-					MatchScore: len(route.PathPrefix),
+					MatchScore: calculateMatchScore(route, path),
 				}
 			}
 		}
@@ -216,11 +238,18 @@ func (s *GatewayService) GetProxy(path string) (*httputil.ReverseProxy, map[stri
 }
 
 func calculateMatchScore(route *domain.GatewayRoute, path string) int {
-	// Simple scoring: more characters in pattern = more specific
-	// We can refine this later (exact > parameterized > wildcard)
-	score := len(route.PathPattern)
-	if route.Priority > 0 {
-		score += route.Priority * 1000 // Priority boost
+	// 1. Literal prefix length is a good indicator of specificity
+	score := len(routing.GetLiteralPrefix(route.PathPattern))
+
+	// 2. Bonus for exact matches (no parameters or wildcards)
+	if !strings.ContainsAny(route.PathPattern, "{*") {
+		score += 100
 	}
+
+	// 3. Priority is the strongest signal if provided
+	if route.Priority > 0 {
+		score += route.Priority * 1000
+	}
+
 	return score
 }

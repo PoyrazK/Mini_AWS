@@ -29,11 +29,13 @@ func TestClient_CreateGatewayRoute(t *testing.T) {
 			TargetURL   string `json:"target_url"`
 			StripPrefix bool   `json:"strip_prefix"`
 			RateLimit   int    `json:"rate_limit"`
+			Priority    int    `json:"priority"`
 		}
 		err := json.NewDecoder(r.Body).Decode(&req)
 		assert.NoError(t, err)
 		assert.Equal(t, expectedRoute.Name, req.Name)
 		assert.Equal(t, expectedRoute.PathPrefix, req.PathPrefix)
+		assert.Equal(t, 0, req.Priority)
 
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(expectedRoute)
@@ -41,7 +43,7 @@ func TestClient_CreateGatewayRoute(t *testing.T) {
 	defer server.Close()
 
 	client := NewClient(server.URL, "test-api-key")
-	route, err := client.CreateGatewayRoute("test-route", "/api/v1", "http://backend:8080", true, 100)
+	route, err := client.CreateGatewayRoute("test-route", "/api/v1", "http://backend:8080", true, 100, 0)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, route)
