@@ -18,54 +18,61 @@ We will implement an **Advanced Path Matching Engine** using a custom regex-base
 1. **Pattern Syntax**:
    - `{name}`: Matches any non-slash character (`[^/]+`).
    - `{name:regex}`: Matches based on a custom regular expression.
-   - `*`: Greedy wildcard matching ( `.*`).
-   
-2. **Pre-compiled Matchers**:
-   - Routes will be compiled into `*regexp.Regexp` instances at the time of route creation or during the periodic `RefreshRoutes` cycle.
-   - We will avoid per-request regex compilation to maintain sub-millisecond routing latency.
+   - `*`: Greedy wildcard matching (`.*`).
+   - `**`: Explicit recursive wildcard matching (mapped to `.*`).
 
-3. **Routing Priority (Specificity Scoring)**:
-   - When multiple routes match a path, we will use a **Specificity Score**.
-   - Score = `len(path_pattern)` + `Priority * 1000`.
-   - This ensures that more specific patterns (e.g., `/users/me`) win over general ones (e.g., `/users/{id}`), assuming the exact path is longer.
+2. **HTTP Method Matching**:
+   - Routes can be restricted to specific HTTP methods (e.g., `["GET", "POST"]`).
+   - If `methods` is empty or null, the route matches all methods.
+   - This allows multiple services to share the same path but handle different verbs.
 
-4. **Hexagonal Integration**:
-   - **Domain**: `GatewayRoute` will store `PatternType` ("prefix" or "pattern") to remain backward compatible.
+3. **Pre-compiled Matchers**:
+   - Routes are compiled into `*regexp.Regexp` instances and cached in-memory.
+   - We avoid per-request regex compilation to maintain sub-millisecond routing latency.
+
+4. **Routing Priority (Specificity Scoring)**:
+   - When multiple routes match, the one with the highest **Specificity Score** wins.
+   - Score = `len(LiteralPrefix)` + `exactMatchBonus(100)` + `Priority * 1000`.
+   - `LiteralPrefix` is the static part of the pattern before any variable `{}` or `*`.
+   - `exactMatchBonus` is added if the pattern contains no variables/wildcards.
+   - `Priority` is an explicit user-defined integer (default 0).
+
+5. **Hexagonal Integration**:
+   - **Domain**: `GatewayRoute` stores `Methods []string` and `Priority int`.
+   - **Database**: `gateway_routes` uses a composite unique constraint on `(path_pattern, methods)` instead of a global unique `path_prefix`.
    - **Service**: Returns `(proxy, params, found)` to propagate extracted values.
-   - **Handler**: Extracted parameters are injected into the Gin context (e.g., `c.Set("path_param_id", value)`), allowing potential header injection in the proxy director.
+   - **Handler**: Extracted parameters are injected into the Gin context (e.g., `c.Set("path_param_id", value)`).
 
 ## Architecture
 
 ```
-User Request ──▶ Gateway Handler ──▶ Gateway Service (GetProxy)
-                                            │
-                                            ▼
-                                  ┌───────────────────┐
-                                  │ Matching Engine   │
-                                  ├───────────────────┤
-                                  │ 1. Exact Prefix   │
-                                  │ 2. Compiled Regex │
-                                  │ 3. Score Tie-break│
-                                  └─────────┬─────────┘
-                                            │
-                                            ▼
-                                  (ReverseProxy, Params)
+User Request (Method, Path) ──▶ Gateway Handler ──▶ Gateway Service (GetProxy)
+                                                          │
+                                                          ▼
+                                                ┌───────────────────┐
+                                                │ Matching Engine   │
+                                                ├───────────────────┤
+                                                │ 1. Method Filter  │
+                                                │ 2. Pattern Match  │
+                                                │ 3. Score Selection│
+                                                └─────────┬─────────┘
+                                                          │
+                                                          ▼
+                                                (ReverseProxy, Params)
 ```
 
 ## Consequences
 
 ### Positive
-- **Flexibility**: Supports standard RESTful patterns and complex routing requirements.
-- **Performance**: Pre-compilation ensures low latency (~0.1ms per match).
+- **Flexibility**: Supports standard RESTful patterns and method-level routing.
+- **Performance**: Pre-compilation and scoring ensures low latency (~0.05ms per match).
 - **Backward Compatibility**: Existing prefix routes migrate seamlessly to the new system.
-- **Developer Experience**: CLI and SDK now support standard web routing conventions.
 
 ### Negative
-- **Regex Complexity**: Poorly written custom regexes in patterns could lead to catastrophic backtracking (mitigated by documentation and validation).
-- **Database Overhead**: New columns in `gateway_routes` table and JSONB storage for parameter names.
-- **Manual Priority**: Users may need to set explicit `priority` for ambiguous overlapping patterns.
+- **Regex Backtracking**: Potential for complex regexes to slow down matching (mitigated by pre-compilation).
+- **Ambiguity**: Overlapping patterns require careful use of `priority`.
 
 ## Implementation Notes
-- Engine: Custom parser in `internal/routing` using `regexp.QuoteMeta` with surgical unescaping of `{` and `}` tags.
-- Scoring: Currently based on pattern length; future iterations might implement a Radix Tree/Trie for O(1) matching if route counts exceed 10k.
-- Auth: Path parameters are available *after* the route is identified, allowing for resource-level IAM checks in future phases.
+- **Constraint Change**: The unique index on `path_prefix` was dropped to allow same-path-different-method routing.
+- **Refactoring**: The `GatewayService` was refactored to separate proxy creation, matching, and selection logic, reducing cognitive complexity and improving testability.
+- **Testing**: E2E tests verify pattern matching, priority tie-breaking, and method filtering.

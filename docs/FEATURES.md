@@ -189,13 +189,15 @@ This document provides a comprehensive overview of every feature currently imple
 - **VPC Scoped**: Zones are scoped to VPCs for private network resolution.
 
 ### 13. API Gateway 🆕
-**What it is**: Managed entry point for microservices with routing and rate limiting.
-**Tech Stack**: Go `httputil.ReverseProxy`, Redis.
+**What it is**: Managed entry point for microservices with advanced routing, pattern matching, and rate limiting.
+**Tech Stack**: Go `httputil.ReverseProxy`, Redis, Regex Matcher.
 **Implementation**:
-- **Dynamic Routing**: Route external traffic to internal services based on path prefixes.
-- **Prefix Stripping**: Support for stripping path prefixes before forwarding.
-- **Rate Limiting**: Integrated rate limiting per route.
-- **Audit Logging**: Logs all route changes and gateway operations.
+- **Advanced Pattern Matching**: Support for RESTful patterns like `/users/{id}`, regex-constrained parameters `/id/{id:[0-9]+}`, and wildcards `/static/*`.
+- **HTTP Method Routing**: Route requests to different backends based on the HTTP verb (GET, POST, etc.) for the same path.
+- **Dynamic Specificity Scoring**: Automatic route selection based on prefix specificity, exact match bonuses, and explicit user-defined priority.
+- **Prefix Stripping**: Intelligent stripping of path patterns before forwarding to downstream services.
+- **Rate Limiting**: Integrated distributed rate limiting per route.
+- **Audit Logging**: Comprehensive tracking of all route changes and gateway operations.
 
 ### 14. CloudStacks (Native IaC) 🆕
 **What it is**: Declarative infrastructure management (similar to AWS CloudFormation).

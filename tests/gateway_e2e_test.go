@@ -131,7 +131,7 @@ func TestGatewayE2E(t *testing.T) {
 	t.Run("VerifyWildcardProxying", func(t *testing.T) {
 		pattern := fmt.Sprintf("/wild-%d/*", ts)
 		routeName := fmt.Sprintf("wildcard-route-%d", ts)
-		targetURL := "https://httpbin.org/anything"
+		targetURL := httpbinAnything
 
 		payload := map[string]interface{}{
 			"name":         routeName,
@@ -164,7 +164,7 @@ func TestGatewayE2E(t *testing.T) {
 	t.Run("VerifyMultiParamProxying", func(t *testing.T) {
 		pattern := fmt.Sprintf("/orgs-%d/{org}/projects/{project}", ts)
 		routeName := fmt.Sprintf("multi-param-%d", ts)
-		targetURL := "https://httpbin.org/anything"
+		targetURL := httpbinAnything
 
 		payload := map[string]interface{}{
 			"name":         routeName,
@@ -202,7 +202,7 @@ func TestGatewayE2E(t *testing.T) {
 		payloadGen := map[string]interface{}{
 			"name":         fmt.Sprintf("user-gen-%d", ts),
 			"path_prefix":  patternGen,
-			"target_url":   "https://httpbin.org/anything/general",
+			"target_url":   httpbinAnything + "/general",
 			"strip_prefix": true,
 			"priority":     1,
 		}
@@ -213,7 +213,7 @@ func TestGatewayE2E(t *testing.T) {
 		payloadSpec := map[string]interface{}{
 			"name":         fmt.Sprintf("user-spec-%d", ts),
 			"path_prefix":  patternSpec,
-			"target_url":   "https://httpbin.org/anything/specific",
+			"target_url":   httpbinAnything + "/specific",
 			"strip_prefix": true,
 			"priority":     10,
 		}

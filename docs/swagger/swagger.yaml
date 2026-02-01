@@ -241,6 +241,50 @@ definitions:
       user_id:
         type: string
     type: object
+  domain.GatewayRoute:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      methods:
+        description: 'New: HTTP methods to match (empty = all)'
+        items:
+          type: string
+        type: array
+      name:
+        type: string
+      param_names:
+        description: Extracted parameter names
+        items:
+          type: string
+        type: array
+      path_pattern:
+        description: 'New: Pattern with {params}'
+        type: string
+      path_prefix:
+        description: 'Legacy: Request path to match (e.g., "/api/v1")'
+        type: string
+      pattern_type:
+        description: '"prefix" or "pattern"'
+        type: string
+      priority:
+        description: Manual priority for tie-breaking
+        type: integer
+      rate_limit:
+        description: Maximum allowed requests per second per IP
+        type: integer
+      strip_prefix:
+        description: If true, removes path_prefix from request before forwarding
+        type: boolean
+      target_url:
+        description: Internal destination (e.g., "http://service-a:8080")
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: string
+    type: object
   domain.Image:
     properties:
       created_at:
@@ -1265,6 +1309,29 @@ definitions:
         type: array
     required:
     - name
+    type: object
+  httphandlers.CreateRouteRequest:
+    properties:
+      methods:
+        items:
+          type: string
+        type: array
+      name:
+        type: string
+      path_prefix:
+        type: string
+      priority:
+        type: integer
+      rate_limit:
+        type: integer
+      strip_prefix:
+        type: boolean
+      target_url:
+        type: string
+    required:
+    - name
+    - path_prefix
+    - target_url
     type: object
   httphandlers.CreateSecurityGroupRequest:
     properties:
@@ -2585,6 +2652,88 @@ paths:
       summary: Create a new DNS record
       tags:
       - dns
+  /gateway/routes:
+    get:
+      description: Gets a list of all registered API gateway routes
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.GatewayRoute'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: List all gateway routes
+      tags:
+      - gateway
+    post:
+      consumes:
+      - application/json
+      description: Registers a new path pattern for the API gateway to proxy to a
+        backend
+      parameters:
+      - description: Create route request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httphandlers.CreateRouteRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/domain.GatewayRoute'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Create a new gateway route
+      tags:
+      - gateway
+  /gateway/routes/{id}:
+    delete:
+      description: Removes an existing API gateway route by ID
+      parameters:
+      - description: Route ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Delete a gateway route
+      tags:
+      - gateway
   /health/live:
     get:
       responses:

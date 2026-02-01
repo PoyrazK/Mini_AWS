@@ -1004,21 +1004,29 @@ cloud cron rm cleanup
 
 Manage API gateway routes.
 
-### `gateway create-route <name> <prefix> <target>`
+### `gateway create-route <name> <pattern> <target>`
 
-Create a new route.
+Create a new gateway route with pattern matching and HTTP method support.
 
 ```bash
-cloud gateway create-route my-api /v1 http://my-instance:8080 --strip
+cloud gateway create-route my-api "/users/{id}" http://my-instance:8080 --strip --methods GET,POST
 ```
+
+**Pattern Syntax**:
+- `/api/v1/*`: Simple wildcard
+- `/users/{id}`: Named parameter (available as `path_param_id` in downstream)
+- `/id/{id:[0-9]+}`: Regex-constrained parameter
+- `/static/*.{ext}`: Named wildcard for extensions
 
 **Flags**:
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--strip` | `true` | Strip prefix before forwarding |
+| `--strip` | `true` | Strip matched prefix before forwarding |
 | `--rate-limit` | `100` | Requests per second |
+| `--methods` | `[]` | HTTP methods to match (comma-separated, e.g., GET,POST) |
+| `--priority` | `0` | Route priority (higher wins on overlapping patterns) |
 
-**Access**: Routes available at `http://api-host/gw/<prefix>/...`
+**Access**: Routes are available via the gateway at `http://api-host/gw/<path>`
 
 ### `gateway list-routes`
 
