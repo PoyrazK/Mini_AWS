@@ -36,7 +36,7 @@ func TestFullWorkflowE2E(t *testing.T) {
 	// 0. List Instance Types
 	t.Run("ListInstanceTypes", func(t *testing.T) {
 		resp := getRequest(t, client, testutil.TestBaseURL+"/instance-types", token)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		require.Equal(t, http.StatusOK, resp.StatusCode)
 
 		var res struct {
@@ -54,7 +54,7 @@ func TestFullWorkflowE2E(t *testing.T) {
 			"cidr_block": "10.60.0.0/16",
 		}
 		resp := postRequest(t, client, testutil.TestBaseURL+testutil.TestRouteVpcs, token, payload)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		require.Equal(t, http.StatusCreated, resp.StatusCode)
 
 		var res struct {
@@ -71,7 +71,7 @@ func TestFullWorkflowE2E(t *testing.T) {
 			"cidr_block": "10.60.1.0/24",
 		}
 		resp := postRequest(t, client, fmt.Sprintf("%s/vpcs/%s/subnets", testutil.TestBaseURL, vpcID), token, payload)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		require.Equal(t, http.StatusCreated, resp.StatusCode)
 
 		var res struct {
@@ -91,7 +91,7 @@ func TestFullWorkflowE2E(t *testing.T) {
 			"instance_type": instanceTypeID,
 		}
 		resp := postRequest(t, client, testutil.TestBaseURL+testutil.TestRouteInstances, token, payload)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		require.Equal(t, http.StatusAccepted, resp.StatusCode)
 
 		var res struct {
@@ -108,7 +108,7 @@ func TestFullWorkflowE2E(t *testing.T) {
 			"vpc_id": vpcID,
 		}
 		resp := postRequest(t, client, testutil.TestBaseURL+testutil.TestRouteDNSZones, token, payload)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		require.Equal(t, http.StatusCreated, resp.StatusCode)
 
 		var res struct {
@@ -127,7 +127,7 @@ func TestFullWorkflowE2E(t *testing.T) {
 			"ttl":     300,
 		}
 		resp := postRequest(t, client, fmt.Sprintf("%s/dns/zones/%s/records", testutil.TestBaseURL, zoneID), token, payload)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		require.Equal(t, http.StatusCreated, resp.StatusCode)
 
 		var res struct {
@@ -141,22 +141,22 @@ func TestFullWorkflowE2E(t *testing.T) {
 	t.Run("Cleanup", func(t *testing.T) {
 		// Delete Instance
 		resp := deleteRequest(t, client, fmt.Sprintf(routeFormat, testutil.TestBaseURL, testutil.TestRouteInstances, instanceID), token)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 
 		// Delete Zone
 		resp = deleteRequest(t, client, fmt.Sprintf(routeFormat, testutil.TestBaseURL, testutil.TestRouteDNSZones, zoneID), token)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		assert.Equal(t, http.StatusNoContent, resp.StatusCode)
 
 		// Delete Subnet
 		resp = deleteRequest(t, client, fmt.Sprintf("%s/subnets/%s", testutil.TestBaseURL, subnetID), token)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 
 		// Delete VPC
 		resp = deleteRequest(t, client, fmt.Sprintf(routeFormat, testutil.TestBaseURL, testutil.TestRouteVpcs, vpcID), token)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 	})
 }

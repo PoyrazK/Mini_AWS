@@ -1,5 +1,17 @@
+version: 2
+
 run:
   timeout: 5m
+
+linters:
+  disable-all: true
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - unused
+    - ineffassign
+    - gocyclo
 
 linters-settings:
   errcheck:
@@ -15,16 +27,6 @@ linters-settings:
       - (*github.com/spf13/cobra.Command).MarkFlagRequired
   staticcheck:
     checks: ["all", "-QF1008"]
-
-linters:
-  disable-all: true
-  enable:
-    - errcheck
-    - govet
-    - staticcheck
-    - unused
-    - ineffassign
-    - gocyclo
 
 issues:
   exclude-rules:
