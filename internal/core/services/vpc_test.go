@@ -37,7 +37,7 @@ func setupVpcServiceTest(t *testing.T, cidr string) (*services.VpcService, *post
 
 func TestVpcServiceCreateSuccess(t *testing.T) {
 	svc, repo, _, ctx := setupVpcServiceTest(t, testutil.TestCIDR)
-	name := "test-vpc"
+	name := "test-vpc-" + uuid.New().String()
 	cidr := testutil.TestCIDR
 
 	vpc, err := svc.CreateVPC(ctx, name, cidr)
@@ -67,7 +67,7 @@ func TestVpcServiceCreateDBFailureRollback(t *testing.T) {
 func TestVpcServiceCreateDefaultCIDR(t *testing.T) {
 	svc, _, _, ctx := setupVpcServiceTest(t, "")
 
-	vpc, err := svc.CreateVPC(ctx, "default-cidr", "")
+	vpc, err := svc.CreateVPC(ctx, "default-cidr-"+uuid.New().String(), "")
 
 	assert.NoError(t, err)
 	assert.NotNil(t, vpc)
@@ -76,7 +76,7 @@ func TestVpcServiceCreateDefaultCIDR(t *testing.T) {
 
 func TestVpcServiceDeleteSuccess(t *testing.T) {
 	svc, repo, _, ctx := setupVpcServiceTest(t, testutil.TestCIDR)
-	vpc, err := svc.CreateVPC(ctx, "to-delete", testutil.TestCIDR)
+	vpc, err := svc.CreateVPC(ctx, "to-delete-"+uuid.New().String(), testutil.TestCIDR)
 	require.NoError(t, err)
 
 	err = svc.DeleteVPC(ctx, vpc.ID.String())
@@ -89,7 +89,7 @@ func TestVpcServiceDeleteSuccess(t *testing.T) {
 
 func TestVpcServiceDeleteFailureWithLBs(t *testing.T) {
 	svc, _, lbRepo, ctx := setupVpcServiceTest(t, testutil.TestCIDR)
-	vpc, err := svc.CreateVPC(ctx, "in-use", testutil.TestCIDR)
+	vpc, err := svc.CreateVPC(ctx, "in-use-"+uuid.New().String(), testutil.TestCIDR)
 	require.NoError(t, err)
 
 	// Add a Load Balancer to this VPC
@@ -110,8 +110,8 @@ func TestVpcServiceDeleteFailureWithLBs(t *testing.T) {
 
 func TestVpcServiceListSuccess(t *testing.T) {
 	svc, _, _, ctx := setupVpcServiceTest(t, testutil.TestCIDR)
-	_, _ = svc.CreateVPC(ctx, "vpc1", testutil.TestCIDR)
-	_, _ = svc.CreateVPC(ctx, "vpc2", testutil.TestCIDR)
+	_, _ = svc.CreateVPC(ctx, "vpc1-"+uuid.New().String(), testutil.TestCIDR)
+	_, _ = svc.CreateVPC(ctx, "vpc2-"+uuid.New().String(), testutil.TestCIDR)
 
 	result, err := svc.ListVPCs(ctx)
 
@@ -121,7 +121,7 @@ func TestVpcServiceListSuccess(t *testing.T) {
 
 func TestVpcServiceGetByName(t *testing.T) {
 	svc, _, _, ctx := setupVpcServiceTest(t, testutil.TestCIDR)
-	name := "my-vpc"
+	name := "my-vpc-" + uuid.New().String()
 	vpc, _ := svc.CreateVPC(ctx, name, testutil.TestCIDR)
 
 	result, err := svc.GetVPC(ctx, name)
