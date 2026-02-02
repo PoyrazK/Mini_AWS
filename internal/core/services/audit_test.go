@@ -3,48 +3,51 @@ package services_test
 import (
 	"context"
 	"testing"
-	"time"
 
-	"github.com/google/uuid"
-	"github.com/poyrazk/thecloud/internal/core/domain"
+	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/services"
+	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 )
 
-func TestAuditServiceLog(t *testing.T) {
-	repo := new(MockAuditRepo)
-	svc := services.NewAuditService(repo)
+func setupAuditServiceTest(t *testing.T) (*services.AuditService, *postgres.AuditRepository, context.Context) {
+	db := setupDB(t)
+	cleanDB(t, db)
+	ctx := setupTestUser(t, db)
 
-	userID := uuid.New()
+	repo := postgres.NewAuditRepository(db)
+	svc := services.NewAuditService(repo)
+	return svc, repo, ctx
+}
+
+func TestAuditServiceLog(t *testing.T) {
+	svc, repo, ctx := setupAuditServiceTest(t)
+	userID := appcontext.UserIDFromContext(ctx)
+
 	action := "test.action"
 	resType := "instance"
 	resID := "123"
 	details := map[string]interface{}{"key": "value"}
 
-	repo.On("Create", mock.Anything, mock.MatchedBy(func(log *domain.AuditLog) bool {
-		return log.UserID == userID && log.Action == action && log.ResourceType == resType && log.ResourceID == resID
-	})).Return(nil)
-
-	err := svc.Log(context.Background(), userID, action, resType, resID, details)
+	err := svc.Log(ctx, userID, action, resType, resID, details)
 	assert.NoError(t, err)
-	repo.AssertExpectations(t)
+
+	// Verify in DB
+	logs, err := repo.ListByUserID(ctx, userID, 10)
+	assert.NoError(t, err)
+	assert.Len(t, logs, 1)
+	assert.Equal(t, action, logs[0].Action)
+	assert.Equal(t, resID, logs[0].ResourceID)
 }
 
 func TestAuditServiceListLogs(t *testing.T) {
-	repo := new(MockAuditRepo)
-	svc := services.NewAuditService(repo)
+	svc, _, ctx := setupAuditServiceTest(t)
+	userID := appcontext.UserIDFromContext(ctx)
 
-	userID := uuid.New()
-	expectedLogs := []*domain.AuditLog{
-		{ID: uuid.New(), UserID: userID, Action: "login", CreatedAt: time.Now()},
-	}
+	_ = svc.Log(ctx, userID, "action1", "res", "1", nil)
+	_ = svc.Log(ctx, userID, "action2", "res", "2", nil)
 
-	repo.On("ListByUserID", mock.Anything, userID, 50).Return(expectedLogs, nil)
-
-	logs, err := svc.ListLogs(context.Background(), userID, 0) // Test default limit
+	logs, err := svc.ListLogs(ctx, userID, 10)
 	assert.NoError(t, err)
-	assert.Len(t, logs, 1)
-	assert.Equal(t, expectedLogs[0].ID, logs[0].ID)
-	repo.AssertExpectations(t)
+	assert.Len(t, logs, 2)
 }
