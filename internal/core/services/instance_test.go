@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"sync"
 	"testing"
 	"time"
 
@@ -35,20 +36,25 @@ func (r *FaultyInstanceRepository) Create(ctx context.Context, instance *domain.
 
 type InMemoryTaskQueue struct {
 	jobs []string
+	mu   sync.Mutex
 }
 
 func (q *InMemoryTaskQueue) Enqueue(ctx context.Context, queueName string, payload interface{}) error {
+	q.mu.Lock()
+	defer q.mu.Unlock()
 	q.jobs = append(q.jobs, fmt.Sprintf("%v", payload))
 	return nil
 }
 
 func (q *InMemoryTaskQueue) Dequeue(ctx context.Context, queueName string) (string, error) {
-	if len(q.jobs) > 0 {
-		job := q.jobs[0]
-		q.jobs = q.jobs[1:]
-		return job, nil
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	if len(q.jobs) == 0 {
+		return "", fmt.Errorf("queue empty")
 	}
-	return "", nil
+	job := q.jobs[0]
+	q.jobs = q.jobs[1:]
+	return job, nil
 }
 
 func setupInstanceServiceTest(t *testing.T) (*pgxpool.Pool, *services.InstanceService, *docker.DockerAdapter, ports.InstanceRepository, ports.VpcRepository, ports.VolumeRepository, context.Context) {
