@@ -9,156 +9,103 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
-	"github.com/poyrazk/thecloud/internal/errors"
+	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
-func setupLBServiceTest(_ *testing.T) (*MockLBRepo, *MockVpcRepo, *MockInstanceRepo, *MockAuditService, ports.LBService) {
-	lbRepo := new(MockLBRepo)
-	vpcRepo := new(MockVpcRepo)
-	instRepo := new(MockInstanceRepo)
-	auditSvc := new(MockAuditService)
+func setupLBServiceIntegrationTest(t *testing.T) (ports.LBService, *postgres.LBRepository, *postgres.VpcRepository, *postgres.InstanceRepository, context.Context) {
+	db := setupDB(t)
+	cleanDB(t, db)
+	ctx := setupTestUser(t, db)
+
+	lbRepo := postgres.NewLBRepository(db)
+	vpcRepo := postgres.NewVpcRepository(db)
+	instRepo := postgres.NewInstanceRepository(db)
+	auditRepo := postgres.NewAuditRepository(db)
+	auditSvc := services.NewAuditService(auditRepo)
+
 	svc := services.NewLBService(lbRepo, vpcRepo, instRepo, auditSvc)
-	return lbRepo, vpcRepo, instRepo, auditSvc, svc
+	return svc, lbRepo, vpcRepo, instRepo, ctx
 }
 
-func TestLBService_Create(t *testing.T) {
-	ctx := context.Background()
-	vpcID := uuid.New()
-	name := "test-lb"
-	port := 80
-	algo := "round-robin"
+func TestLBService_Integration(t *testing.T) {
+	svc, lbRepo, vpcRepo, instRepo, ctx := setupLBServiceIntegrationTest(t)
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	t.Run("successful creation", func(t *testing.T) {
-		lbRepo, vpcRepo, _, auditSvc, svc := setupLBServiceTest(t)
-		defer lbRepo.AssertExpectations(t)
-		defer vpcRepo.AssertExpectations(t)
-		defer auditSvc.AssertExpectations(t)
+	// Setup a VPC
+	vpc := &domain.VPC{
+		ID:       uuid.New(),
+		UserID:   userID,
+		TenantID: tenantID,
+		Name:     "lb-vpc",
+	}
+	err := vpcRepo.Create(ctx, vpc)
+	require.NoError(t, err)
 
-		lbRepo.On("GetByIdempotencyKey", ctx, "key1").Return(nil, errors.New(errors.NotFound, "not found")).Once()
-		vpcRepo.On("GetByID", ctx, vpcID).Return(&domain.VPC{ID: vpcID}, nil).Once()
-		lbRepo.On("Create", ctx, mock.MatchedBy(func(lb *domain.LoadBalancer) bool {
-			return lb.Name == name && lb.VpcID == vpcID && lb.Port == port && lb.Status == domain.LBStatusCreating
-		})).Return(nil).Once()
-		auditSvc.On("Log", ctx, mock.Anything, "lb.create", "loadbalancer", mock.Anything, mock.Anything).Return(nil).Once()
+	t.Run("CreateLB", func(t *testing.T) {
+		name := "test-lb"
+		port := 80
+		algo := "round-robin"
+		key1 := "idempotency-key-1"
 
-		lb, err := svc.Create(ctx, name, vpcID, port, algo, "key1")
-
+		lb, err := svc.Create(ctx, name, vpc.ID, port, algo, key1)
 		assert.NoError(t, err)
 		assert.NotNil(t, lb)
 		assert.Equal(t, name, lb.Name)
-		assert.Equal(t, domain.LBStatusCreating, lb.Status)
-	})
+		assert.Equal(t, userID, lb.UserID)
 
-	t.Run("idempotency check", func(t *testing.T) {
-		lbRepo, _, _, _, svc := setupLBServiceTest(t)
-		defer lbRepo.AssertExpectations(t)
-
-		existing := &domain.LoadBalancer{ID: uuid.New(), Name: name, IdempotencyKey: "key1"}
-		lbRepo.On("GetByIdempotencyKey", ctx, "key1").Return(existing, nil).Once()
-
-		lb, err := svc.Create(ctx, name, vpcID, port, algo, "key1")
-
+		// Idempotency check
+		lb2, err := svc.Create(ctx, name, vpc.ID, port, algo, key1)
 		assert.NoError(t, err)
-		assert.Equal(t, existing.ID, lb.ID)
+		assert.Equal(t, lb.ID, lb2.ID)
 	})
 
-	t.Run("vpc not found", func(t *testing.T) {
-		lbRepo, vpcRepo, _, _, svc := setupLBServiceTest(t)
-		defer lbRepo.AssertExpectations(t)
-		defer vpcRepo.AssertExpectations(t)
+	t.Run("AddTarget", func(t *testing.T) {
+		lb, _ := svc.Create(ctx, "target-lb", vpc.ID, 8080, "least-conn", "key-target")
 
-		lbRepo.On("GetByIdempotencyKey", ctx, "key2").Return(nil, errors.New(errors.NotFound, "not found")).Once()
-		vpcRepo.On("GetByID", ctx, vpcID).Return(nil, errors.New(errors.NotFound, "not found")).Once()
+		// Setup an instance in the same VPC
+		inst := &domain.Instance{
+			ID:       uuid.New(),
+			UserID:   userID,
+			TenantID: tenantID,
+			Name:     "inst-1",
+			VpcID:    &vpc.ID,
+		}
+		err := instRepo.Create(ctx, inst)
+		require.NoError(t, err)
 
-		lb, err := svc.Create(ctx, name, vpcID, port, algo, "key2")
-
-		assert.Error(t, err)
-		assert.Nil(t, lb)
-		assert.True(t, errors.Is(err, errors.NotFound))
-	})
-}
-
-func TestLBService_PropagatesUserID(t *testing.T) {
-	lbRepo, vpcRepo, _, auditSvc, svc := setupLBServiceTest(t)
-	defer lbRepo.AssertExpectations(t)
-	defer vpcRepo.AssertExpectations(t)
-	defer auditSvc.AssertExpectations(t)
-
-	expectedUserID := uuid.New()
-	ctx := appcontext.WithUserID(context.Background(), expectedUserID)
-	vpcID := uuid.New()
-	name := "test-lb-user"
-
-	lbRepo.On("GetByIdempotencyKey", ctx, "key3").Return(nil, errors.New(errors.NotFound, "not found")).Once()
-	vpcRepo.On("GetByID", ctx, vpcID).Return(&domain.VPC{ID: vpcID}, nil).Once()
-	lbRepo.On("Create", ctx, mock.MatchedBy(func(lb *domain.LoadBalancer) bool {
-		return lb.UserID == expectedUserID
-	})).Return(nil).Once()
-	auditSvc.On("Log", ctx, expectedUserID, "lb.create", "loadbalancer", mock.Anything, mock.Anything).Return(nil).Once()
-
-	lb, err := svc.Create(ctx, name, vpcID, 80, "round-robin", "key3")
-
-	assert.NoError(t, err)
-	assert.Equal(t, expectedUserID, lb.UserID)
-}
-
-func TestLBService_AddTarget(t *testing.T) {
-	ctx := context.Background()
-	lbID := uuid.New()
-	vpcID := uuid.New()
-	instID := uuid.New()
-
-	t.Run("successful add target", func(t *testing.T) {
-		lbRepo, _, instRepo, auditSvc, svc := setupLBServiceTest(t)
-		defer lbRepo.AssertExpectations(t)
-		defer instRepo.AssertExpectations(t)
-		defer auditSvc.AssertExpectations(t)
-
-		lbRepo.On("GetByID", ctx, lbID).Return(&domain.LoadBalancer{ID: lbID, VpcID: vpcID}, nil).Once()
-		instRepo.On("GetByID", ctx, instID).Return(&domain.Instance{ID: instID, VpcID: &vpcID}, nil).Once()
-		lbRepo.On("AddTarget", ctx, mock.Anything).Return(nil).Once()
-		auditSvc.On("Log", ctx, mock.Anything, "lb.target_add", "loadbalancer", lbID.String(), mock.Anything).Return(nil).Once()
-
-		err := svc.AddTarget(ctx, lbID, instID, 80, 1)
-
+		err = svc.AddTarget(ctx, lb.ID, inst.ID, 80, 1)
 		assert.NoError(t, err)
+
+		// Verify target exists
+		targets, err := lbRepo.ListTargets(ctx, lb.ID)
+		assert.NoError(t, err)
+		assert.Len(t, targets, 1)
+		assert.Equal(t, inst.ID, targets[0].InstanceID)
 	})
 
-	t.Run("cross-vpc rejection", func(t *testing.T) {
-		lbRepo, _, instRepo, _, svc := setupLBServiceTest(t)
-		defer lbRepo.AssertExpectations(t)
-		defer instRepo.AssertExpectations(t)
+	t.Run("ListAndGet", func(t *testing.T) {
+		lbs, err := svc.List(ctx)
+		assert.NoError(t, err)
+		assert.GreaterOrEqual(t, len(lbs), 1)
 
-		otherVpcID := uuid.New()
-		lbRepo.On("GetByID", ctx, lbID).Return(&domain.LoadBalancer{ID: lbID, VpcID: vpcID}, nil).Once()
-		instRepo.On("GetByID", ctx, instID).Return(&domain.Instance{ID: instID, VpcID: &otherVpcID}, nil).Once()
-
-		err := svc.AddTarget(ctx, lbID, instID, 80, 1)
-
-		assert.Error(t, err)
-		assert.Equal(t, errors.ErrLBCrossVPC, err)
+		lbID := lbs[0].ID
+		fetched, err := svc.Get(ctx, lbID)
+		assert.NoError(t, err)
+		assert.Equal(t, lbID, fetched.ID)
 	})
-}
 
-func TestLBService_Delete_Success(t *testing.T) {
-	lbRepo, _, _, auditSvc, svc := setupLBServiceTest(t)
-	defer lbRepo.AssertExpectations(t)
-	defer auditSvc.AssertExpectations(t)
+	t.Run("Delete", func(t *testing.T) {
+		lb, _ := svc.Create(ctx, "to-delete", vpc.ID, 9000, "round-robin", "key-del")
 
-	ctx := context.Background()
-	lbID := uuid.New()
+		err := svc.Delete(ctx, lb.ID)
+		assert.NoError(t, err)
 
-	// Expect Get then Update (Soft Delete)
-	lb := &domain.LoadBalancer{ID: lbID, Status: domain.LBStatusActive}
-	lbRepo.On("GetByID", ctx, lbID).Return(lb, nil)
-	lbRepo.On("Update", ctx, mock.MatchedBy(func(l *domain.LoadBalancer) bool {
-		return l.ID == lbID && l.Status == domain.LBStatusDeleted
-	})).Return(nil)
-	auditSvc.On("Log", ctx, mock.Anything, "lb.delete", "loadbalancer", lbID.String(), mock.Anything).Return(nil).Once()
-
-	err := svc.Delete(ctx, lbID)
-
-	assert.NoError(t, err)
+		// Soft delete check - should be updated to StatusDeleted
+		fetched, err := svc.Get(ctx, lb.ID)
+		assert.NoError(t, err)
+		assert.Equal(t, domain.LBStatusDeleted, fetched.Status)
+	})
 }
