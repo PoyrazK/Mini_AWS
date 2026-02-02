@@ -37,7 +37,7 @@ func setupVolumeServiceTest(t *testing.T) (*services.VolumeService, *postgres.Vo
 
 func TestVolumeServiceCreateVolumeSuccess(t *testing.T) {
 	svc, repo, ctx := setupVolumeServiceTest(t)
-	name := "test-vol-create"
+	name := "test-vol-create-" + uuid.New().String()
 	size := 10
 
 	vol, err := svc.CreateVolume(ctx, name, size)
@@ -56,7 +56,7 @@ func TestVolumeServiceCreateVolumeSuccess(t *testing.T) {
 
 func TestVolumeServiceDeleteVolumeSuccess(t *testing.T) {
 	svc, repo, ctx := setupVolumeServiceTest(t)
-	vol, err := svc.CreateVolume(ctx, "to-delete", 5)
+	vol, err := svc.CreateVolume(ctx, "to-delete-"+uuid.New().String(), 5)
 	require.NoError(t, err)
 
 	err = svc.DeleteVolume(ctx, vol.ID.String())
@@ -69,7 +69,7 @@ func TestVolumeServiceDeleteVolumeSuccess(t *testing.T) {
 
 func TestVolumeServiceDeleteVolumeInUseFails(t *testing.T) {
 	svc, repo, ctx := setupVolumeServiceTest(t)
-	vol, err := svc.CreateVolume(ctx, "in-use-vol", 5)
+	vol, err := svc.CreateVolume(ctx, "in-use-vol-"+uuid.New().String(), 5)
 	require.NoError(t, err)
 
 	// Mark as in-use
@@ -84,8 +84,8 @@ func TestVolumeServiceDeleteVolumeInUseFails(t *testing.T) {
 
 func TestVolumeServiceListVolumesSuccess(t *testing.T) {
 	svc, _, ctx := setupVolumeServiceTest(t)
-	_, _ = svc.CreateVolume(ctx, "v1", 1)
-	_, _ = svc.CreateVolume(ctx, "v2", 2)
+	_, _ = svc.CreateVolume(ctx, "v1-"+uuid.New().String(), 1)
+	_, _ = svc.CreateVolume(ctx, "v2-"+uuid.New().String(), 2)
 
 	result, err := svc.ListVolumes(ctx)
 
@@ -95,7 +95,7 @@ func TestVolumeServiceListVolumesSuccess(t *testing.T) {
 
 func TestVolumeServiceGetVolume(t *testing.T) {
 	svc, _, ctx := setupVolumeServiceTest(t)
-	vol, _ := svc.CreateVolume(ctx, "find-me", 5)
+	vol, _ := svc.CreateVolume(ctx, "find-me-"+uuid.New().String(), 5)
 
 	t.Run("get by id", func(t *testing.T) {
 		res, err := svc.GetVolume(ctx, vol.ID.String())
@@ -104,7 +104,7 @@ func TestVolumeServiceGetVolume(t *testing.T) {
 	})
 
 	t.Run("get by name", func(t *testing.T) {
-		res, err := svc.GetVolume(ctx, "find-me")
+		res, err := svc.GetVolume(ctx, vol.Name)
 		assert.NoError(t, err)
 		assert.Equal(t, vol.ID, res.ID)
 	})
@@ -137,7 +137,7 @@ func TestVolumeServiceCreateVolumeRollbackOnRepoError(t *testing.T) {
 	cancelledCtx, cancel := context.WithCancel(ctx)
 	cancel()
 
-	vol, err := svc.CreateVolume(cancelledCtx, "fail-vol", 5)
+	vol, err := svc.CreateVolume(cancelledCtx, "fail-vol-"+uuid.New().String(), 5)
 	assert.Error(t, err)
 	assert.Nil(t, vol)
 }
@@ -149,11 +149,11 @@ func TestVolume_LaunchAttach_Conflict(t *testing.T) {
 	volSvc := services.NewVolumeService(volRepo, noop.NewNoopStorageBackend(), services.NewEventService(postgres.NewEventRepository(db), nil, slog.Default()), services.NewAuditService(postgres.NewAuditRepository(db)), slog.Default())
 
 	// 1. Create Volume
-	vol, err := volSvc.CreateVolume(ctx, "shared-vol", 1)
+	vol, err := volSvc.CreateVolume(ctx, "shared-vol-"+uuid.New().String(), 1)
 	require.NoError(t, err)
 
 	// 2. Launch Instance A with Volume
-	nameA := "inst-A"
+	nameA := "inst-A-" + uuid.New().String()
 	image := "alpine:latest"
 	volsA := []domain.VolumeAttachment{
 		{VolumeIDOrName: vol.ID.String(), MountPath: "/dev/xvdb"},
@@ -172,7 +172,7 @@ func TestVolume_LaunchAttach_Conflict(t *testing.T) {
 
 	// 3. Launch Instance B with SAME Volume
 	// Should fail because volume is already attached
-	nameB := "inst-B"
+	nameB := "inst-B-" + uuid.New().String()
 	instB, err := svc.LaunchInstance(ctx, nameB, image, "", "basic-2", nil, nil, volsA)
 
 	// Expectation: LaunchInstance should check volume status and fail
