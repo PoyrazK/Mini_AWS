@@ -41,9 +41,8 @@ func TestVpcServiceCreateSuccess(t *testing.T) {
 	cidr := testutil.TestCIDR
 
 	vpc, err := svc.CreateVPC(ctx, name, cidr)
-
-	assert.NoError(t, err)
-	assert.NotNil(t, vpc)
+	require.NoError(t, err)
+	require.NotNil(t, vpc)
 	assert.Equal(t, name, vpc.Name)
 	assert.Equal(t, cidr, vpc.CIDRBlock)
 	assert.Contains(t, vpc.NetworkID, "br-vpc-")

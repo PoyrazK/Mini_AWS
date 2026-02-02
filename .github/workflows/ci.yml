@@ -63,14 +63,14 @@ jobs:
           DATABASE_URL: postgres://cloud:cloud@localhost:5433/cloud?sslmode=disable
         run: |
           docker network create cloud-network || true
-          go test -v ./cmd/... ./internal/... ./pkg/...
+          go test -p 1 -v ./cmd/... ./internal/... ./pkg/...
 
       - name: Run Race Detection
         env:
           DATABASE_URL: postgres://cloud:cloud@localhost:5433/cloud?sslmode=disable
         run: |
           set -o pipefail
-          go test -race -v ./cmd/... ./internal/... ./pkg/... 2>&1 | tee race-output.txt || {
+          go test -race -p 1 -v ./cmd/... ./internal/... ./pkg/... 2>&1 | tee race-output.txt || {
             echo "Race detection found issues. See above for details."
             grep -A 30 "WARNING: DATA RACE" race-output.txt || true
             exit 1

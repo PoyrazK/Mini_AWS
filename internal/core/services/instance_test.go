@@ -227,7 +227,7 @@ func TestInstanceNetworking(t *testing.T) {
 		ID:        vpcID,
 		UserID:    appcontext.UserIDFromContext(ctx),
 		TenantID:  appcontext.TenantIDFromContext(ctx),
-		Name:      "test-vpc",
+		Name:      "test-vpc-" + vpcID.String(),
 		CIDRBlock: "10.0.0.0/16",
 		NetworkID: netID,
 		Status:    "ACTIVE",
