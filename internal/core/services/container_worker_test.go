@@ -118,6 +118,7 @@ func TestContainerWorkerReconcile(t *testing.T) {
 		// Case 1: Has containers -> terminate them
 		c1 := uuid.New()
 		repo.On("GetContainers", mock.Anything, depID).Return([]uuid.UUID{c1}, nil).Once()
+		instSvc.On("GetInstance", mock.Anything, c1.String()).Return(&domain.Instance{ID: c1, Status: domain.StatusRunning}, nil)
 		repo.On("RemoveContainer", mock.Anything, depID, c1).Return(nil)
 		instSvc.On("TerminateInstance", mock.Anything, c1.String()).Return(nil)
 

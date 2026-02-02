@@ -7,17 +7,19 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
+	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/poyrazk/thecloud/internal/repositories/noop"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func setupDNSServiceTest(t *testing.T) (*services.DNSService, ports.DNSRepository, ports.VpcRepository, *postgres.InstanceRepository, context.Context) {
+func setupDNSServiceTest(t *testing.T) (*services.DNSService, ports.DNSRepository, ports.VpcRepository, *postgres.InstanceRepository, *pgxpool.Pool, context.Context) {
 	db := setupDB(t)
 	cleanDB(t, db)
 	ctx := setupTestUser(t, db)
@@ -44,11 +46,11 @@ func setupDNSServiceTest(t *testing.T) (*services.DNSService, ports.DNSRepositor
 		Logger:   logger,
 	})
 
-	return svc, repo, vpcRepo, instRepo, ctx
+	return svc, repo, vpcRepo, instRepo, db, ctx
 }
 
 func TestDNSServiceCreateZone(t *testing.T) {
-	svc, repo, vpcRepo, _, ctx := setupDNSServiceTest(t)
+	svc, repo, vpcRepo, _, _, ctx := setupDNSServiceTest(t)
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
@@ -84,7 +86,7 @@ func TestDNSServiceCreateZone(t *testing.T) {
 }
 
 func TestDNSServiceRegisterInstance_NoZone(t *testing.T) {
-	svc, _, vpcRepo, instRepo, ctx := setupDNSServiceTest(t)
+	svc, _, vpcRepo, instRepo, _, ctx := setupDNSServiceTest(t)
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
@@ -108,7 +110,7 @@ func TestDNSServiceRegisterInstance_NoZone(t *testing.T) {
 }
 
 func TestDNSServiceDeleteZone(t *testing.T) {
-	svc, repo, vpcRepo, _, ctx := setupDNSServiceTest(t)
+	svc, repo, vpcRepo, _, _, ctx := setupDNSServiceTest(t)
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
@@ -127,7 +129,7 @@ func TestDNSServiceDeleteZone(t *testing.T) {
 }
 
 func TestDNSServiceRecords(t *testing.T) {
-	svc, _, vpcRepo, _, ctx := setupDNSServiceTest(t)
+	svc, _, vpcRepo, _, _, ctx := setupDNSServiceTest(t)
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
@@ -177,7 +179,7 @@ func TestDNSServiceRecords(t *testing.T) {
 }
 
 func TestDNSServiceRegisterInstance(t *testing.T) {
-	svc, repo, vpcRepo, instRepo, ctx := setupDNSServiceTest(t)
+	svc, repo, vpcRepo, instRepo, _, ctx := setupDNSServiceTest(t)
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
@@ -238,4 +240,75 @@ func TestDNSServiceRegisterInstance(t *testing.T) {
 		}
 	}
 	assert.False(t, foundAfter, "Record should be removed")
+}
+
+type FaultyDNSBackend struct {
+	ports.DNSBackend
+	FailCreate bool
+	FailAdd    bool
+}
+
+func (f *FaultyDNSBackend) CreateZone(ctx context.Context, zoneName string, ns []string) error {
+	if f.FailCreate {
+		return errors.New(errors.Internal, "simulated dns backend failure")
+	}
+	return f.DNSBackend.CreateZone(ctx, zoneName, ns)
+}
+
+func (f *FaultyDNSBackend) AddRecords(ctx context.Context, zoneName string, records []ports.RecordSet) error {
+	if f.FailAdd {
+		return errors.New(errors.Internal, "simulated dns backend failure")
+	}
+	return f.DNSBackend.AddRecords(ctx, zoneName, records)
+}
+
+func TestDNSService_BackendError(t *testing.T) {
+	_, repo, vpcRepo, _, db, ctx := setupDNSServiceTest(t)
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	vpc := &domain.VPC{ID: uuid.New(), UserID: userID, TenantID: tenantID, Name: "fault-vpc"}
+	_ = vpcRepo.Create(ctx, vpc)
+
+	// Replace backend with a faulty one
+	faulty := &FaultyDNSBackend{DNSBackend: noop.NewNoopDNSBackend(), FailCreate: true}
+
+	auditSvc := services.NewAuditService(postgres.NewAuditRepository(db))
+	eventSvc := services.NewEventService(postgres.NewEventRepository(db), nil, slog.Default())
+
+	faultySvc := services.NewDNSService(services.DNSServiceParams{
+		Repo:     repo,
+		Backend:  faulty,
+		VpcRepo:  vpcRepo,
+		AuditSvc: auditSvc,
+		EventSvc: eventSvc,
+		Logger:   slog.Default(),
+	})
+
+	t.Run("CreateZone Failure", func(t *testing.T) {
+		_, err := faultySvc.CreateZone(ctx, vpc.ID, "fail.com", "")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "DNS backend")
+	})
+
+	t.Run("RegisterInstance Failure", func(t *testing.T) {
+		// First create a successful zone with real backend
+		realSvc := services.NewDNSService(services.DNSServiceParams{
+			Repo:     repo,
+			Backend:  noop.NewNoopDNSBackend(),
+			VpcRepo:  vpcRepo,
+			AuditSvc: auditSvc,
+			EventSvc: eventSvc,
+			Logger:   slog.Default(),
+		})
+		_, err := realSvc.CreateZone(ctx, vpc.ID, "ok.com", "")
+		require.NoError(t, err)
+
+		// Now use faulty backend for registration
+		faulty.FailCreate = false
+		faulty.FailAdd = true
+		inst := &domain.Instance{ID: uuid.New(), VpcID: &vpc.ID, Name: "fail-inst"}
+		err = faultySvc.RegisterInstance(ctx, inst, "1.1.1.1")
+		assert.Error(t, err)
+	})
 }
