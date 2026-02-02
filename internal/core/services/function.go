@@ -156,7 +156,9 @@ func (s *FunctionService) InvokeFunction(ctx context.Context, id uuid.UUID, payl
 	if async {
 		_ = s.auditSvc.Log(ctx, f.UserID, "function.invoke_async", "function", f.ID.String(), map[string]interface{}{})
 		go func() {
-			_, _ = s.runInvocation(context.Background(), f, invocation, payload)
+			// Use a copy to avoid data race with the caller reading the returned invocation
+			asyncInv := *invocation
+			_, _ = s.runInvocation(context.Background(), f, &asyncInv, payload)
 		}()
 		return invocation, nil
 	}

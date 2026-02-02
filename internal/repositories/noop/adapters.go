@@ -425,3 +425,35 @@ func (r *NoopLBRepository) UpdateTargetHealth(ctx context.Context, lbID, instanc
 func (r *NoopLBRepository) GetTargetsForInstance(ctx context.Context, instanceID uuid.UUID) ([]*domain.LBTarget, error) {
 	return []*domain.LBTarget{}, nil
 }
+
+// NoopClusterService is a no-op cluster service.
+type NoopClusterService struct{}
+
+func (s *NoopClusterService) CreateCluster(ctx context.Context, params ports.CreateClusterParams) (*domain.Cluster, error) {
+	return &domain.Cluster{ID: uuid.New(), Name: params.Name}, nil
+}
+func (s *NoopClusterService) GetCluster(ctx context.Context, id uuid.UUID) (*domain.Cluster, error) {
+	return &domain.Cluster{ID: id}, nil
+}
+func (s *NoopClusterService) ListClusters(ctx context.Context, userID uuid.UUID) ([]*domain.Cluster, error) {
+	return []*domain.Cluster{}, nil
+}
+func (s *NoopClusterService) DeleteCluster(ctx context.Context, id uuid.UUID) error { return nil }
+func (s *NoopClusterService) GetKubeconfig(ctx context.Context, id uuid.UUID, role string) (string, error) {
+	return "noop-kubeconfig", nil
+}
+func (s *NoopClusterService) ScaleCluster(ctx context.Context, id uuid.UUID, workers int) error {
+	return nil
+}
+func (s *NoopClusterService) RepairCluster(ctx context.Context, id uuid.UUID) error { return nil }
+func (s *NoopClusterService) GetClusterHealth(ctx context.Context, id uuid.UUID) (*ports.ClusterHealth, error) {
+	return &ports.ClusterHealth{Status: "RUNNING"}, nil
+}
+func (s *NoopClusterService) UpgradeCluster(ctx context.Context, id uuid.UUID, version string) error {
+	return nil
+}
+func (s *NoopClusterService) RotateSecrets(ctx context.Context, id uuid.UUID) error { return nil }
+func (s *NoopClusterService) CreateBackup(ctx context.Context, id uuid.UUID) error  { return nil }
+func (s *NoopClusterService) RestoreBackup(ctx context.Context, id uuid.UUID, backupPath string) error {
+	return nil
+}

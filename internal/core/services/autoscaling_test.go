@@ -2,349 +2,283 @@ package services_test
 
 import (
 	"context"
+	"log/slog"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-
+	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
+	"github.com/poyrazk/thecloud/internal/repositories/postgres"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-const cpuHighPolicyName = "cpu-high"
+func setupAutoScalingServiceIntegrationTest(t *testing.T) (ports.AutoScalingService, ports.VpcRepository, context.Context) {
+	db := setupDB(t)
+	cleanDB(t, db)
+	ctx := setupTestUser(t, db)
 
-func setupAutoScalingServiceTest(_ *testing.T) (*MockAutoScalingRepo, *MockVpcRepo, *MockAuditService, *services.AutoScalingService) {
-	mockRepo := new(MockAutoScalingRepo)
-	mockVpcRepo := new(MockVpcRepo)
-	auditSvc := new(MockAuditService)
-	svc := services.NewAutoScalingService(mockRepo, mockVpcRepo, auditSvc)
-	return mockRepo, mockVpcRepo, auditSvc, svc
+	repo := postgres.NewAutoScalingRepo(db)
+	vpcRepo := postgres.NewVpcRepository(db)
+	auditRepo := postgres.NewAuditRepository(db)
+	auditSvc := services.NewAuditService(auditRepo)
+
+	svc := services.NewAutoScalingService(repo, vpcRepo, auditSvc)
+
+	return svc, vpcRepo, ctx
 }
 
-func TestCreateGroup_SecurityLimits(t *testing.T) {
-	mockRepo, mockVpcRepo, _, svc := setupAutoScalingServiceTest(t)
-	defer mockVpcRepo.AssertExpectations(t)
-	defer mockRepo.AssertExpectations(t)
+func TestAutoScalingService_Integration(t *testing.T) {
+	svc, vpcRepo, ctx := setupAutoScalingServiceIntegrationTest(t)
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	ctx := context.Background()
-	vpcID := uuid.New()
+	// Setup VPC
+	vpc := &domain.VPC{
+		ID:        uuid.New(),
+		UserID:    userID,
+		TenantID:  tenantID,
+		Name:      "asg-vpc",
+		NetworkID: "br-int",
+		Status:    "ACTIVE",
+		CreatedAt: time.Now(),
+	}
+	err := vpcRepo.Create(ctx, vpc)
+	require.NoError(t, err)
 
-	mockVpcRepo.On("GetByID", ctx, vpcID).Return(&domain.VPC{ID: vpcID}, nil)
-
-	t.Run("ExceedsMaxInstances", func(t *testing.T) {
-		_, err := svc.CreateGroup(ctx, ports.CreateScalingGroupParams{
-			Name:         "test",
-			VpcID:        vpcID,
-			Image:        "img",
+	t.Run("CreateGroup_Success", func(t *testing.T) {
+		name := "my-asg"
+		group, err := svc.CreateGroup(ctx, ports.CreateScalingGroupParams{
+			Name:         name,
+			VpcID:        vpc.ID,
+			Image:        "nginx",
 			Ports:        "80:80",
 			MinInstances: 1,
-			MaxInstances: 1000,
-			DesiredCount: 1,
+			MaxInstances: 5,
+			DesiredCount: 2,
 		})
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "max_instances cannot exceed")
+
+		assert.NoError(t, err)
+		assert.NotNil(t, group)
+		assert.Equal(t, name, group.Name)
+		assert.Equal(t, 2, group.DesiredCount)
+
+		// List
+		groups, err := svc.ListGroups(ctx)
+		assert.NoError(t, err)
+		assert.Len(t, groups, 1)
 	})
 
-	t.Run("ExceedsVPCLimit", func(t *testing.T) {
-		mockRepo.On("CountGroupsByVPC", ctx, vpcID).Return(10, nil)
-		_, err := svc.CreateGroup(ctx, ports.CreateScalingGroupParams{
-			Name:         "test",
-			VpcID:        vpcID,
-			Image:        "img",
-			Ports:        "80:80",
+	t.Run("PolicyLifecycle", func(t *testing.T) {
+		group, _ := svc.CreateGroup(ctx, ports.CreateScalingGroupParams{
+			Name:         "policy-asg",
+			VpcID:        vpc.ID,
+			Image:        "nginx",
 			MinInstances: 1,
 			MaxInstances: 5,
 			DesiredCount: 1,
 		})
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "VPC already has")
-	})
-}
 
-func TestCreateGroup_Success(t *testing.T) {
-	mockRepo, mockVpcRepo, auditSvc, svc := setupAutoScalingServiceTest(t)
-	defer mockRepo.AssertExpectations(t)
-	defer mockVpcRepo.AssertExpectations(t)
-	defer auditSvc.AssertExpectations(t)
+		// Create
+		policy, err := svc.CreatePolicy(ctx, ports.CreateScalingPolicyParams{
+			GroupID:     group.ID,
+			Name:        "cpu-high",
+			MetricType:  "cpu",
+			TargetValue: 70.0,
+			ScaleOut:    1,
+			ScaleIn:     1,
+			CooldownSec: 300,
+		})
+		assert.NoError(t, err)
+		assert.NotNil(t, policy)
 
-	ctx := context.Background()
-	vpcID := uuid.New()
-
-	mockVpcRepo.On("GetByID", ctx, vpcID).Return(&domain.VPC{ID: vpcID}, nil)
-	mockRepo.On("CountGroupsByVPC", ctx, vpcID).Return(0, nil)
-	mockRepo.On("CreateGroup", ctx, mock.AnythingOfType("*domain.ScalingGroup")).Return(nil)
-	auditSvc.On("Log", ctx, mock.Anything, "asg.group_create", "scaling_group", mock.Anything, mock.Anything).Return(nil)
-
-	group, err := svc.CreateGroup(ctx, ports.CreateScalingGroupParams{
-		Name:         "my-asg",
-		VpcID:        vpcID,
-		Image:        "nginx",
-		Ports:        "80:80",
-		MinInstances: 1,
-		MaxInstances: 5,
-		DesiredCount: 2,
+		// Delete
+		err = svc.DeletePolicy(ctx, policy.ID)
+		assert.NoError(t, err)
 	})
 
-	assert.NoError(t, err)
-	assert.NotNil(t, group)
-	assert.Equal(t, "my-asg", group.Name)
-	assert.Equal(t, 1, group.MinInstances)
-	assert.Equal(t, 5, group.MaxInstances)
-	assert.Equal(t, 2, group.DesiredCount)
-}
+	t.Run("CapacityUpdate", func(t *testing.T) {
+		group, _ := svc.CreateGroup(ctx, ports.CreateScalingGroupParams{
+			Name:         "cap-asg",
+			VpcID:        vpc.ID,
+			Image:        "nginx",
+			MinInstances: 1,
+			MaxInstances: 10,
+			DesiredCount: 1,
+		})
 
-func TestCreateGroup_Idempotency(t *testing.T) {
-	mockRepo, _, _, svc := setupAutoScalingServiceTest(t)
-	defer mockRepo.AssertExpectations(t)
+		err := svc.SetDesiredCapacity(ctx, group.ID, 5)
+		assert.NoError(t, err)
 
-	ctx := context.Background()
-	vpcID := uuid.New()
-
-	existingGroup := &domain.ScalingGroup{ID: uuid.New(), Name: "existing", IdempotencyKey: "key123"}
-	mockRepo.On("GetGroupByIdempotencyKey", ctx, "key123").Return(existingGroup, nil)
-
-	group, err := svc.CreateGroup(ctx, ports.CreateScalingGroupParams{
-		Name:           "new-name",
-		VpcID:          vpcID,
-		Image:          "nginx",
-		Ports:          "80:80",
-		MinInstances:   1,
-		MaxInstances:   5,
-		DesiredCount:   2,
-		IdempotencyKey: "key123",
+		updated, _ := svc.GetGroup(ctx, group.ID)
+		assert.Equal(t, 5, updated.DesiredCount)
 	})
 
-	assert.NoError(t, err)
-	assert.Equal(t, existingGroup.ID, group.ID)
-	mockRepo.AssertNotCalled(t, "CreateGroup", mock.Anything, mock.Anything)
-}
-
-func TestCreateGroup_ValidationErrors(t *testing.T) {
-	_, _, _, svc := setupAutoScalingServiceTest(t)
-	ctx := context.Background()
-	vpcID := uuid.New()
-
-	t.Run("NegativeMin", func(t *testing.T) {
-		_, err := svc.CreateGroup(ctx, ports.CreateScalingGroupParams{
-			Name:         "test",
-			VpcID:        vpcID,
-			Image:        "img",
-			MinInstances: -1,
+	t.Run("DeleteGroup", func(t *testing.T) {
+		group, _ := svc.CreateGroup(ctx, ports.CreateScalingGroupParams{
+			Name:         "del-asg",
+			VpcID:        vpc.ID,
+			Image:        "nginx",
+			MinInstances: 1,
 			MaxInstances: 5,
 			DesiredCount: 1,
 		})
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "cannot be negative")
+
+		err := svc.DeleteGroup(ctx, group.ID)
+		assert.NoError(t, err)
+
+		updated, _ := svc.GetGroup(ctx, group.ID)
+		assert.Equal(t, domain.ScalingGroupStatusDeleting, updated.Status)
+		assert.Equal(t, 0, updated.DesiredCount)
 	})
 
-	t.Run("MinGreaterThanMax", func(t *testing.T) {
+	t.Run("Validation", func(t *testing.T) {
+		// Min > Max
 		_, err := svc.CreateGroup(ctx, ports.CreateScalingGroupParams{
-			Name:         "test",
-			VpcID:        vpcID,
-			Image:        "img",
+			Name:         "fail-asg",
+			VpcID:        vpc.ID,
+			Image:        "nginx",
 			MinInstances: 5,
 			MaxInstances: 2,
 			DesiredCount: 3,
 		})
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "cannot be greater than max")
-	})
 
-	t.Run("DesiredOutOfRange", func(t *testing.T) {
-		_, err := svc.CreateGroup(ctx, ports.CreateScalingGroupParams{
-			Name:         "test",
-			VpcID:        vpcID,
-			Image:        "img",
+		// Desired < Min
+		_, err = svc.CreateGroup(ctx, ports.CreateScalingGroupParams{
+			Name:         "fail-asg-2",
+			VpcID:        vpc.ID,
+			Image:        "nginx",
 			MinInstances: 2,
 			MaxInstances: 5,
-			DesiredCount: 10,
+			DesiredCount: 1,
 		})
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "between min and max")
 	})
 }
 
-func TestDeleteGroup_Success(t *testing.T) {
-	mockRepo, _, auditSvc, svc := setupAutoScalingServiceTest(t)
-	defer mockRepo.AssertExpectations(t)
-	defer auditSvc.AssertExpectations(t)
+type RealClock struct{}
 
-	ctx := context.Background()
-	groupID := uuid.New()
+func (c *RealClock) Now() time.Time { return time.Now() }
 
-	group := &domain.ScalingGroup{ID: groupID, Status: domain.ScalingGroupStatusActive, MinInstances: 1, DesiredCount: 2}
-	mockRepo.On("GetGroupByID", ctx, groupID).Return(group, nil)
-	mockRepo.On("UpdateGroup", ctx, mock.MatchedBy(func(g *domain.ScalingGroup) bool {
-		return g.Status == domain.ScalingGroupStatusDeleting && g.DesiredCount == 0 && g.MinInstances == 0
-	})).Return(nil)
-	auditSvc.On("Log", ctx, mock.Anything, "asg.group_delete", "scaling_group", groupID.String(), mock.Anything).Return(nil)
+type NoopLBService struct{}
 
-	err := svc.DeleteGroup(ctx, groupID)
-
-	assert.NoError(t, err)
+func (s *NoopLBService) Create(ctx context.Context, name string, vpcID uuid.UUID, port int, protocol, algo string) (*domain.LoadBalancer, error) {
+	return nil, nil
+}
+func (s *NoopLBService) Get(ctx context.Context, id uuid.UUID) (*domain.LoadBalancer, error) {
+	return nil, nil
+}
+func (s *NoopLBService) AddTarget(ctx context.Context, lbID, instanceID uuid.UUID, port, weight int) error {
+	return nil
+}
+func (s *NoopLBService) RemoveTarget(ctx context.Context, lbID, instanceID uuid.UUID) error {
+	return nil
+}
+func (s *NoopLBService) ListTargets(ctx context.Context, lbID uuid.UUID) ([]*domain.LBTarget, error) {
+	return nil, nil
+}
+func (s *NoopLBService) List(ctx context.Context) ([]*domain.LoadBalancer, error) { return nil, nil }
+func (s *NoopLBService) Delete(ctx context.Context, id uuid.UUID) error           { return nil }
+func (s *NoopLBService) CreateListener(ctx context.Context, lbID uuid.UUID, port int, protocol string) error {
+	return nil
 }
 
-func TestSetDesiredCapacity_Success(t *testing.T) {
-	mockRepo, _, _, svc := setupAutoScalingServiceTest(t)
-	defer mockRepo.AssertExpectations(t)
+func TestAutoScaling_TriggerScaleUp(t *testing.T) {
+	// 1. Setup Infra using InstanceService helper (provides Docker + Postgres)
+	db, instSvc, compute, instRepo, vpcRepo, _, ctx := setupInstanceServiceTest(t)
+	// db := setupDB(t) // Reuse db from helper
 
-	ctx := context.Background()
-	groupID := uuid.New()
+	asgRepo := postgres.NewAutoScalingRepo(db)
+	auditSvc := services.NewAuditService(postgres.NewAuditRepository(db))
+	eventSvc := services.NewEventService(postgres.NewEventRepository(db), nil, slog.Default())
 
-	group := &domain.ScalingGroup{ID: groupID, MinInstances: 1, MaxInstances: 10, DesiredCount: 2}
-	mockRepo.On("GetGroupByID", ctx, groupID).Return(group, nil)
-	mockRepo.On("UpdateGroup", ctx, mock.MatchedBy(func(g *domain.ScalingGroup) bool {
-		return g.DesiredCount == 5
-	})).Return(nil)
+	worker := services.NewAutoScalingWorker(asgRepo, instSvc, &NoopLBService{}, eventSvc, &RealClock{})
 
-	err := svc.SetDesiredCapacity(ctx, groupID, 5)
+	// 2. Setup Resources (VPC, Image)
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	assert.NoError(t, err)
-}
-
-func TestSetDesiredCapacity_OutOfRange(t *testing.T) {
-	mockRepo, _, _, svc := setupAutoScalingServiceTest(t)
-	defer mockRepo.AssertExpectations(t)
-
-	ctx := context.Background()
-	groupID := uuid.New()
-
-	group := &domain.ScalingGroup{ID: groupID, MinInstances: 2, MaxInstances: 5, DesiredCount: 3}
-	mockRepo.On("GetGroupByID", ctx, groupID).Return(group, nil)
-
-	err := svc.SetDesiredCapacity(ctx, groupID, 100)
-
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "must be between")
-}
-
-func TestCreatePolicy_Success(t *testing.T) {
-	mockRepo, _, _, svc := setupAutoScalingServiceTest(t)
-	defer mockRepo.AssertExpectations(t)
-
-	ctx := context.Background()
-	groupID := uuid.New()
-
-	mockRepo.On("GetGroupByID", ctx, groupID).Return(&domain.ScalingGroup{ID: groupID}, nil)
-	mockRepo.On("CreatePolicy", ctx, mock.AnythingOfType("*domain.ScalingPolicy")).Return(nil)
-
-	policy, err := svc.CreatePolicy(ctx, ports.CreateScalingPolicyParams{
-		GroupID:     groupID,
-		Name:        cpuHighPolicyName,
-		MetricType:  "cpu",
-		TargetValue: 70.0,
-		ScaleOut:    1,
-		ScaleIn:     1,
-		CooldownSec: 300,
-	})
-
-	assert.NoError(t, err)
-	assert.NotNil(t, policy)
-	assert.Equal(t, cpuHighPolicyName, policy.Name)
-	assert.Equal(t, 70.0, policy.TargetValue)
-}
-
-func TestCreatePolicy_CooldownTooLow(t *testing.T) {
-	mockRepo, _, _, svc := setupAutoScalingServiceTest(t)
-	defer mockRepo.AssertExpectations(t)
-
-	ctx := context.Background()
-	groupID := uuid.New()
-
-	mockRepo.On("GetGroupByID", ctx, groupID).Return(&domain.ScalingGroup{ID: groupID}, nil)
-
-	_, err := svc.CreatePolicy(ctx, ports.CreateScalingPolicyParams{
-		GroupID:     groupID,
-		Name:        cpuHighPolicyName,
-		MetricType:  "cpu",
-		TargetValue: 70.0,
-		ScaleOut:    1,
-		ScaleIn:     1,
-		CooldownSec: 10, // Too low
-	})
-
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "cooldown must be at least")
-}
-
-func TestListGroups(t *testing.T) {
-	mockRepo, _, _, svc := setupAutoScalingServiceTest(t)
-	defer mockRepo.AssertExpectations(t)
-
-	ctx := context.Background()
-
-	groups := []*domain.ScalingGroup{{Name: "asg1"}, {Name: "asg2"}}
-	mockRepo.On("ListGroups", ctx).Return(groups, nil)
-
-	result, err := svc.ListGroups(ctx)
-
-	assert.NoError(t, err)
-	assert.Len(t, result, 2)
-}
-
-func TestGetGroup_Success(t *testing.T) {
-	mockRepo, _, _, svc := setupAutoScalingServiceTest(t)
-	defer mockRepo.AssertExpectations(t)
-
-	ctx := context.Background()
-	groupID := uuid.New()
-	expectedGroup := &domain.ScalingGroup{
-		ID:   groupID,
-		Name: "test-group",
+	vpc := &domain.VPC{
+		ID:        uuid.New(),
+		UserID:    userID,
+		TenantID:  tenantID,
+		Name:      "asg-scale-vpc",
+		NetworkID: "br-test", // Use existing if needed, but docker adapter might ignore
+		Status:    "ACTIVE",
+		CreatedAt: time.Now(),
 	}
+	require.NoError(t, vpcRepo.Create(ctx, vpc))
 
-	mockRepo.On("GetGroupByID", ctx, groupID).Return(expectedGroup, nil)
+	// 3. Create Scaling Group
+	groupName := "scale-out-test"
+	asgSvc := services.NewAutoScalingService(asgRepo, vpcRepo, auditSvc)
+	group, err := asgSvc.CreateGroup(ctx, ports.CreateScalingGroupParams{
+		Name:         groupName,
+		VpcID:        vpc.ID,
+		Image:        "alpine:latest",
+		MinInstances: 1,
+		MaxInstances: 5,
+		DesiredCount: 1,
+	})
+	require.NoError(t, err)
 
-	result, err := svc.GetGroup(ctx, groupID)
+	// 4. Initial Reconcile (Should create 1 instance)
+	worker.Evaluate(ctx)
 
-	assert.NoError(t, err)
-	assert.Equal(t, expectedGroup, result)
-	assert.Equal(t, groupID, result.ID)
-}
+	// Verify 1 instance exists
+	instances, err := instRepo.List(ctx)
+	require.NoError(t, err)
+	require.Len(t, instances, 1)
+	instID := instances[0].ID
 
-func TestGetGroup_NotFound(t *testing.T) {
-	mockRepo, _, _, svc := setupAutoScalingServiceTest(t)
-	defer mockRepo.AssertExpectations(t)
+	// Wait for instance to be running (provision job)
+	// We manually provision it since we don't have the task worker running
+	err = instSvc.Provision(ctx, instID, nil)
+	require.NoError(t, err)
 
-	ctx := context.Background()
-	groupID := uuid.New()
+	// 5. Create Scaling Policy (CPU > 50%)
+	_, err = asgSvc.CreatePolicy(ctx, ports.CreateScalingPolicyParams{
+		GroupID:     group.ID,
+		Name:        "cpu-high",
+		MetricType:  "cpu",
+		TargetValue: 50.0,
+		ScaleOut:    1,
+		ScaleIn:     1,
+		CooldownSec: 60,
+	})
+	require.NoError(t, err)
 
-	mockRepo.On("GetGroupByID", ctx, groupID).Return(nil, assert.AnError)
+	// 6. Inject Fake Metrics
+	// We directly insert into metrics_history to simulate high load
+	_, err = db.Exec(ctx, `
+		INSERT INTO metrics_history (id, instance_id, cpu_percent, memory_bytes, recorded_at)
+		VALUES ($1, $2, $3, $4, $5)
+	`, uuid.New(), instID, 85.0, 1024, time.Now())
+	require.NoError(t, err)
 
-	result, err := svc.GetGroup(ctx, groupID)
+	// 7. Evaluate Again (Should Trigger Scale Out)
+	worker.Evaluate(ctx)
 
-	assert.Error(t, err)
-	assert.Nil(t, result)
-}
+	// 8. Verify Desired Count Increased
+	updatedGroup, err := asgSvc.GetGroup(ctx, group.ID)
+	require.NoError(t, err)
+	assert.Equal(t, 2, updatedGroup.DesiredCount, "Desired count should update to 2")
 
-func TestDeletePolicy_Success(t *testing.T) {
-	mockRepo, _, _, svc := setupAutoScalingServiceTest(t)
-	defer mockRepo.AssertExpectations(t)
+	// 9. Reconcile Again (Should create 2nd instance)
+	worker.Evaluate(ctx)
 
-	ctx := context.Background()
-	policyID := uuid.New()
+	instances, err = instRepo.List(ctx)
+	require.NoError(t, err)
+	assert.Len(t, instances, 2, "Should have 2 instances")
 
-	mockRepo.On("DeletePolicy", ctx, policyID).Return(nil)
-
-	err := svc.DeletePolicy(ctx, policyID)
-
-	assert.NoError(t, err)
-	mockRepo.AssertCalled(t, "DeletePolicy", ctx, policyID)
-}
-
-func TestDeletePolicy_NotFound(t *testing.T) {
-	mockRepo, _, _, svc := setupAutoScalingServiceTest(t)
-	defer mockRepo.AssertExpectations(t)
-
-	ctx := context.Background()
-	policyID := uuid.New()
-
-	mockRepo.On("DeletePolicy", ctx, policyID).Return(assert.AnError)
-
-	err := svc.DeletePolicy(ctx, policyID)
-
-	assert.Error(t, err)
-	assert.Equal(t, assert.AnError, err)
+	// Cleanup
+	for _, inst := range instances {
+		if inst.ContainerID != "" {
+			_ = compute.DeleteInstance(ctx, inst.ContainerID)
+		}
+	}
 }

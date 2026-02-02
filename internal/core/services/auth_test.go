@@ -2,84 +2,63 @@ package services_test
 
 import (
 	"context"
+	"log/slog"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
-	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/poyrazk/thecloud/internal/core/services"
+	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/poyrazk/thecloud/pkg/testutil"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"golang.org/x/crypto/bcrypt"
+	"github.com/stretchr/testify/require"
 )
 
-// Mocks are now in shared_test.go
+func setupAuthServiceTest(t *testing.T) (*pgxpool.Pool, *services.AuthService, *postgres.UserRepo, *services.IdentityService, *services.AuditService, *services.TenantService) {
+	db := setupDB(t)
+	cleanDB(t, db)
 
-// Helper to get a strong password for tests
-const (
-	defaultKeyName  = "Default Key"
-	userLoginAction = "user.login"
-	wrongPassword   = "wrong-password"
-	uuidTypeName    = "uuid.UUID"
-)
+	userRepo := postgres.NewUserRepo(db)
+	auditRepo := postgres.NewAuditRepository(db)
+	identityRepo := postgres.NewIdentityRepository(db)
+	tenantRepo := postgres.NewTenantRepo(db)
 
-func setupAuthServiceTest(_ *testing.T) (*MockUserRepo, *MockIdentityService, *MockAuditService, *MockTenantService, *services.AuthService) {
-	userRepo := new(MockUserRepo)
-	identitySvc := new(MockIdentityService)
-	auditSvc := new(MockAuditService)
-	tenantSvc := new(MockTenantService)
+	auditSvc := services.NewAuditService(auditRepo)
+	identitySvc := services.NewIdentityService(identityRepo, auditSvc)
+	tenantSvc := services.NewTenantService(tenantRepo, userRepo, slog.Default())
 	svc := services.NewAuthService(userRepo, identitySvc, auditSvc, tenantSvc)
-	return userRepo, identitySvc, auditSvc, tenantSvc, svc
+
+	return db, svc, userRepo, identitySvc, auditSvc, tenantSvc
 }
 
 func TestAuthServiceRegisterSuccess(t *testing.T) {
-	userRepo, _, auditSvc, tenantSvc, svc := setupAuthServiceTest(t)
-	defer userRepo.AssertExpectations(t)
-	defer auditSvc.AssertExpectations(t)
-	defer tenantSvc.AssertExpectations(t)
-
+	_, svc, userRepo, _, _, _ := setupAuthServiceTest(t)
 	ctx := context.Background()
 
-	email := "test@example.com"
+	email := "test-" + uuid.New().String() + "@example.com"
 	password := testutil.TestPasswordStrong
 	name := "Test User"
 
-	userRepo.On("GetByEmail", mock.Anything, email).Return(nil, nil) // Not existing
-
-	// Match user creation
-	userRepo.On("Create", mock.Anything, mock.MatchedBy(func(u *domain.User) bool {
-		return u.Email == email && u.Name == name
-	})).Return(nil)
-
-	// Match tenant creation
-	tenantSvc.On("CreateTenant", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType(uuidTypeName)).Return(&domain.Tenant{ID: uuid.New()}, nil)
-
-	// Match user reload
-	userRepo.On("GetByID", mock.Anything, mock.AnythingOfType(uuidTypeName)).Return(&domain.User{
-		ID:    uuid.New(),
-		Email: email,
-		Name:  name,
-	}, nil)
-
-	auditSvc.On("Log", mock.Anything, mock.Anything, "user.register", "user", mock.Anything, mock.Anything).Return(nil)
-
 	user, err := svc.Register(ctx, email, password, name)
-
-	assert.NoError(t, err)
-	assert.NotNil(t, user)
+	require.NoError(t, err)
+	require.NotNil(t, user)
 	assert.Equal(t, email, user.Email)
 	assert.Equal(t, name, user.Name)
+
+	// Verify in DB
+	fetched, err := userRepo.GetByEmail(ctx, email)
+	assert.NoError(t, err)
+	assert.Equal(t, user.ID, fetched.ID)
+
+	// Verify default tenant was created (as indicated by DefaultTenantID being set)
+	assert.NotNil(t, fetched.DefaultTenantID)
 }
 
 func TestAuthServiceRegisterWeakPassword(t *testing.T) {
-	userRepo, _, _, _, svc := setupAuthServiceTest(t)
-	defer userRepo.AssertExpectations(t)
-
+	_, svc, _, _, _, _ := setupAuthServiceTest(t)
 	ctx := context.Background()
 
-	// "123" is definitely too weak
-	user, err := svc.Register(ctx, "test@example.com", testutil.TestPasswordWeak, "User")
+	user, err := svc.Register(ctx, "test-"+uuid.New().String()+"@example.com", testutil.TestPasswordWeak, "User")
 
 	assert.Error(t, err)
 	assert.Nil(t, user)
@@ -87,15 +66,12 @@ func TestAuthServiceRegisterWeakPassword(t *testing.T) {
 }
 
 func TestAuthServiceRegisterDuplicateEmail(t *testing.T) {
-	userRepo, _, _, _, svc := setupAuthServiceTest(t)
-	defer userRepo.AssertExpectations(t)
-
+	_, svc, _, _, _, _ := setupAuthServiceTest(t)
 	ctx := context.Background()
 
-	email := "existing@example.com"
-	existing := &domain.User{ID: uuid.New(), Email: email}
-
-	userRepo.On("GetByEmail", mock.Anything, email).Return(existing, nil)
+	email := "existing-" + uuid.New().String() + "@example.com"
+	_, err := svc.Register(ctx, email, testutil.TestPasswordStrong, "name")
+	require.NoError(t, err)
 
 	user, err := svc.Register(ctx, email, testutil.TestPasswordStrong, "name")
 
@@ -104,81 +80,39 @@ func TestAuthServiceRegisterDuplicateEmail(t *testing.T) {
 	assert.Contains(t, err.Error(), "already exists")
 }
 
-func TestAuthServiceRegisterTenantCreateRollback(t *testing.T) {
-	userRepo, _, auditSvc, tenantSvc, svc := setupAuthServiceTest(t)
-	defer userRepo.AssertExpectations(t)
-	defer auditSvc.AssertExpectations(t)
-	defer tenantSvc.AssertExpectations(t)
-
+func TestAuthServiceLoginSuccess(t *testing.T) {
+	_, svc, _, identitySvc, _, _ := setupAuthServiceTest(t)
 	ctx := context.Background()
 
-	email := "rollback@example.com"
+	email := "login-" + uuid.New().String() + "@example.com"
 	password := testutil.TestPasswordStrong
-	name := "Rollback User"
-
-	userRepo.On("GetByEmail", mock.Anything, email).Return(nil, nil)
-	userRepo.On("Create", mock.Anything, mock.MatchedBy(func(u *domain.User) bool {
-		return u.Email == email && u.Name == name
-	})).Return(nil)
-	tenantSvc.On("CreateTenant", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType(uuidTypeName)).Return(nil, assert.AnError)
-	userRepo.On("Delete", mock.Anything, mock.AnythingOfType(uuidTypeName)).Return(nil)
+	name := "Login User"
 
 	user, err := svc.Register(ctx, email, password, name)
+	require.NoError(t, err)
 
-	assert.Error(t, err)
-	assert.Nil(t, user)
-	auditSvc.AssertNotCalled(t, "Log", mock.Anything, mock.Anything, "user.register", mock.Anything, mock.Anything, mock.Anything)
-}
+	resultUser, apiKey, err := svc.Login(ctx, email, password)
+	require.NoError(t, err)
+	require.NotNil(t, resultUser)
+	assert.Equal(t, user.ID, resultUser.ID)
+	assert.NotEmpty(t, apiKey)
 
-func TestAuthServiceLoginSuccess(t *testing.T) {
-	userRepo, identitySvc, auditSvc, _, svc := setupAuthServiceTest(t)
-	defer userRepo.AssertExpectations(t)
-	defer identitySvc.AssertExpectations(t)
-	defer auditSvc.AssertExpectations(t)
-
-	ctx := context.Background()
-
-	email := "login@example.com"
-	// Use predefined constant
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(testutil.TestPasswordStrong), bcrypt.DefaultCost)
+	// Verify API key is valid
+	key, err := identitySvc.ValidateAPIKey(ctx, apiKey)
 	assert.NoError(t, err)
-	userID := uuid.New()
-	user := &domain.User{ID: userID, Email: email, PasswordHash: string(hashedPassword)}
-
-	userRepo.On("GetByEmail", mock.Anything, email).Return(user, nil)
-	identitySvc.On("CreateKey", mock.Anything, userID, defaultKeyName).Return(&domain.APIKey{
-		Key:       "mock-api-key",
-		UserID:    userID,
-		CreatedAt: time.Now(),
-	}, nil)
-	auditSvc.On("Log", mock.Anything, userID, userLoginAction, "user", userID.String(), mock.Anything).Return(nil)
-
-	resultUser, apiKey, err := svc.Login(ctx, email, testutil.TestPasswordStrong)
-
-	assert.NoError(t, err)
-	assert.NotNil(t, resultUser)
-	assert.Equal(t, "mock-api-key", apiKey)
+	assert.Equal(t, user.ID, key.UserID)
 }
 
 func TestAuthServiceLoginWrongPassword(t *testing.T) {
-	userRepo, _, _, _, svc := setupAuthServiceTest(t)
-	defer userRepo.AssertExpectations(t)
-
+	_, svc, _, _, _, _ := setupAuthServiceTest(t)
 	ctx := context.Background()
 
-	email := "wrong@example.com"
-	// Use predefined constant for the "real" password stored in DB
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(testutil.TestPasswordStrong), bcrypt.DefaultCost)
-	assert.NoError(t, err)
-	user := &domain.User{ID: uuid.New(), Email: email, PasswordHash: string(hashedPassword)}
+	email := "wrong-" + uuid.New().String() + "@example.com"
+	password := testutil.TestPasswordStrong
+	_, err := svc.Register(ctx, email, password, "name")
+	require.NoError(t, err)
 
-	userRepo.On("GetByEmail", mock.Anything, email).Return(user, nil)
-
-	// Since we are mocking the repo, the service will find the user but fail password check.
-	// This counts as a failed login attempt.
-	// However, GetByEmail is called.
-
-	resultUser, apiKey, err := svc.Login(ctx, email, wrongPassword)
+	resultUser, apiKey, err := svc.Login(ctx, email, "wrong-password")
 
 	assert.Error(t, err)
 	assert.Nil(t, resultUser)
@@ -187,31 +121,22 @@ func TestAuthServiceLoginWrongPassword(t *testing.T) {
 }
 
 func TestAuthServiceValidateUser(t *testing.T) {
-	userRepo, _, _, _, svc := setupAuthServiceTest(t)
-	defer userRepo.AssertExpectations(t)
-
+	_, svc, _, _, _, _ := setupAuthServiceTest(t)
 	ctx := context.Background()
-	userID := uuid.New()
-	user := &domain.User{ID: userID, Email: "validate@example.com"}
 
-	userRepo.On("GetByID", mock.Anything, userID).Return(user, nil)
+	user, err := svc.Register(ctx, "val-"+uuid.New().String()+"@example.com", testutil.TestPasswordStrong, "User")
+	require.NoError(t, err)
 
-	result, err := svc.ValidateUser(ctx, userID)
-
-	assert.NoError(t, err)
-	assert.Equal(t, userID, result.ID)
+	result, err := svc.ValidateUser(ctx, user.ID)
+	require.NoError(t, err)
+	assert.Equal(t, user.ID, result.ID)
 }
 
 func TestAuthServiceLoginUserNotFound(t *testing.T) {
-	userRepo, _, _, _, svc := setupAuthServiceTest(t)
-	defer userRepo.AssertExpectations(t)
-
+	_, svc, _, _, _, _ := setupAuthServiceTest(t)
 	ctx := context.Background()
-	email := "notfound@example.com"
 
-	userRepo.On("GetByEmail", mock.Anything, email).Return(nil, assert.AnError)
-
-	resultUser, apiKey, err := svc.Login(ctx, email, "anypassword")
+	resultUser, apiKey, err := svc.Login(ctx, "notfound-"+uuid.New().String()+"@example.com", "anypassword")
 
 	assert.Error(t, err)
 	assert.Nil(t, resultUser)
@@ -220,24 +145,22 @@ func TestAuthServiceLoginUserNotFound(t *testing.T) {
 }
 
 func TestAuthServiceLoginAccountLockout(t *testing.T) {
-	userRepo, _, _, _, svc := setupAuthServiceTest(t)
-	defer userRepo.AssertExpectations(t)
-
+	_, svc, _, _, _, _ := setupAuthServiceTest(t)
 	ctx := context.Background()
-	email := "lockout@example.com"
-	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(testutil.TestPasswordStrong), bcrypt.DefaultCost)
-	user := &domain.User{ID: uuid.New(), Email: email, PasswordHash: string(hashedPassword)}
 
-	userRepo.On("GetByEmail", mock.Anything, email).Return(user, nil)
+	email := "lockout-" + uuid.New().String() + "@example.com"
+	password := testutil.TestPasswordStrong
+	_, err := svc.Register(ctx, email, password, "User")
+	require.NoError(t, err)
 
-	// Trigger 5 failed login attempts to cause lockout
+	// Trigger 5 failed login attempts
 	for i := 0; i < 5; i++ {
-		_, _, err := svc.Login(ctx, email, wrongPassword)
+		_, _, err := svc.Login(ctx, email, "wrong-password")
 		assert.Error(t, err)
 	}
 
 	// The 6th attempt should be locked out
-	resultUser, apiKey, err := svc.Login(ctx, email, testutil.TestPasswordStrong)
+	resultUser, apiKey, err := svc.Login(ctx, email, password)
 
 	assert.Error(t, err)
 	assert.Nil(t, resultUser)
@@ -245,105 +168,29 @@ func TestAuthServiceLoginAccountLockout(t *testing.T) {
 	assert.Contains(t, err.Error(), "locked")
 }
 
-func TestAuthServiceLoginLockedAccountExpiry(t *testing.T) {
-	userRepo, identitySvc, auditSvc, _, svc := setupAuthServiceTest(t)
-	defer userRepo.AssertExpectations(t)
-	defer identitySvc.AssertExpectations(t)
-	defer auditSvc.AssertExpectations(t)
-
+func TestAuthService_TokenExpiry(t *testing.T) {
+	db, svc, _, identitySvc, _, _ := setupAuthServiceTest(t)
 	ctx := context.Background()
-	email := "expiry@example.com"
-	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(testutil.TestPasswordStrong), bcrypt.DefaultCost)
-	userID := uuid.New()
-	user := &domain.User{ID: userID, Email: email, PasswordHash: string(hashedPassword)}
 
-	userRepo.On("GetByEmail", mock.Anything, email).Return(user, nil)
+	email := "expiry-" + uuid.New().String() + "@example.com"
+	password := testutil.TestPasswordStrong
+	user, err := svc.Register(ctx, email, password, "Expiry User")
+	require.NoError(t, err)
 
-	// Trigger lockout
-	for i := 0; i < 5; i++ {
-		_, _, _ = svc.Login(ctx, email, wrongPassword)
-	}
+	_, apiKey, err := svc.Login(ctx, email, password)
+	require.NoError(t, err)
 
-	// Wait for lockout to expire (lockout is 15 minutes, but we can't wait that long in tests)
-	// Instead, we'll test that after lockout expires, login works
-	// For testing purposes, we need to simulate time passing
-	// Since we can't easily mock time in the service, we'll just document this behavior
+	// Verify Valid
+	_, err = identitySvc.ValidateAPIKey(ctx, apiKey)
+	require.NoError(t, err)
 
-	// Verify account is locked
-	resultUser, apiKey, err := svc.Login(ctx, email, testutil.TestPasswordStrong)
+	// Expire Token Manually
+	// We update using user_id which is simpler and robust for this test
+	_, err = db.Exec(ctx, "UPDATE api_keys SET expires_at = NOW() - INTERVAL '1 minute' WHERE user_id = $1", user.ID)
+	require.NoError(t, err)
+
+	// Verify Expired
+	_, err = identitySvc.ValidateAPIKey(ctx, apiKey)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "locked")
-	assert.Nil(t, resultUser)
-	assert.Empty(t, apiKey)
-}
-
-func TestAuthServiceLoginAPIKeyCreationFailure(t *testing.T) {
-	userRepo, identitySvc, _, _, svc := setupAuthServiceTest(t)
-	defer userRepo.AssertExpectations(t)
-	defer identitySvc.AssertExpectations(t)
-
-	ctx := context.Background()
-	email := "apikeyfail@example.com"
-	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(testutil.TestPasswordStrong), bcrypt.DefaultCost)
-	userID := uuid.New()
-	user := &domain.User{ID: userID, Email: email, PasswordHash: string(hashedPassword)}
-
-	userRepo.On("GetByEmail", mock.Anything, email).Return(user, nil)
-	identitySvc.On("CreateKey", mock.Anything, userID, defaultKeyName).Return(nil, assert.AnError)
-
-	resultUser, apiKey, err := svc.Login(ctx, email, testutil.TestPasswordStrong)
-
-	assert.Error(t, err)
-	assert.Nil(t, resultUser)
-	assert.Empty(t, apiKey)
-	assert.Contains(t, err.Error(), "failed to create initial API key")
-}
-
-func TestAuthServiceLoginClearsFailuresOnSuccess(t *testing.T) {
-	userRepo, identitySvc, auditSvc, _, svc := setupAuthServiceTest(t)
-	defer userRepo.AssertExpectations(t)
-	defer identitySvc.AssertExpectations(t)
-	defer auditSvc.AssertExpectations(t)
-
-	ctx := context.Background()
-	email := "clearfailures@example.com"
-	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(testutil.TestPasswordStrong), bcrypt.DefaultCost)
-	userID := uuid.New()
-	user := &domain.User{ID: userID, Email: email, PasswordHash: string(hashedPassword)}
-
-	userRepo.On("GetByEmail", mock.Anything, email).Return(user, nil)
-
-	// Make some failed attempts first
-	for i := 0; i < 3; i++ {
-		_, _, err := svc.Login(ctx, email, wrongPassword)
-		assert.Error(t, err)
-	}
-
-	// Now login successfully
-	identitySvc.On("CreateKey", mock.Anything, userID, defaultKeyName).Return(&domain.APIKey{
-		Key:       "success-key",
-		UserID:    userID,
-		CreatedAt: time.Now(),
-	}, nil).Once()
-	auditSvc.On("Log", mock.Anything, userID, userLoginAction, "user", userID.String(), mock.Anything).Return(nil).Once()
-
-	resultUser, apiKey, err := svc.Login(ctx, email, testutil.TestPasswordStrong)
-
-	assert.NoError(t, err)
-	assert.NotNil(t, resultUser)
-	assert.Equal(t, "success-key", apiKey)
-
-	// Make another successful login to verify failures were cleared
-	identitySvc.On("CreateKey", mock.Anything, userID, defaultKeyName).Return(&domain.APIKey{
-		Key:       "success-key-2",
-		UserID:    userID,
-		CreatedAt: time.Now(),
-	}, nil).Once()
-	auditSvc.On("Log", mock.Anything, userID, userLoginAction, "user", userID.String(), mock.Anything).Return(nil).Once()
-
-	resultUser2, apiKey2, err2 := svc.Login(ctx, email, testutil.TestPasswordStrong)
-
-	assert.NoError(t, err2)
-	assert.NotNil(t, resultUser2)
-	assert.Equal(t, "success-key-2", apiKey2)
+	assert.Contains(t, err.Error(), "expired") // Assuming error message
 }

@@ -36,7 +36,7 @@ func TestCronWorkerProcessJobs(t *testing.T) {
 	}
 
 	repo.On("GetNextJobsToRun", ctx).Return([]*domain.CronJob{job}, nil)
-	
+
 	repo.On("SaveJobRun", mock.Anything, mock.MatchedBy(func(run *domain.CronJobRun) bool {
 		return run.JobID == jobID && run.Status == "SUCCESS" && run.StatusCode == 200
 	})).Return(nil)
@@ -122,11 +122,11 @@ func TestCronWorkerProcessJobs_HTTPError(t *testing.T) {
 func TestCronWorkerRun(t *testing.T) {
 	repo := new(MockCronRepo)
 	worker := services.NewCronWorker(repo)
-	
+
 	ctx, cancel := context.WithCancel(context.Background())
 	var wg sync.WaitGroup
 	wg.Add(1)
-	
+
 	cancel()
 	worker.Run(ctx, &wg)
 	wg.Wait()
