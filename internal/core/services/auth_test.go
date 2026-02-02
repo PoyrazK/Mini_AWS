@@ -40,9 +40,8 @@ func TestAuthServiceRegisterSuccess(t *testing.T) {
 	name := "Test User"
 
 	user, err := svc.Register(ctx, email, password, name)
-
-	assert.NoError(t, err)
-	assert.NotNil(t, user)
+	require.NoError(t, err)
+	require.NotNil(t, user)
 	assert.Equal(t, email, user.Email)
 	assert.Equal(t, name, user.Name)
 
@@ -93,9 +92,8 @@ func TestAuthServiceLoginSuccess(t *testing.T) {
 	require.NoError(t, err)
 
 	resultUser, apiKey, err := svc.Login(ctx, email, password)
-
-	assert.NoError(t, err)
-	assert.NotNil(t, resultUser)
+	require.NoError(t, err)
+	require.NotNil(t, resultUser)
 	assert.Equal(t, user.ID, resultUser.ID)
 	assert.NotEmpty(t, apiKey)
 
@@ -130,8 +128,7 @@ func TestAuthServiceValidateUser(t *testing.T) {
 	require.NoError(t, err)
 
 	result, err := svc.ValidateUser(ctx, user.ID)
-
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, user.ID, result.ID)
 }
 

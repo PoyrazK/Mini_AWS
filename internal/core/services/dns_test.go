@@ -58,7 +58,7 @@ func TestDNSServiceCreateZone(t *testing.T) {
 		ID:       uuid.New(),
 		UserID:   userID,
 		TenantID: tenantID,
-		Name:     "dns-vpc",
+		Name:     "dns-vpc-" + uuid.New().String(),
 	}
 	err := vpcRepo.Create(ctx, vpc)
 	require.NoError(t, err)
@@ -91,7 +91,7 @@ func TestDNSServiceRegisterInstance_NoZone(t *testing.T) {
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
 	// VPC without Zone
-	vpc := &domain.VPC{ID: uuid.New(), UserID: userID, TenantID: tenantID, Name: "no-zone-vpc"}
+	vpc := &domain.VPC{ID: uuid.New(), UserID: userID, TenantID: tenantID, Name: "no-zone-vpc-" + uuid.New().String()}
 	_ = vpcRepo.Create(ctx, vpc)
 
 	inst := &domain.Instance{
@@ -114,7 +114,7 @@ func TestDNSServiceDeleteZone(t *testing.T) {
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	vpc := &domain.VPC{ID: uuid.New(), UserID: userID, TenantID: tenantID, Name: "del-zone-vpc"}
+	vpc := &domain.VPC{ID: uuid.New(), UserID: userID, TenantID: tenantID, Name: "del-zone-vpc-" + uuid.New().String()}
 	_ = vpcRepo.Create(ctx, vpc)
 
 	zone, err := svc.CreateZone(ctx, vpc.ID, "delete.com", "")
@@ -133,7 +133,7 @@ func TestDNSServiceRecords(t *testing.T) {
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	vpc := &domain.VPC{ID: uuid.New(), UserID: userID, TenantID: tenantID, Name: "rec-vpc"}
+	vpc := &domain.VPC{ID: uuid.New(), UserID: userID, TenantID: tenantID, Name: "rec-vpc-" + uuid.New().String()}
 	_ = vpcRepo.Create(ctx, vpc)
 
 	zone, err := svc.CreateZone(ctx, vpc.ID, "records.com", "")
@@ -183,7 +183,7 @@ func TestDNSServiceRegisterInstance(t *testing.T) {
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	vpc := &domain.VPC{ID: uuid.New(), UserID: userID, TenantID: tenantID, Name: "reg-vpc"}
+	vpc := &domain.VPC{ID: uuid.New(), UserID: userID, TenantID: tenantID, Name: "reg-vpc-" + uuid.New().String()}
 	_ = vpcRepo.Create(ctx, vpc)
 
 	// Ensure an internal DNS zone exists for the VPC.
@@ -267,7 +267,7 @@ func TestDNSService_BackendError(t *testing.T) {
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	vpc := &domain.VPC{ID: uuid.New(), UserID: userID, TenantID: tenantID, Name: "fault-vpc"}
+	vpc := &domain.VPC{ID: uuid.New(), UserID: userID, TenantID: tenantID, Name: "fault-vpc-" + uuid.New().String()}
 	_ = vpcRepo.Create(ctx, vpc)
 
 	// Replace backend with a faulty one
