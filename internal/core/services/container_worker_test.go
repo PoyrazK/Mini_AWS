@@ -87,6 +87,9 @@ func TestContainerWorkerReconcile(t *testing.T) {
 
 		repo.On("RemoveContainer", mock.Anything, depID, c2).Return(nil)
 		instSvc.On("TerminateInstance", mock.Anything, c2.String()).Return(nil)
+		instSvc.On("GetInstance", mock.Anything, c1.String()).Return(&domain.Instance{ID: c1, Status: domain.StatusRunning}, nil)
+		instSvc.On("GetInstance", mock.Anything, c2.String()).Return(&domain.Instance{ID: c2, Status: domain.StatusRunning}, nil)
+		instSvc.On("GetInstance", mock.Anything, c3.String()).Return(&domain.Instance{ID: c3, Status: domain.StatusRunning}, nil)
 
 		repo.On("UpdateDeployment", mock.Anything, mock.Anything).Return(nil)
 
