@@ -25,7 +25,7 @@ type GlobalLBRepository interface {
 
 // GlobalLBService provides business logic for multi-region routing.
 type GlobalLBService interface {
-	Create(ctx context.Context, name, hostname string, policy domain.RoutingPolicy, healthCheck domain.HealthCheckConfig) (*domain.GlobalLoadBalancer, error)
+	Create(ctx context.Context, name, hostname string, policy domain.RoutingPolicy, healthCheck domain.GlobalHealthCheckConfig) (*domain.GlobalLoadBalancer, error)
 	Get(ctx context.Context, id uuid.UUID) (*domain.GlobalLoadBalancer, error)
 	List(ctx context.Context) ([]*domain.GlobalLoadBalancer, error)
 	Delete(ctx context.Context, id uuid.UUID) error

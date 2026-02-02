@@ -20,7 +20,7 @@ type GlobalLoadBalancer struct {
 	Status    string            `json:"status"` // CREATING, ACTIVE, DELETING
 
 	// Health check configuration for all endpoints
-	HealthCheck HealthCheckConfig `json:"health_check"`
+	HealthCheck GlobalHealthCheckConfig `json:"health_check"`
 
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
@@ -52,8 +52,8 @@ type GlobalEndpoint struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
-// HealthCheckConfig defines how endpoints are probed.
-type HealthCheckConfig struct {
+// GlobalHealthCheckConfig defines how endpoints are probed.
+type GlobalHealthCheckConfig struct {
 	Protocol       string `json:"protocol"` // HTTP, HTTPS, TCP
 	Port           int    `json:"port"`
 	Path           string `json:"path,omitempty"` // For HTTP/HTTPS

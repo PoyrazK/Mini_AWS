@@ -26,13 +26,14 @@ func setupGlobalLBTest(t *testing.T) (*services.GlobalLBService, *mock.MockGloba
 
 func TestGlobalLBCreate(t *testing.T) {
 	svc, repo, _, geoDNS := setupGlobalLBTest(t)
-	ctx := appcontext.WithUser(context.Background(), uuid.New(), uuid.New())
+	// Fix context usage
+	ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), uuid.New()), uuid.New())
 
 	t.Run("success", func(t *testing.T) {
 		name := "global-api"
 		hostname := "api.global.com"
 		policy := domain.RoutingLatency
-		hc := domain.HealthCheckConfig{
+		hc := domain.GlobalHealthCheckConfig{
 			Protocol:    "HTTP",
 			Port:        80,
 			Path:        "/health",
@@ -62,14 +63,15 @@ func TestGlobalLBCreate(t *testing.T) {
 		}
 		repo.GLBs[existing.ID] = existing
 
-		_, err := svc.Create(ctx, "new", "duplicate.com", domain.RoutingLatency, domain.HealthCheckConfig{})
+		_, err := svc.Create(ctx, "new", "duplicate.com", domain.RoutingLatency, domain.GlobalHealthCheckConfig{})
 		assert.Error(t, err)
 	})
 }
 
 func TestGlobalLBAddEndpoint(t *testing.T) {
 	svc, repo, lbRepo, geoDNS := setupGlobalLBTest(t)
-	ctx := appcontext.WithUser(context.Background(), uuid.New(), uuid.New())
+	// Fix context usage
+	ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), uuid.New()), uuid.New())
 
 	// Create GLB
 	glb := &domain.GlobalLoadBalancer{

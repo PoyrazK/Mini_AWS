@@ -36,7 +36,7 @@ func NewGlobalLBService(
 	}
 }
 
-func (s *GlobalLBService) Create(ctx context.Context, name, hostname string, policy domain.RoutingPolicy, healthCheck domain.HealthCheckConfig) (*domain.GlobalLoadBalancer, error) {
+func (s *GlobalLBService) Create(ctx context.Context, name, hostname string, policy domain.RoutingPolicy, healthCheck domain.GlobalHealthCheckConfig) (*domain.GlobalLoadBalancer, error) {
 	// Validate inputs
 	if name == "" || hostname == "" {
 		return nil, errors.New(errors.InvalidInput, "name and hostname are required")

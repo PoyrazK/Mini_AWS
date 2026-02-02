@@ -40,7 +40,16 @@ func (m *MockLBRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-func (m *MockLBRepo) List(ctx context.Context, filter ports.LBFilter) ([]*domain.LoadBalancer, error) {
+func (m *MockLBRepo) GetByIdempotencyKey(ctx context.Context, key string) (*domain.LoadBalancer, error) {
+	for _, lb := range m.LBs {
+		if lb.IdempotencyKey == key {
+			return lb, nil
+		}
+	}
+	return nil, nil
+}
+
+func (m *MockLBRepo) List(ctx context.Context) ([]*domain.LoadBalancer, error) {
 	var list []*domain.LoadBalancer
 	for _, lb := range m.LBs {
 		list = append(list, lb)
@@ -48,15 +57,19 @@ func (m *MockLBRepo) List(ctx context.Context, filter ports.LBFilter) ([]*domain
 	return list, nil
 }
 
+func (m *MockLBRepo) ListAll(ctx context.Context) ([]*domain.LoadBalancer, error) {
+	return m.List(ctx)
+}
+
 func (m *MockLBRepo) AddTarget(ctx context.Context, target *domain.LBTarget) error       { return nil }
 func (m *MockLBRepo) RemoveTarget(ctx context.Context, lbID, instanceID uuid.UUID) error { return nil }
 func (m *MockLBRepo) ListTargets(ctx context.Context, lbID uuid.UUID) ([]*domain.LBTarget, error) {
 	return nil, nil
 }
-func (m *MockLBRepo) UpdateTargetHealth(ctx context.Context, targetID uuid.UUID, health string) error {
+func (m *MockLBRepo) UpdateTargetHealth(ctx context.Context, lbID, instanceID uuid.UUID, health string) error {
 	return nil
 }
-func (m *MockLBRepo) GetListener(ctx context.Context, port int) (*domain.LoadBalancer, error) {
+func (m *MockLBRepo) GetTargetsForInstance(ctx context.Context, instanceID uuid.UUID) ([]*domain.LBTarget, error) {
 	return nil, nil
 }
 
