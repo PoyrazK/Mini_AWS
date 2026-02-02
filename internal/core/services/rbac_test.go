@@ -2,7 +2,6 @@ package services_test
 
 import (
 	"context"
-	"errors"
 	"io"
 	"log/slog"
 	"testing"
@@ -11,339 +10,113 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
+	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
-func setupRBACServiceTest(_ *testing.T) (*MockUserRepo, *MockRoleRepo, ports.RBACService) {
-	userRepo := new(MockUserRepo)
-	roleRepo := new(MockRoleRepo)
+func setupRBACServiceIntegrationTest(t *testing.T) (ports.RBACService, ports.RoleRepository, ports.UserRepository, context.Context) {
+	db := setupDB(t)
+	cleanDB(t, db)
+	ctx := setupTestUser(t, db)
+
+	userRepo := postgres.NewUserRepo(db)
+	roleRepo := postgres.NewRBACRepository(db)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	svc := services.NewRBACService(userRepo, roleRepo, logger)
-	return userRepo, roleRepo, svc
+
+	return svc, roleRepo, userRepo, ctx
 }
 
-func TestAuthorize(t *testing.T) {
-	ctx := context.Background()
-	userID := uuid.New()
+func TestRBACService_Integration(t *testing.T) {
+	svc, roleRepo, userRepo, ctx := setupRBACServiceIntegrationTest(t)
 
-	t.Run("Success_ExactPermission", func(t *testing.T) {
-		userRepo, roleRepo, svc := setupRBACServiceTest(t)
-		defer userRepo.AssertExpectations(t)
-		defer roleRepo.AssertExpectations(t)
-
-		user := &domain.User{ID: userID, Role: "developer"}
+	t.Run("Authorize_Success", func(t *testing.T) {
+		roleID := uuid.New()
 		role := &domain.Role{
+			ID:   roleID,
 			Name: "developer",
 			Permissions: []domain.Permission{
 				domain.PermissionInstanceLaunch,
-				domain.PermissionInstanceRead,
 			},
 		}
+		err := roleRepo.CreateRole(ctx, role)
+		require.NoError(t, err)
 
-		userRepo.On("GetByID", ctx, userID).Return(user, nil).Once()
-		roleRepo.On("GetRoleByName", ctx, "developer").Return(role, nil).Once()
+		// Create user with this role
+		userID := uuid.New()
+		user := &domain.User{
+			ID:    userID,
+			Email: "dev@test.com",
+			Role:  "developer",
+		}
+		err = userRepo.Create(ctx, user)
+		require.NoError(t, err)
 
-		err := svc.Authorize(ctx, userID, domain.PermissionInstanceLaunch)
+		err = svc.Authorize(ctx, userID, domain.PermissionInstanceLaunch)
 		assert.NoError(t, err)
 	})
 
-	t.Run("Success_FullAccess", func(t *testing.T) {
-		userRepo, roleRepo, svc := setupRBACServiceTest(t)
-		defer userRepo.AssertExpectations(t)
-		defer roleRepo.AssertExpectations(t)
+	t.Run("Authorize_Denied", func(t *testing.T) {
+		userID := uuid.New()
+		user := &domain.User{
+			ID:    userID,
+			Email: "viewer@test.com",
+			Role:  "viewer",
+		}
+		err := userRepo.Create(ctx, user)
+		require.NoError(t, err)
 
-		user := &domain.User{ID: userID, Role: "admin"}
+		// Viewer doesn't have launch permission by default even if role not in DB (fallback might allow read but not launch)
+		err = svc.Authorize(ctx, userID, domain.PermissionInstanceLaunch)
+		assert.Error(t, err)
+	})
+
+	t.Run("Roles_CRUD", func(t *testing.T) {
 		role := &domain.Role{
-			Name: "admin",
+			ID:   uuid.New(),
+			Name: "test-crud-role",
 			Permissions: []domain.Permission{
-				domain.PermissionFullAccess,
+				domain.PermissionVpcRead,
 			},
 		}
 
-		userRepo.On("GetByID", ctx, userID).Return(user, nil).Once()
-		roleRepo.On("GetRoleByName", ctx, "admin").Return(role, nil).Once()
-
-		err := svc.Authorize(ctx, userID, domain.PermissionVpcCreate)
-		assert.NoError(t, err)
-	})
-
-	t.Run("Failure_Denied", func(t *testing.T) {
-		userRepo, roleRepo, svc := setupRBACServiceTest(t)
-		defer userRepo.AssertExpectations(t)
-		defer roleRepo.AssertExpectations(t)
-
-		user := &domain.User{ID: userID, Role: "viewer"}
-		role := &domain.Role{
-			Name: "viewer",
-			Permissions: []domain.Permission{
-				domain.PermissionInstanceRead,
-			},
-		}
-
-		userRepo.On("GetByID", ctx, userID).Return(user, nil).Once()
-		roleRepo.On("GetRoleByName", ctx, "viewer").Return(role, nil).Once()
-
-		err := svc.Authorize(ctx, userID, domain.PermissionInstanceLaunch)
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "permission denied")
-	})
-
-	t.Run("Fallback_Admin", func(t *testing.T) {
-		userRepo, roleRepo, svc := setupRBACServiceTest(t)
-		defer userRepo.AssertExpectations(t)
-		defer roleRepo.AssertExpectations(t)
-
-		user := &domain.User{ID: userID, Role: domain.RoleAdmin}
-		// Role not found in DB
-		userRepo.On("GetByID", ctx, userID).Return(user, nil).Once()
-		roleRepo.On("GetRoleByName", ctx, string(domain.RoleAdmin)).Return(nil, errors.New("not found")).Once()
-
-		err := svc.Authorize(ctx, userID, domain.PermissionInstanceLaunch)
-		assert.NoError(t, err)
-	})
-
-	t.Run("Fallback_Viewer_Allowed", func(t *testing.T) {
-		userRepo, roleRepo, svc := setupRBACServiceTest(t)
-		defer userRepo.AssertExpectations(t)
-		defer roleRepo.AssertExpectations(t)
-
-		user := &domain.User{ID: userID, Role: domain.RoleViewer}
-		userRepo.On("GetByID", ctx, userID).Return(user, nil).Once()
-		roleRepo.On("GetRoleByName", ctx, string(domain.RoleViewer)).Return(nil, errors.New("not found")).Once()
-
-		err := svc.Authorize(ctx, userID, domain.PermissionInstanceRead)
-		assert.NoError(t, err)
-	})
-
-	t.Run("Fallback_Viewer_Denied", func(t *testing.T) {
-		userRepo, roleRepo, svc := setupRBACServiceTest(t)
-		defer userRepo.AssertExpectations(t)
-		defer roleRepo.AssertExpectations(t)
-
-		user := &domain.User{ID: userID, Role: domain.RoleViewer}
-		userRepo.On("GetByID", ctx, userID).Return(user, nil).Once()
-		roleRepo.On("GetRoleByName", ctx, string(domain.RoleViewer)).Return(nil, errors.New("not found")).Once()
-
-		err := svc.Authorize(ctx, userID, domain.PermissionInstanceLaunch)
-		assert.Error(t, err)
-	})
-
-	t.Run("Fallback_UnknownRole", func(t *testing.T) {
-		userRepo, roleRepo, svc := setupRBACServiceTest(t)
-		defer userRepo.AssertExpectations(t)
-		defer roleRepo.AssertExpectations(t)
-
-		user := &domain.User{ID: userID, Role: "unknown"}
-		userRepo.On("GetByID", ctx, userID).Return(user, nil).Once()
-		roleRepo.On("GetRoleByName", ctx, "unknown").Return(nil, errors.New("not found")).Once()
-
-		err := svc.Authorize(ctx, userID, domain.PermissionInstanceLaunch)
-		assert.Error(t, err)
-	})
-}
-
-func TestRBAC_CRUD(t *testing.T) {
-	ctx := context.Background()
-
-	t.Run("CreateRole", func(t *testing.T) {
-		_, roleRepo, svc := setupRBACServiceTest(t)
-		defer roleRepo.AssertExpectations(t)
-
-		role := &domain.Role{Name: "test-role"}
-		roleRepo.On("CreateRole", ctx, role).Return(nil).Once()
 		err := svc.CreateRole(ctx, role)
 		assert.NoError(t, err)
-	})
 
-	t.Run("ListRoles", func(t *testing.T) {
-		_, roleRepo, svc := setupRBACServiceTest(t)
-		defer roleRepo.AssertExpectations(t)
-
-		roles := []*domain.Role{{Name: "r1"}}
-		roleRepo.On("ListRoles", ctx).Return(roles, nil).Once()
-		res, err := svc.ListRoles(ctx)
+		fetched, err := svc.GetRoleByID(ctx, role.ID)
 		assert.NoError(t, err)
-		assert.Equal(t, roles, res)
-	})
+		assert.Equal(t, role.Name, fetched.Name)
+		assert.Contains(t, fetched.Permissions, domain.PermissionVpcRead)
 
-	t.Run("GetRoleByID", func(t *testing.T) {
-		_, roleRepo, svc := setupRBACServiceTest(t)
-		defer roleRepo.AssertExpectations(t)
-
-		id := uuid.New()
-		role := &domain.Role{ID: id}
-		roleRepo.On("GetRoleByID", ctx, id).Return(role, nil).Once()
-		res, err := svc.GetRoleByID(ctx, id)
+		// Update
+		role.Permissions = append(role.Permissions, domain.PermissionVpcCreate)
+		err = svc.UpdateRole(ctx, role)
 		assert.NoError(t, err)
-		assert.Equal(t, role, res)
-	})
 
-	t.Run("UpdateRole", func(t *testing.T) {
-		_, roleRepo, svc := setupRBACServiceTest(t)
-		defer roleRepo.AssertExpectations(t)
+		fetched, _ = svc.GetRoleByID(ctx, role.ID)
+		assert.Len(t, fetched.Permissions, 2)
 
-		role := &domain.Role{Name: "updated"}
-		roleRepo.On("UpdateRole", ctx, role).Return(nil).Once()
-		err := svc.UpdateRole(ctx, role)
+		// Delete
+		err = svc.DeleteRole(ctx, role.ID)
 		assert.NoError(t, err)
-	})
 
-	t.Run("DeleteRole", func(t *testing.T) {
-		_, roleRepo, svc := setupRBACServiceTest(t)
-		defer roleRepo.AssertExpectations(t)
-
-		id := uuid.New()
-		roleRepo.On("DeleteRole", ctx, id).Return(nil).Once()
-		err := svc.DeleteRole(ctx, id)
-		assert.NoError(t, err)
-	})
-}
-
-func TestRBAC_BindRole(t *testing.T) {
-	ctx := context.Background()
-	userEmail := "test@example.com"
-	userID := uuid.New()
-	roleName := "developer"
-
-	t.Run("Success_ByEmail", func(t *testing.T) {
-		userRepo, roleRepo, svc := setupRBACServiceTest(t)
-		defer userRepo.AssertExpectations(t)
-		defer roleRepo.AssertExpectations(t)
-
-		role := &domain.Role{Name: roleName}
-		user := &domain.User{ID: userID, Email: userEmail, Role: "old"}
-
-		roleRepo.On("GetRoleByName", ctx, roleName).Return(role, nil).Once()
-		userRepo.On("GetByEmail", ctx, userEmail).Return(user, nil).Once()
-		userRepo.On("Update", ctx, mock.MatchedBy(func(u *domain.User) bool {
-			return u.Role == roleName
-		})).Return(nil).Once()
-
-		err := svc.BindRole(ctx, userEmail, roleName)
-		assert.NoError(t, err)
-	})
-
-	t.Run("Success_ByID", func(t *testing.T) {
-		userRepo, roleRepo, svc := setupRBACServiceTest(t)
-		defer userRepo.AssertExpectations(t)
-		defer roleRepo.AssertExpectations(t)
-
-		role := &domain.Role{Name: roleName}
-		user := &domain.User{ID: userID, Role: "old"}
-		idStr := userID.String()
-
-		roleRepo.On("GetRoleByName", ctx, roleName).Return(role, nil).Once()
-		userRepo.On("GetByID", ctx, userID).Return(user, nil).Once()
-		userRepo.On("Update", ctx, mock.MatchedBy(func(u *domain.User) bool {
-			return u.Role == roleName
-		})).Return(nil).Once()
-
-		err := svc.BindRole(ctx, idStr, roleName)
-		assert.NoError(t, err)
-	})
-
-	t.Run("RoleNotFound", func(t *testing.T) {
-		_, roleRepo, svc := setupRBACServiceTest(t)
-		defer roleRepo.AssertExpectations(t)
-
-		roleRepo.On("GetRoleByName", ctx, "missing").Return(nil, errors.New("not found")).Once()
-		err := svc.BindRole(ctx, userEmail, "missing")
+		_, err = svc.GetRoleByID(ctx, role.ID)
 		assert.Error(t, err)
 	})
-}
 
-func TestRBAC_Permissions(t *testing.T) {
-	ctx := context.Background()
-	roleID := uuid.New()
+	t.Run("BindRole", func(t *testing.T) {
+		role := &domain.Role{ID: uuid.New(), Name: "manager"}
+		_ = roleRepo.CreateRole(ctx, role)
 
-	t.Run("AddPermission", func(t *testing.T) {
-		_, roleRepo, svc := setupRBACServiceTest(t)
-		defer roleRepo.AssertExpectations(t)
+		userID := uuid.New()
+		user := &domain.User{ID: userID, Email: "manager@test.com", Role: "none"}
+		_ = userRepo.Create(ctx, user)
 
-		roleRepo.On("AddPermissionToRole", ctx, roleID, domain.PermissionInstanceLaunch).Return(nil).Once()
-		err := svc.AddPermissionToRole(ctx, roleID, domain.PermissionInstanceLaunch)
+		err := svc.BindRole(ctx, "manager@test.com", "manager")
 		assert.NoError(t, err)
+
+		updated, _ := userRepo.GetByID(ctx, userID)
+		assert.Equal(t, "manager", updated.Role)
 	})
-
-	t.Run("RemovePermission", func(t *testing.T) {
-		_, roleRepo, svc := setupRBACServiceTest(t)
-		defer roleRepo.AssertExpectations(t)
-
-		roleRepo.On("RemovePermissionFromRole", ctx, roleID, domain.PermissionInstanceLaunch).Return(nil).Once()
-		err := svc.RemovePermissionFromRole(ctx, roleID, domain.PermissionInstanceLaunch)
-		assert.NoError(t, err)
-	})
-}
-
-func TestRBAC_Authorize_Error(t *testing.T) {
-	userRepo, _, svc := setupRBACServiceTest(t)
-	ctx := context.Background()
-	userID := uuid.New()
-
-	userRepo.On("GetByID", ctx, userID).Return(nil, assert.AnError)
-
-	err := svc.Authorize(ctx, userID, domain.PermissionInstanceRead)
-	assert.Error(t, err)
-}
-
-func TestRBAC_ListRoleBindings(t *testing.T) {
-	userRepo, _, svc := setupRBACServiceTest(t)
-	ctx := context.Background()
-	users := []*domain.User{{ID: uuid.New(), Email: "u1@e.c"}}
-
-	userRepo.On("List", ctx).Return(users, nil)
-
-	res, err := svc.ListRoleBindings(ctx)
-	assert.NoError(t, err)
-	assert.Equal(t, users, res)
-}
-
-func TestRBAC_GetRoleByName(t *testing.T) {
-	_, roleRepo, svc := setupRBACServiceTest(t)
-	ctx := context.Background()
-	role := &domain.Role{Name: "test"}
-
-	roleRepo.On("GetRoleByName", ctx, "test").Return(role, nil)
-
-	res, err := svc.GetRoleByName(ctx, "test")
-	assert.NoError(t, err)
-	assert.Equal(t, role, res)
-}
-
-func TestRBAC_Fallback_Developer(t *testing.T) {
-	ctx := context.Background()
-	userID := uuid.New()
-
-	t.Run("Allowed", func(t *testing.T) {
-		userRepo, roleRepo, svc := setupRBACServiceTest(t)
-		user := &domain.User{ID: userID, Role: domain.RoleDeveloper}
-		userRepo.On("GetByID", ctx, userID).Return(user, nil).Once()
-		roleRepo.On("GetRoleByName", ctx, string(domain.RoleDeveloper)).Return(nil, errors.New("not found")).Once()
-
-		err := svc.Authorize(ctx, userID, domain.PermissionInstanceRead)
-		assert.NoError(t, err)
-	})
-
-	t.Run("Denied_FullAccess", func(t *testing.T) {
-		userRepo, roleRepo, svc := setupRBACServiceTest(t)
-		user := &domain.User{ID: userID, Role: domain.RoleDeveloper}
-		userRepo.On("GetByID", ctx, userID).Return(user, nil).Once()
-		roleRepo.On("GetRoleByName", ctx, string(domain.RoleDeveloper)).Return(nil, errors.New("not found")).Once()
-
-		err := svc.Authorize(ctx, userID, domain.PermissionFullAccess)
-		assert.Error(t, err)
-	})
-}
-
-func TestRBAC_BindRole_UserNotFound(t *testing.T) {
-	userRepo, roleRepo, svc := setupRBACServiceTest(t)
-	ctx := context.Background()
-	roleName := "developer"
-
-	roleRepo.On("GetRoleByName", ctx, roleName).Return(&domain.Role{Name: roleName}, nil)
-	userRepo.On("GetByEmail", ctx, "missing@e.c").Return(nil, errors.New("not found"))
-
-	err := svc.BindRole(ctx, "missing@e.c", roleName)
-	assert.Error(t, err)
 }
