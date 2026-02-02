@@ -141,3 +141,56 @@ func TestVolumeServiceCreateVolumeRollbackOnRepoError(t *testing.T) {
 	assert.Error(t, err)
 	assert.Nil(t, vol)
 }
+
+func TestVolume_LaunchAttach_Conflict(t *testing.T) {
+	// Use InstanceService setup because we need LaunchInstance
+	db, svc, _, _, _, volRepo, ctx := setupInstanceServiceTest(t)
+	// We also need VolumeService to create volumes elegantly
+	volSvc := services.NewVolumeService(volRepo, noop.NewNoopStorageBackend(), services.NewEventService(postgres.NewEventRepository(db), nil, slog.Default()), services.NewAuditService(postgres.NewAuditRepository(db)), slog.Default())
+
+	// 1. Create Volume
+	vol, err := volSvc.CreateVolume(ctx, "shared-vol", 1)
+	require.NoError(t, err)
+
+	// 2. Launch Instance A with Volume
+	nameA := "inst-A"
+	image := "alpine:latest"
+	volsA := []domain.VolumeAttachment{
+		{VolumeIDOrName: vol.ID.String(), MountPath: "/dev/xvdb"},
+	}
+	instA, err := svc.LaunchInstance(ctx, nameA, image, "", "basic-2", nil, nil, volsA)
+	require.NoError(t, err)
+
+	// Provision A to ensure volume becomes "IN_USE"
+	err = svc.Provision(ctx, instA.ID, volsA)
+	require.NoError(t, err)
+
+	// Verify Volume Status is InUse
+	updatedVol, _ := volSvc.GetVolume(ctx, vol.ID.String())
+	assert.Equal(t, domain.VolumeStatusInUse, updatedVol.Status)
+	assert.Equal(t, instA.ID, *updatedVol.InstanceID)
+
+	// 3. Launch Instance B with SAME Volume
+	// Should fail because volume is already attached
+	nameB := "inst-B"
+	instB, err := svc.LaunchInstance(ctx, nameB, image, "", "basic-2", nil, nil, volsA)
+
+	// Expectation: LaunchInstance should check volume status and fail
+	// OR Provision should fail.
+	// LaunchInstance usually does validation.
+	if err == nil {
+		// If Launch succeeded (maybe only validation passed?), try Provision
+		err = svc.Provision(ctx, instB.ID, volsA)
+		assert.Error(t, err, "Provisioning second instance with same volume should fail")
+		if err == nil {
+			// Cleanup B
+			_ = svc.TerminateInstance(ctx, instB.ID.String())
+		}
+	} else {
+		assert.Error(t, err, "Launching second instance with in-use volume should fail")
+	}
+
+	// Cleanup
+	_ = svc.TerminateInstance(ctx, instA.ID.String())
+	_ = volSvc.DeleteVolume(ctx, vol.ID.String())
+}
