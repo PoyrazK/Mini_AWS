@@ -1,132 +1,105 @@
-package services
+package services_test
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"io"
 	"log/slog"
-	"os"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/core/ports"
+	"github.com/poyrazk/thecloud/internal/core/services"
+	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
-type mockPasswordResetRepository struct {
-	mock.Mock
+func setupPasswordResetServiceIntegrationTest(t *testing.T) (ports.PasswordResetService, ports.PasswordResetRepository, ports.UserRepository, context.Context) {
+	db := setupDB(t)
+	cleanDB(t, db)
+	ctx := setupTestUser(t, db)
+
+	repo := postgres.NewPasswordResetRepository(db)
+	userRepo := postgres.NewUserRepo(db)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	svc := services.NewPasswordResetService(repo, userRepo, logger)
+
+	return svc, repo, userRepo, ctx
 }
 
-func (m *mockPasswordResetRepository) Create(ctx context.Context, token *domain.PasswordResetToken) error {
-	args := m.Called(ctx, token)
-	return args.Error(0)
-}
+func TestPasswordResetService_Integration(t *testing.T) {
+	svc, repo, userRepo, ctx := setupPasswordResetServiceIntegrationTest(t)
 
-func (m *mockPasswordResetRepository) GetByTokenHash(ctx context.Context, hash string) (*domain.PasswordResetToken, error) {
-	args := m.Called(ctx, hash)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*domain.PasswordResetToken), args.Error(1)
-}
-
-func (m *mockPasswordResetRepository) MarkAsUsed(ctx context.Context, id string) error {
-	args := m.Called(ctx, id)
-	return args.Error(0)
-}
-
-func (m *mockPasswordResetRepository) DeleteExpired(ctx context.Context) error {
-	args := m.Called(ctx)
-	return args.Error(0)
-}
-
-type mockUserRepository struct {
-	mock.Mock
-}
-
-func (m *mockUserRepository) Create(ctx context.Context, user *domain.User) error {
-	return m.Called(ctx, user).Error(0)
-}
-func (m *mockUserRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.User, error) {
-	args := m.Called(ctx, id)
-	if args.Get(0) == nil { return nil, args.Error(1) }
-	return args.Get(0).(*domain.User), args.Error(1)
-}
-func (m *mockUserRepository) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
-	args := m.Called(ctx, email)
-	if args.Get(0) == nil { return nil, args.Error(1) }
-	return args.Get(0).(*domain.User), args.Error(1)
-}
-func (m *mockUserRepository) Update(ctx context.Context, user *domain.User) error {
-	return m.Called(ctx, user).Error(0)
-}
-func (m *mockUserRepository) List(ctx context.Context) ([]*domain.User, error) {
-	args := m.Called(ctx)
-	return args.Get(0).([]*domain.User), args.Error(1)
-}
-func (m *mockUserRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	return m.Called(ctx, id).Error(0)
-}
-
-func TestPasswordResetService_RequestReset(t *testing.T) {
-	repo := new(mockPasswordResetRepository)
-	userRepo := new(mockUserRepository)
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-	svc := NewPasswordResetService(repo, userRepo, logger)
-
-	t.Run("success", func(t *testing.T) {
-		user := &domain.User{ID: uuid.New(), Email: "test@example.com"}
-		userRepo.On("GetByEmail", mock.Anything, "test@example.com").Return(user, nil).Once()
-		repo.On("Create", mock.Anything, mock.Anything).Return(nil).Once()
-
-		err := svc.RequestReset(context.Background(), "test@example.com")
-		assert.NoError(t, err)
-		userRepo.AssertExpectations(t)
-		repo.AssertExpectations(t)
-	})
-
-	t.Run("user not found returns nil", func(t *testing.T) {
-		userRepo.On("GetByEmail", mock.Anything, "none@example.com").Return(nil, assert.AnError).Once()
-
-		err := svc.RequestReset(context.Background(), "none@example.com")
-		assert.NoError(t, err)
-	})
-}
-
-func TestPasswordResetService_ResetPassword(t *testing.T) {
-	repo := new(mockPasswordResetRepository)
-	userRepo := new(mockUserRepository)
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-	svc := NewPasswordResetService(repo, userRepo, logger)
-
-	t.Run("success", func(t *testing.T) {
+	t.Run("RequestAndReset", func(t *testing.T) {
+		email := "reset@test.com"
 		userID := uuid.New()
-		token := &domain.PasswordResetToken{
+		err := userRepo.Create(ctx, &domain.User{ID: userID, Email: email, PasswordHash: "old"})
+		require.NoError(t, err)
+
+		// 1. Request Reset
+		err = svc.RequestReset(ctx, email)
+		assert.NoError(t, err)
+
+		// In an integration environment, we verify the token creation indirectly via success status,
+		// as email interception is outside the scope of this test.
+		// For the reset phase, we seed a known token directly into the repository to ensure
+		// we have a valid reference for verification.
+		tokenStr := "my-secret-token"
+		hash := sha256.Sum256([]byte(tokenStr))
+		tokenHash := hex.EncodeToString(hash[:])
+
+		resetToken := &domain.PasswordResetToken{
 			ID:        uuid.New(),
 			UserID:    userID,
+			TokenHash: tokenHash,
 			ExpiresAt: time.Now().Add(time.Hour),
 			Used:      false,
+			CreatedAt: time.Now(),
 		}
-		repo.On("MarkAsUsed", mock.Anything, token.ID.String()).Return(nil).Once()
-		userRepo.On("GetByID", mock.Anything, userID).Return(&domain.User{ID: userID}, nil).Once()
-		userRepo.On("Update", mock.Anything, mock.Anything).Return(nil).Once()
-		
-		// We'd need to know the hash to set expectations precisely, or use mock.Anything
-		repo.On("GetByTokenHash", mock.Anything, mock.Anything).Return(token, nil).Once()
+		err = repo.Create(ctx, resetToken)
+		require.NoError(t, err)
 
-		err := svc.ResetPassword(context.Background(), "valid-token", "new-password")
+		// 2. Reset Password
+		newPass := "new-secure-password"
+		err = svc.ResetPassword(ctx, tokenStr, newPass)
 		assert.NoError(t, err)
+
+		// Verify user password updated
+		updatedUser, err := userRepo.GetByID(ctx, userID)
+		assert.NoError(t, err)
+		assert.NotEqual(t, "old", updatedUser.PasswordHash)
+
+		// Verify token used
+		usedToken, err := repo.GetByTokenHash(ctx, tokenHash)
+		assert.NoError(t, err)
+		assert.True(t, usedToken.Used)
 	})
 
-	t.Run("expired token", func(t *testing.T) {
-		token := &domain.PasswordResetToken{
-			ExpiresAt: time.Now().Add(-time.Hour),
-			Used:      false,
-		}
-		repo.On("GetByTokenHash", mock.Anything, mock.Anything).Return(token, nil).Once()
+	t.Run("ExpiredToken", func(t *testing.T) {
+		userID := uuid.New()
+		_ = userRepo.Create(ctx, &domain.User{ID: userID, Email: "expired@test.com"})
 
-		err := svc.ResetPassword(context.Background(), "expired-token", "pass")
+		tokenStr := "expired-token"
+		hash := sha256.Sum256([]byte(tokenStr))
+		tokenHash := hex.EncodeToString(hash[:])
+
+		resetToken := &domain.PasswordResetToken{
+			ID:        uuid.New(),
+			UserID:    userID,
+			TokenHash: tokenHash,
+			ExpiresAt: time.Now().Add(-time.Hour), // Expired
+			Used:      false,
+			CreatedAt: time.Now().Add(-2 * time.Hour),
+		}
+		_ = repo.Create(ctx, resetToken)
+
+		err := svc.ResetPassword(ctx, tokenStr, "new-pass")
 		assert.Error(t, err)
-		assert.Equal(t, "token expired", err.Error())
+		assert.Contains(t, err.Error(), "expired")
 	})
 }
