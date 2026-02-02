@@ -4,16 +4,15 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
 
 type globalLBRepository struct {
-	db *pgxpool.Pool
+	db DB
 }
 
-func NewGlobalLBRepository(db *pgxpool.Pool) ports.GlobalLBRepository {
+func NewGlobalLBRepository(db DB) ports.GlobalLBRepository {
 	return &globalLBRepository{
 		db: db,
 	}

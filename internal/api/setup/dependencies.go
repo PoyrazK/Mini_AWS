@@ -14,6 +14,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/platform"
 	"github.com/poyrazk/thecloud/internal/repositories/filesystem"
 	"github.com/poyrazk/thecloud/internal/repositories/k8s"
+	"github.com/poyrazk/thecloud/internal/repositories/mock"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/poyrazk/thecloud/internal/repositories/redis"
 	"github.com/poyrazk/thecloud/internal/storage/coordinator"
@@ -59,6 +60,7 @@ type Repositories struct {
 	Lifecycle     ports.LifecycleRepository
 	DNS           ports.DNSRepository
 	InstanceType  ports.InstanceTypeRepository
+	GlobalLB      ports.GlobalLBRepository
 }
 
 // InitRepositories constructs repositories using the provided database clients.
@@ -97,6 +99,7 @@ func InitRepositories(db postgres.DB, rdb *redisv9.Client) *Repositories {
 		Lifecycle:     postgres.NewLifecycleRepository(db),
 		DNS:           postgres.NewDNSRepository(db),
 		InstanceType:  postgres.NewInstanceTypeRepository(db),
+		GlobalLB:      postgres.NewGlobalLBRepository(db),
 	}
 }
 
@@ -137,6 +140,7 @@ type Services struct {
 	Lifecycle     ports.LifecycleService
 	DNS           ports.DNSService
 	InstanceType  ports.InstanceTypeService
+	GlobalLB      ports.GlobalLBService
 }
 
 // Workers struct to return background workers
@@ -206,6 +210,11 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 	lbSvc := services.NewLBService(c.Repos.LB, c.Repos.Vpc, c.Repos.Instance, auditSvc)
 	lbWorker := services.NewLBWorker(c.Repos.LB, c.Repos.Instance, c.LBProxy)
 
+	// Global LB Service
+	// TODO: Replace with real GeoDNS backend when implemented
+	mockGeoDNS := mock.NewMockGeoDNS()
+	glbSvc := services.NewGlobalLBService(c.Repos.GlobalLB, c.Repos.LB, mockGeoDNS, auditSvc, c.Logger)
+
 	// Encryption Service
 	encryptionRepo := postgres.NewEncryptionRepository(c.DB)
 	encryptionSvc, err := services.NewEncryptionService(encryptionRepo, c.Config.SecretsEncryptionKey)
@@ -258,8 +267,8 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 		Cluster:      clusterSvc,
 		Dashboard:    services.NewDashboardService(c.Repos.Instance, c.Repos.Volume, c.Repos.Vpc, c.Repos.Event, c.Logger),
 		Lifecycle:    services.NewLifecycleService(c.Repos.Lifecycle, c.Repos.Storage),
-		DNS:          dnsSvc,
 		InstanceType: services.NewInstanceTypeService(c.Repos.InstanceType),
+		GlobalLB:     glbSvc,
 	}
 
 	// 7. High Availability & Monitoring
