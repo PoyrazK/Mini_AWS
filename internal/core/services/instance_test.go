@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
@@ -49,7 +50,7 @@ func (q *InMemoryTaskQueue) Dequeue(ctx context.Context, queueName string) (stri
 	return "", nil
 }
 
-func setupInstanceServiceTest(t *testing.T) (*services.InstanceService, *docker.DockerAdapter, ports.InstanceRepository, ports.VpcRepository, ports.VolumeRepository, context.Context) {
+func setupInstanceServiceTest(t *testing.T) (*pgxpool.Pool, *services.InstanceService, *docker.DockerAdapter, ports.InstanceRepository, ports.VpcRepository, ports.VolumeRepository, context.Context) {
 	db := setupDB(t)
 	cleanDB(t, db)
 	ctx := setupTestUser(t, db)
@@ -95,11 +96,11 @@ func setupInstanceServiceTest(t *testing.T) (*services.InstanceService, *docker.
 		Logger:           slog.Default(),
 	})
 
-	return svc, compute, repo, vpcRepo, volumeRepo, ctx
+	return db, svc, compute, repo, vpcRepo, volumeRepo, ctx
 }
 
 func TestLaunchInstanceSuccess(t *testing.T) {
-	svc, compute, repo, _, _, ctx := setupInstanceServiceTest(t)
+	_, svc, compute, repo, _, _, ctx := setupInstanceServiceTest(t)
 	name := "test-inst-launch"
 	image := "alpine:latest"
 	ports := "8080:80"
@@ -130,7 +131,7 @@ func TestLaunchInstanceSuccess(t *testing.T) {
 }
 
 func TestTerminateInstanceSuccess(t *testing.T) {
-	svc, compute, repo, _, _, ctx := setupInstanceServiceTest(t)
+	_, svc, compute, repo, _, _, ctx := setupInstanceServiceTest(t)
 	name := "test-inst-term"
 	image := "alpine:latest"
 
@@ -206,7 +207,7 @@ func TestInstanceService_Launch_DBFailure(t *testing.T) {
 }
 
 func TestInstanceNetworking(t *testing.T) {
-	svc, compute, _, vpcRepo, _, ctx := setupInstanceServiceTest(t)
+	_, svc, compute, _, vpcRepo, _, ctx := setupInstanceServiceTest(t)
 
 	vpcID := uuid.New()
 	networkName := "net-" + vpcID.String()
@@ -247,7 +248,7 @@ func TestInstanceNetworking(t *testing.T) {
 }
 
 func TestInstanceService_Launch_Concurrency(t *testing.T) {
-	svc, compute, repo, _, _, ctx := setupInstanceServiceTest(t)
+	_, svc, compute, repo, _, _, ctx := setupInstanceServiceTest(t)
 	concurrency := 5
 	errChan := make(chan error, concurrency)
 
@@ -276,7 +277,7 @@ func TestInstanceService_Launch_Concurrency(t *testing.T) {
 }
 
 func TestInstanceService_GetStats_Real(t *testing.T) {
-	svc, _, _, _, _, ctx := setupInstanceServiceTest(t)
+	_, svc, _, _, _, _, ctx := setupInstanceServiceTest(t)
 	name := "stats-inst"
 	image := "alpine:latest"
 
