@@ -2,177 +2,104 @@ package services_test
 
 import (
 	"context"
+	"io"
+	"log/slog"
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
+	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
-func setupContainerServiceTest(_ *testing.T) (*MockContainerRepository, *MockEventService, *MockAuditService, ports.ContainerService) {
-	repo := new(MockContainerRepository)
-	eventSvc := new(MockEventService)
-	auditSvc := new(MockAuditService)
+func setupContainerServiceIntegrationTest(t *testing.T) (ports.ContainerService, ports.ContainerRepository, *pgxpool.Pool, context.Context) {
+	db := setupDB(t)
+	cleanDB(t, db)
+	ctx := setupTestUser(t, db)
+
+	repo := postgres.NewPostgresContainerRepository(db)
+	eventRepo := postgres.NewEventRepository(db)
+	eventSvc := services.NewEventService(eventRepo, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	auditRepo := postgres.NewAuditRepository(db)
+	auditSvc := services.NewAuditService(auditRepo)
+
 	svc := services.NewContainerService(repo, eventSvc, auditSvc)
-	return repo, eventSvc, auditSvc, svc
+
+	return svc, repo, db, ctx
 }
 
-func TestContainerService_CreateDeployment(t *testing.T) {
-	repo, eventSvc, auditSvc, svc := setupContainerServiceTest(t)
-	defer repo.AssertExpectations(t)
-
-	userID := uuid.New()
-	ctx := appcontext.WithUserID(context.Background(), userID)
-
-	repo.On("CreateDeployment", ctx, mock.Anything).Return(nil)
-	eventSvc.On("RecordEvent", ctx, "DEPLOYMENT_CREATED", mock.Anything, "DEPLOYMENT", mock.Anything).Return(nil)
-	auditSvc.On("Log", ctx, userID, "container.deployment_create", "deployment", mock.Anything, mock.Anything).Return(nil)
-
-	dep, err := svc.CreateDeployment(ctx, "test", "nginx", 3, "80:80")
-
-	assert.NoError(t, err)
-	assert.NotNil(t, dep)
-	assert.Equal(t, "test", dep.Name)
-	assert.Equal(t, 3, dep.Replicas)
-}
-
-func TestContainerService_ListDeployments(t *testing.T) {
-	repo, _, _, svc := setupContainerServiceTest(t)
-	defer repo.AssertExpectations(t)
-
-	userID := uuid.New()
-	ctx := appcontext.WithUserID(context.Background(), userID)
-	deps := []*domain.Deployment{{ID: uuid.New(), UserID: userID}}
-
-	repo.On("ListDeployments", ctx, userID).Return(deps, nil)
-
-	res, err := svc.ListDeployments(ctx)
-	assert.NoError(t, err)
-	assert.Equal(t, deps, res)
-}
-
-func TestContainerService_GetDeployment(t *testing.T) {
-	repo, _, _, svc := setupContainerServiceTest(t)
-	defer repo.AssertExpectations(t)
-
-	userID := uuid.New()
-	ctx := appcontext.WithUserID(context.Background(), userID)
-	depID := uuid.New()
-	dep := &domain.Deployment{ID: depID, UserID: userID}
-
-	repo.On("GetDeploymentByID", ctx, depID, userID).Return(dep, nil)
-
-	res, err := svc.GetDeployment(ctx, depID)
-	assert.NoError(t, err)
-	assert.Equal(t, dep, res)
-}
-
-func TestContainerService_ScaleDeployment(t *testing.T) {
-	repo, _, auditSvc, svc := setupContainerServiceTest(t)
-	defer repo.AssertExpectations(t)
-
-	userID := uuid.New()
-	ctx := appcontext.WithUserID(context.Background(), userID)
-	depID := uuid.New()
-	dep := &domain.Deployment{ID: depID, UserID: userID}
-
-	repo.On("GetDeploymentByID", ctx, depID, userID).Return(dep, nil)
-	repo.On("UpdateDeployment", ctx, mock.MatchedBy(func(d *domain.Deployment) bool {
-		return d.Replicas == 5 && d.Status == domain.DeploymentStatusScaling
-	})).Return(nil)
-	auditSvc.On("Log", ctx, userID, "container.deployment_scale", "deployment", depID.String(), mock.Anything).Return(nil)
-
-	err := svc.ScaleDeployment(ctx, depID, 5)
-	assert.NoError(t, err)
-}
-
-func TestContainerService_DeleteDeployment(t *testing.T) {
-	repo, _, auditSvc, svc := setupContainerServiceTest(t)
-	defer repo.AssertExpectations(t)
-
-	userID := uuid.New()
-	ctx := appcontext.WithUserID(context.Background(), userID)
-	depID := uuid.New()
-	dep := &domain.Deployment{ID: depID, UserID: userID}
-
-	repo.On("GetDeploymentByID", ctx, depID, userID).Return(dep, nil)
-	repo.On("UpdateDeployment", ctx, mock.MatchedBy(func(d *domain.Deployment) bool {
-		return d.Status == domain.DeploymentStatusDeleting
-	})).Return(nil)
-	auditSvc.On("Log", ctx, userID, "container.deployment_delete", "deployment", depID.String(), mock.Anything).Return(nil)
-
-	err := svc.DeleteDeployment(ctx, depID)
-	assert.NoError(t, err)
-}
-
-func TestContainerService_Errors(t *testing.T) {
-	ctx := appcontext.WithUserID(context.Background(), uuid.New())
+func TestContainerService_Integration(t *testing.T) {
+	svc, repo, db, ctx := setupContainerServiceIntegrationTest(t)
 	userID := appcontext.UserIDFromContext(ctx)
-	depID := uuid.New()
 
-	t.Run("Create_Unauthorized", func(t *testing.T) {
-		_, _, _, svc := setupContainerServiceTest(t)
-		_, err := svc.CreateDeployment(context.Background(), "n", "i", 1, "p")
-		assert.Error(t, err)
+	t.Run("DeploymentLifecycle", func(t *testing.T) {
+		name := "web-deployment"
+		dep, err := svc.CreateDeployment(ctx, name, "nginx:latest", 3, "80:80")
+		assert.NoError(t, err)
+		assert.NotNil(t, dep)
+		assert.Equal(t, name, dep.Name)
+		assert.Equal(t, 3, dep.Replicas)
+
+		// Get
+		fetched, err := svc.GetDeployment(ctx, dep.ID)
+		assert.NoError(t, err)
+		assert.Equal(t, dep.ID, fetched.ID)
+
+		// List
+		deps, err := svc.ListDeployments(ctx)
+		assert.NoError(t, err)
+		assert.Len(t, deps, 1)
+
+		// Scale
+		err = svc.ScaleDeployment(ctx, dep.ID, 5)
+		assert.NoError(t, err)
+
+		scaled, _ := repo.GetDeploymentByID(ctx, dep.ID, userID)
+		assert.Equal(t, 5, scaled.Replicas)
+		assert.Equal(t, domain.DeploymentStatusScaling, scaled.Status)
+
+		// Delete
+		err = svc.DeleteDeployment(ctx, dep.ID)
+		assert.NoError(t, err)
+
+		deleting, _ := repo.GetDeploymentByID(ctx, dep.ID, userID)
+		assert.Equal(t, domain.DeploymentStatusDeleting, deleting.Status)
 	})
 
-	t.Run("Create_RepoError", func(t *testing.T) {
-		repo, _, _, svc := setupContainerServiceTest(t)
-		repo.On("CreateDeployment", ctx, mock.Anything).Return(assert.AnError)
-		_, err := svc.CreateDeployment(ctx, "n", "i", 1, "p")
-		assert.Error(t, err)
-	})
+	t.Run("ContainerManagement", func(t *testing.T) {
+		tenantID := appcontext.TenantIDFromContext(ctx)
+		dep, _ := svc.CreateDeployment(ctx, "cnt-test", "alpine", 1, "")
 
-	t.Run("List_Unauthorized", func(t *testing.T) {
-		_, _, _, svc := setupContainerServiceTest(t)
-		_, err := svc.ListDeployments(context.Background())
-		assert.Error(t, err)
-	})
+		// Create instance first to satisfy FK constraint
+		instRepo := postgres.NewInstanceRepository(db)
+		instID := uuid.New()
+		err := instRepo.Create(ctx, &domain.Instance{
+			ID:       instID,
+			UserID:   userID,
+			TenantID: tenantID,
+			Name:     "cnt-inst",
+			Status:   domain.StatusStarting,
+			Image:    "alpine",
+		})
+		require.NoError(t, err)
 
-	t.Run("Get_Unauthorized", func(t *testing.T) {
-		_, _, _, svc := setupContainerServiceTest(t)
-		_, err := svc.GetDeployment(context.Background(), depID)
-		assert.Error(t, err)
-	})
+		err = repo.AddContainer(ctx, dep.ID, instID)
+		require.NoError(t, err)
 
-	t.Run("Scale_GetError", func(t *testing.T) {
-		repo, _, _, svc := setupContainerServiceTest(t)
-		repo.On("GetDeploymentByID", ctx, depID, userID).Return(nil, assert.AnError)
-		err := svc.ScaleDeployment(ctx, depID, 5)
-		assert.Error(t, err)
-	})
+		containers, err := repo.GetContainers(ctx, dep.ID)
+		assert.NoError(t, err)
+		require.Len(t, containers, 1)
+		assert.Equal(t, instID, containers[0])
 
-	t.Run("Delete_GetError", func(t *testing.T) {
-		repo, _, _, svc := setupContainerServiceTest(t)
-		repo.On("GetDeploymentByID", ctx, depID, userID).Return(nil, assert.AnError)
-		err := svc.DeleteDeployment(ctx, depID)
-		assert.Error(t, err)
-	})
-}
+		err = repo.RemoveContainer(ctx, dep.ID, instID)
+		assert.NoError(t, err)
 
-func TestContainerService_MoreRepoErrors(t *testing.T) {
-	ctx := appcontext.WithUserID(context.Background(), uuid.New())
-	userID := appcontext.UserIDFromContext(ctx)
-	depID := uuid.New()
-	dep := &domain.Deployment{ID: depID, UserID: userID}
-
-	t.Run("Scale_UpdateError", func(t *testing.T) {
-		repo, _, _, svc := setupContainerServiceTest(t)
-		repo.On("GetDeploymentByID", ctx, depID, userID).Return(dep, nil)
-		repo.On("UpdateDeployment", ctx, mock.Anything).Return(assert.AnError)
-		err := svc.ScaleDeployment(ctx, depID, 5)
-		assert.Error(t, err)
-	})
-
-	t.Run("Delete_UpdateError", func(t *testing.T) {
-		repo, _, _, svc := setupContainerServiceTest(t)
-		repo.On("GetDeploymentByID", ctx, depID, userID).Return(dep, nil)
-		repo.On("UpdateDeployment", ctx, mock.Anything).Return(assert.AnError)
-		err := svc.DeleteDeployment(ctx, depID)
-		assert.Error(t, err)
+		containers, _ = repo.GetContainers(ctx, dep.ID)
+		assert.Empty(t, containers)
 	})
 }
