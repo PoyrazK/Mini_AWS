@@ -4696,6 +4696,9 @@ const docTemplate = `{
                 "default_tenant_id": {
                     "type": "string"
                 },
+                "expires_at": {
+                    "type": "string"
+                },
                 "id": {
                     "type": "string"
                 },
