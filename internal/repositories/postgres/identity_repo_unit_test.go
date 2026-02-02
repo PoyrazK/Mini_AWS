@@ -26,7 +26,7 @@ func TestIdentityRepository_CreateAPIKey(t *testing.T) {
 	}
 
 	mock.ExpectExec("INSERT INTO api_keys").
-		WithArgs(apiKey.ID, apiKey.UserID, apiKey.Key, apiKey.Name, apiKey.CreatedAt).
+		WithArgs(apiKey.ID, apiKey.UserID, apiKey.Key, apiKey.Name, apiKey.CreatedAt, apiKey.ExpiresAt).
 		WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 	err = repo.CreateAPIKey(context.Background(), apiKey)
@@ -45,10 +45,10 @@ func TestIdentityRepository_GetAPIKeyByKey(t *testing.T) {
 	now := time.Now()
 	var lastUsed *time.Time = nil
 
-	mock.ExpectQuery("SELECT id, user_id, key, name, created_at, last_used, default_tenant_id FROM api_keys").
+	mock.ExpectQuery("SELECT id, user_id, key, name, created_at, last_used, default_tenant_id, expires_at FROM api_keys").
 		WithArgs(key).
-		WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "key", "name", "created_at", "last_used", "default_tenant_id"}).
-			AddRow(id, userID, key, "test-key", now, lastUsed, nil))
+		WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "key", "name", "created_at", "last_used", "default_tenant_id", "expires_at"}).
+			AddRow(id, userID, key, "test-key", now, lastUsed, nil, nil))
 
 	apiKey, err := repo.GetAPIKeyByKey(context.Background(), key)
 	assert.NoError(t, err)
@@ -66,10 +66,10 @@ func TestIdentityRepository_ListAPIKeysByUserID(t *testing.T) {
 	now := time.Now()
 	var lastUsed *time.Time = nil
 
-	mock.ExpectQuery("SELECT id, user_id, key, name, created_at, last_used, default_tenant_id FROM api_keys").
+	mock.ExpectQuery("SELECT id, user_id, key, name, created_at, last_used, default_tenant_id, expires_at FROM api_keys").
 		WithArgs(userID).
-		WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "key", "name", "created_at", "last_used", "default_tenant_id"}).
-			AddRow(uuid.New(), userID, "secret-key", "test-key", now, lastUsed, nil))
+		WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "key", "name", "created_at", "last_used", "default_tenant_id", "expires_at"}).
+			AddRow(uuid.New(), userID, "secret-key", "test-key", now, lastUsed, nil, nil))
 
 	keys, err := repo.ListAPIKeysByUserID(context.Background(), userID)
 	assert.NoError(t, err)

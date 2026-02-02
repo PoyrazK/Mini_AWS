@@ -65,6 +65,12 @@ func setupInstanceServiceTest(t *testing.T) (*pgxpool.Pool, *services.InstanceSe
 	compute, err := docker.NewDockerAdapter()
 	require.NoError(t, err)
 
+	// In integration tests, we frequently rely on a shared Docker network named 'cloud-network'.
+	// We ensure it exists here so that Provisioning (which uses it as a fallback) succeeds.
+	if compute.Type() == "docker" {
+		_, _ = compute.CreateNetwork(ctx, "cloud-network")
+	}
+
 	// Ensure default instance type exists
 	defaultType := &domain.InstanceType{
 		ID:       "basic-2",

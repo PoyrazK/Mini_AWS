@@ -74,7 +74,10 @@ jobs:
       - name: Run Database Migrations
         env:
           DATABASE_URL: postgres://cloud:cloud@localhost:5433/cloud?sslmode=disable
-        run: go run ./cmd/api -migrate-only
+        run: |
+          PGPASSWORD=cloud psql -h localhost -p 5433 -U cloud -d postgres -c "DROP DATABASE IF EXISTS cloud;"
+          PGPASSWORD=cloud psql -h localhost -p 5433 -U cloud -d postgres -c "CREATE DATABASE cloud;"
+          go run ./cmd/api -migrate-only
         
       - name: Run Integration Tests
         env:
@@ -177,6 +180,11 @@ jobs:
         env:
           DATABASE_URL: postgres://cloud:cloud@localhost:5433/cloud?sslmode=disable
         run: |
+          # Ensure clean DB for switching tests
+          PGPASSWORD=cloud psql -h localhost -p 5433 -U cloud -d postgres -c "DROP DATABASE IF EXISTS cloud;"
+          PGPASSWORD=cloud psql -h localhost -p 5433 -U cloud -d postgres -c "CREATE DATABASE cloud;"
+          go run ./cmd/api -migrate-only
+          
           # Test with Docker backend (default)
           export COMPUTE_BACKEND=docker
           go test -v -run TestInstanceService ./internal/core/services/...
