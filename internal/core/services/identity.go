@@ -60,6 +60,11 @@ func (s *IdentityService) ValidateAPIKey(ctx context.Context, key string) (*doma
 	if err != nil {
 		return nil, err
 	}
+
+	if apiKey.ExpiresAt != nil && time.Now().After(*apiKey.ExpiresAt) {
+		return nil, errors.New(errors.Unauthorized, "api key expired")
+	}
+
 	return apiKey, nil
 }
 
