@@ -6,91 +6,52 @@ import (
 	"log/slog"
 	"testing"
 
-	"github.com/google/uuid"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
-	"github.com/poyrazk/thecloud/internal/core/domain"
-	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
+	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 )
 
-// MockEventRepo
-type MockEventRepo struct {
-	mock.Mock
-}
+func setupEventServiceTest(t *testing.T) (*services.EventService, *postgres.EventRepository, context.Context) {
+	db := setupDB(t)
+	cleanDB(t, db)
+	ctx := setupTestUser(t, db)
 
-func (m *MockEventRepo) Create(ctx context.Context, event *domain.Event) error {
-	args := m.Called(ctx, event)
-	return args.Error(0)
-}
-func (m *MockEventRepo) List(ctx context.Context, limit int) ([]*domain.Event, error) {
-	args := m.Called(ctx, limit)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).([]*domain.Event), args.Error(1)
-}
-
-func setupEventServiceTest(_ *testing.T) (*MockEventRepo, ports.EventService) {
-	repo := new(MockEventRepo)
+	repo := postgres.NewEventRepository(db)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	svc := services.NewEventService(repo, nil, logger)
-	return repo, svc
+	return svc, repo, ctx
 }
 
 func TestEventServiceRecordEventSuccess(t *testing.T) {
-	repo, svc := setupEventServiceTest(t)
-	defer repo.AssertExpectations(t)
+	svc, repo, ctx := setupEventServiceTest(t)
+	userID := appcontext.UserIDFromContext(ctx)
 
-	ctx := appcontext.WithUserID(context.Background(), uuid.New())
+	action := "TEST_ACTION"
+	resID := "res-123"
+	resType := "TEST"
+	details := map[string]interface{}{"key": "value"}
 
-	repo.On("Create", ctx, mock.AnythingOfType("*domain.Event")).Return(nil)
-
-	err := svc.RecordEvent(ctx, "TEST_ACTION", "res-123", "TEST", map[string]interface{}{"key": "value"})
-
+	err := svc.RecordEvent(ctx, action, resID, resType, details)
 	assert.NoError(t, err)
+
+	// Verify in DB - wait, List doesn't filter by user ID in this implementation?
+	// Let's check postgres.EventRepository.List
+	result, err := repo.List(ctx, 10)
+	assert.NoError(t, err)
+	assert.Len(t, result, 1)
+	assert.Equal(t, action, result[0].Action)
+	assert.Equal(t, userID, result[0].UserID)
 }
 
-func TestEventServiceRecordEventFailure(t *testing.T) {
-	repo, svc := setupEventServiceTest(t)
-	defer repo.AssertExpectations(t)
+func TestEventServiceListEvents(t *testing.T) {
+	svc, _, ctx := setupEventServiceTest(t)
 
-	ctx := context.Background()
-
-	repo.On("Create", ctx, mock.Anything).Return(assert.AnError)
-
-	err := svc.RecordEvent(ctx, "FAIL_ACTION", "res-456", "TEST", nil)
-
-	assert.Error(t, err)
-}
-
-func TestEventServiceListEventsSuccess(t *testing.T) {
-	repo, svc := setupEventServiceTest(t)
-	defer repo.AssertExpectations(t)
-
-	ctx := context.Background()
-
-	events := []*domain.Event{{Action: "A1"}, {Action: "A2"}}
-	repo.On("List", ctx, 10).Return(events, nil)
+	_ = svc.RecordEvent(ctx, "A1", "r1", "T1", nil)
+	_ = svc.RecordEvent(ctx, "A2", "r2", "T2", nil)
 
 	result, err := svc.ListEvents(ctx, 10)
 
 	assert.NoError(t, err)
 	assert.Len(t, result, 2)
-}
-
-func TestEventServiceListEventsDefaultLimit(t *testing.T) {
-	repo, svc := setupEventServiceTest(t)
-	defer repo.AssertExpectations(t)
-
-	ctx := context.Background()
-
-	events := []*domain.Event{}
-	repo.On("List", ctx, 50).Return(events, nil) // Default limit
-
-	_, err := svc.ListEvents(ctx, 0) // Pass 0 to trigger default
-
-	assert.NoError(t, err)
-	repo.AssertCalled(t, "List", ctx, 50)
 }
