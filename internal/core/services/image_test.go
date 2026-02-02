@@ -9,7 +9,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
-	"github.com/poyrazk/thecloud/internal/repositories/noop"
+	"github.com/poyrazk/thecloud/internal/repositories/filesystem"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -21,7 +21,10 @@ func setupImageServiceTest(t *testing.T) (ports.ImageService, ports.ImageReposit
 	ctx := setupTestUser(t, db)
 
 	repo := postgres.NewImageRepository(db)
-	store := &noop.NoopFileStore{}
+
+	tmpDir := t.TempDir()
+	store, err := filesystem.NewLocalFileStore(tmpDir)
+	require.NoError(t, err)
 
 	svc := services.NewImageService(repo, store, nil)
 	return svc, repo, ctx
