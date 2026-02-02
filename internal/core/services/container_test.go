@@ -103,3 +103,60 @@ func TestContainerService_Integration(t *testing.T) {
 		assert.Empty(t, containers)
 	})
 }
+
+func TestContainer_ChaosRestart(t *testing.T) {
+	// 1. Setup
+	db, instSvc, compute, instRepo, _, _, ctx := setupInstanceServiceTest(t)
+
+	containerRepo := postgres.NewPostgresContainerRepository(db)
+	eventSvc := services.NewEventService(postgres.NewEventRepository(db), nil, slog.Default())
+	auditSvc := services.NewAuditService(postgres.NewAuditRepository(db))
+
+	containerSvc := services.NewContainerService(containerRepo, eventSvc, auditSvc)
+	worker := services.NewContainerWorker(containerRepo, instSvc, eventSvc)
+
+	// 2. Create Deployment
+	dep, err := containerSvc.CreateDeployment(ctx, "chaos-web", "alpine:latest", 1, "")
+	require.NoError(t, err)
+
+	// 3. Reconcile (Should launch 1 instance)
+	worker.Reconcile(ctx)
+
+	// Verify 1 association
+	ids, err := containerRepo.GetContainers(ctx, dep.ID)
+	require.NoError(t, err)
+	require.Len(t, ids, 1)
+	instID := ids[0]
+
+	// Manually provision it (simulating worker)
+	err = instSvc.Provision(ctx, instID, nil)
+	require.NoError(t, err)
+
+	// Get container ID
+	inst, err := instRepo.GetByID(ctx, instID)
+	require.NoError(t, err)
+	containerID := inst.ContainerID
+	require.NotEmpty(t, containerID)
+
+	// 4. CHAOS: Set status to ERROR in DB
+	// This simulates the worker detecting a failure or a monitor updating the status
+	_, err = db.Exec(ctx, "UPDATE instances SET status = 'ERROR' WHERE id = $1", instID)
+	require.NoError(t, err)
+
+	// 5. Reconcile Again (Should replace)
+	worker.Reconcile(ctx)
+
+	// 6. Verify New Instance
+	newIds, err := containerRepo.GetContainers(ctx, dep.ID)
+	require.NoError(t, err)
+	assert.Len(t, newIds, 1)
+	assert.NotEqual(t, instID, newIds[0], "Should have replaced the unhealthy instance")
+
+	// Cleanup
+	for _, id := range newIds {
+		inst, _ := instRepo.GetByID(ctx, id)
+		if inst.ContainerID != "" {
+			_ = compute.DeleteInstance(ctx, inst.ContainerID)
+		}
+	}
+}
