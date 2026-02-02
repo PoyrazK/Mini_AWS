@@ -199,9 +199,8 @@ func (s *InstanceService) Provision(ctx context.Context, instanceID uuid.UUID, v
 	// 4. Finalize
 	return s.finalizeProvision(ctx, inst, containerID, attachedVolumes)
 }
-
 func (s *InstanceService) provisionNetwork(ctx context.Context, inst *domain.Instance) (string, error) {
-	if s.compute.Type() == "noop" {
+	if s.compute.Type() == "noop" && inst.VpcID == nil && inst.SubnetID == nil {
 		inst.PrivateIP = "127.0.0.1"
 		return "", nil
 	}
@@ -595,13 +594,23 @@ func (s *InstanceService) allocateIP(ctx context.Context, subnet *domain.Subnet)
 	usedIPs := make(map[string]bool)
 	for _, inst := range instances {
 		if inst.PrivateIP != "" {
-			usedIPs[inst.PrivateIP] = true
+			ip := inst.PrivateIP
+			if idx := strings.Index(ip, "/"); idx != -1 {
+				ip = ip[:idx]
+			}
+			usedIPs[ip] = true
 		}
 	}
-	usedIPs[subnet.GatewayIP] = true
+	gw := subnet.GatewayIP
+	if idx := strings.Index(gw, "/"); idx != -1 {
+		gw = gw[:idx]
+	}
+	usedIPs[gw] = true
+	s.logger.Info("allocating IP", "subnet", subnet.ID, "gateway", subnet.GatewayIP, "usedIPs_init", len(usedIPs))
 
 	// Find first available IP
 	ip, err := s.findAvailableIP(ipNet, usedIPs)
+	s.logger.Info("allocateIP", "subnet", subnet.CIDRBlock, "ip", ip, "err", err, "usedIPs", len(usedIPs))
 	if err != nil {
 		return "", err
 	}
@@ -609,9 +618,29 @@ func (s *InstanceService) allocateIP(ctx context.Context, subnet *domain.Subnet)
 }
 
 func (s *InstanceService) isValidHostIP(ip net.IP, n *net.IPNet) bool {
-	// Simple check: not network address and not broadcast address (if /30 or larger)
-	// For simplicity in this demo, we just ensure it's in range and not gateway
-	return n.Contains(ip)
+	if !n.Contains(ip) {
+		return false
+	}
+
+	// For IPv4, skip network and broadcast addresses
+	ip4 := ip.To4()
+	if ip4 != nil {
+		network := n.IP.To4()
+		if ip4.Equal(network) {
+			return false
+		}
+
+		// Calculate broadcast
+		broadcast := make(net.IP, 4)
+		for i := 0; i < 4; i++ {
+			broadcast[i] = network[i] | ^n.Mask[i]
+		}
+		if ip4.Equal(broadcast) {
+			return false
+		}
+	}
+
+	return true
 }
 
 func (s *InstanceService) resolveNetworkConfig(ctx context.Context, vpcID, subnetID *uuid.UUID) (string, string, string, error) {
@@ -742,8 +771,13 @@ func (s *InstanceService) findAvailableIP(ipNet *net.IPNet, usedIPs map[string]b
 			break
 		}
 
-		if !usedIPs[ip.String()] && s.isValidHostIP(ip, ipNet) {
-			return ip.String(), nil
+		displayIP := ip.String()
+		if ip4 := ip.To4(); ip4 != nil {
+			displayIP = ip4.String()
+		}
+
+		if !usedIPs[displayIP] && s.isValidHostIP(ip, ipNet) {
+			return displayIP, nil
 		}
 	}
 	return "", fmt.Errorf("no available IPs in subnet")
