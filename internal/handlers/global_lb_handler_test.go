@@ -55,8 +55,8 @@ func (m *mockGlobalLBService) AddEndpoint(ctx context.Context, glbID uuid.UUID, 
 	return args.Get(0).(*domain.GlobalEndpoint), args.Error(1)
 }
 
-func (m *mockGlobalLBService) RemoveEndpoint(ctx context.Context, endpointID uuid.UUID) error {
-	args := m.Called(ctx, endpointID)
+func (m *mockGlobalLBService) RemoveEndpoint(ctx context.Context, glbID, endpointID uuid.UUID) error {
+	args := m.Called(ctx, glbID, endpointID)
 	return args.Error(0)
 }
 

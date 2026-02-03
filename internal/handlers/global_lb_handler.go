@@ -42,6 +42,7 @@ type AddGlobalEndpointRequest struct {
 // Create handles POST /global-lb
 // @Summary Create a new global load balancer
 // @Tags global-lb
+// @Security APIKeyAuth
 // @Accept json
 // @Produce json
 // @Param request body CreateGlobalLBRequest true "GLB creation request"
@@ -68,6 +69,7 @@ func (h *GlobalLBHandler) Create(c *gin.Context) {
 // Get handles GET /global-lb/:id
 // @Summary Get a global load balancer by ID
 // @Tags global-lb
+// @Security APIKeyAuth
 // @Produce json
 // @Param id path string true "Global LB ID"
 // @Success 200 {object} domain.GlobalLoadBalancer
@@ -93,6 +95,7 @@ func (h *GlobalLBHandler) Get(c *gin.Context) {
 // List handles GET /global-lb
 // @Summary List all global load balancers
 // @Tags global-lb
+// @Security APIKeyAuth
 // @Produce json
 // @Success 200 {array} domain.GlobalLoadBalancer
 // @Failure 500 {object} httputil.Response
@@ -111,6 +114,7 @@ func (h *GlobalLBHandler) List(c *gin.Context) {
 // Delete handles DELETE /global-lb/:id
 // @Summary Delete a global load balancer
 // @Tags global-lb
+// @Security APIKeyAuth
 // @Param id path string true "Global LB ID"
 // @Success 204 "No Content"
 // @Failure 400 {object} httputil.Response
@@ -135,6 +139,7 @@ func (h *GlobalLBHandler) Delete(c *gin.Context) {
 // AddEndpoint handles POST /global-lb/:id/endpoints
 // @Summary Add an endpoint to a global load balancer
 // @Tags global-lb
+// @Security APIKeyAuth
 // @Accept json
 // @Produce json
 // @Param id path string true "Global LB ID"
@@ -188,6 +193,7 @@ func (h *GlobalLBHandler) AddEndpoint(c *gin.Context) {
 // RemoveEndpoint handles DELETE /global-lb/:id/endpoints/:epID
 // @Summary Remove an endpoint from a global load balancer
 // @Tags global-lb
+// @Security APIKeyAuth
 // @Param id path string true "Global LB ID"
 // @Param epID path string true "Endpoint ID"
 // @Success 204 "No Content"
@@ -195,9 +201,11 @@ func (h *GlobalLBHandler) AddEndpoint(c *gin.Context) {
 // @Failure 500 {object} httputil.Response
 // @Router /global-lb/{id}/endpoints/{epID} [delete]
 func (h *GlobalLBHandler) RemoveEndpoint(c *gin.Context) {
-	// The GLB ID is provided via the route parameters for API consistency,
-	// though the underlying service call utilizes the unique endpoint identifier.
-	_ = c.Param("id")
+	glbID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		httputil.Error(c, errors.New(errors.InvalidInput, "invalid global lb id"))
+		return
+	}
 
 	epID, err := uuid.Parse(c.Param("epID"))
 	if err != nil {
@@ -205,7 +213,7 @@ func (h *GlobalLBHandler) RemoveEndpoint(c *gin.Context) {
 		return
 	}
 
-	if err := h.svc.RemoveEndpoint(c.Request.Context(), epID); err != nil {
+	if err := h.svc.RemoveEndpoint(c.Request.Context(), glbID, epID); err != nil {
 		httputil.Error(c, err)
 		return
 	}
