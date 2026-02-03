@@ -32,7 +32,7 @@ func TestComputeE2E(t *testing.T) {
 		payload := map[string]string{
 			"name":  instanceName,
 			"image": "nginx:alpine",
-			"ports": "80:80",
+			"ports": "0:80",
 		}
 		resp := postRequest(t, client, testutil.TestBaseURL+testutil.TestRouteInstances, token, payload)
 		defer func() { _ = resp.Body.Close() }()

@@ -48,7 +48,7 @@ func TestAutoScalingE2E(t *testing.T) {
 			"name":          groupName,
 			"vpc_id":        vpcID,
 			"image":         "alpine",
-			"ports":         "80:80",
+			"ports":         "0:80",
 			"min_instances": 1,
 			"max_instances": 5,
 			"desired_count": 2,
