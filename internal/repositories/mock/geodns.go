@@ -1,3 +1,4 @@
+// Package mock provides mock implementations for ports and services for testing.
 package mock
 
 import (
@@ -8,10 +9,12 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
 
+// MockGeoDNS is a mock implementation of the GeoDNSBackend port.
 type MockGeoDNS struct {
 	Records map[string][]domain.GlobalEndpoint
 }
 
+// NewMockGeoDNS creates a new instance of MockGeoDNS.
 func NewMockGeoDNS() ports.GeoDNSBackend {
 	return &MockGeoDNS{
 		Records: make(map[string][]domain.GlobalEndpoint),

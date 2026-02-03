@@ -1,3 +1,4 @@
+// Package postgres provides PostgreSQL implementations of the platform's repositories.
 package postgres
 
 import (
@@ -14,6 +15,7 @@ type globalLBRepository struct {
 	db DB
 }
 
+// NewGlobalLBRepository returns a new instance of globalLBRepository using the provided DB.
 func NewGlobalLBRepository(db DB) *globalLBRepository {
 	return &globalLBRepository{db: db}
 }

@@ -1,3 +1,4 @@
+// Package handlers provides the HTTP handlers for global load balancing.
 package httphandlers
 
 import (
@@ -10,10 +11,12 @@ import (
 	"github.com/poyrazk/thecloud/pkg/httputil"
 )
 
+// GlobalLBHandler manages HTTP requests for global load balancer resources.
 type GlobalLBHandler struct {
 	svc ports.GlobalLBService
 }
 
+// NewGlobalLBHandler creates a new instance of the global load balancer handler.
 func NewGlobalLBHandler(svc ports.GlobalLBService) *GlobalLBHandler {
 	return &GlobalLBHandler{svc: svc}
 }

@@ -1,3 +1,4 @@
+// Package services provides the implementation for global load balancing.
 package services
 
 import (
@@ -12,6 +13,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/errors"
 )
 
+// GlobalLBService coordinates multi-region traffic distribution via GeoDNS.
 type GlobalLBService struct {
 	repo     ports.GlobalLBRepository
 	lbRepo   ports.LBRepository
@@ -20,6 +22,7 @@ type GlobalLBService struct {
 	logger   *slog.Logger
 }
 
+// NewGlobalLBService creates a new instance of the global load balancer service.
 func NewGlobalLBService(
 	repo ports.GlobalLBRepository,
 	lbRepo ports.LBRepository,

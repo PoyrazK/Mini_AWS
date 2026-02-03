@@ -30,10 +30,14 @@ type GlobalLoadBalancer struct {
 type RoutingPolicy string
 
 const (
-	RoutingLatency     RoutingPolicy = "LATENCY"
+	// RoutingLatency routes traffic to the region with the lowest latency.
+	RoutingLatency RoutingPolicy = "LATENCY"
+	// RoutingGeolocation routes traffic based on the user's geographic location.
 	RoutingGeolocation RoutingPolicy = "GEOLOCATION"
-	RoutingWeighted    RoutingPolicy = "WEIGHTED"
-	RoutingFailover    RoutingPolicy = "FAILOVER"
+	// RoutingWeighted distributes traffic based on relative weights.
+	RoutingWeighted RoutingPolicy = "WEIGHTED"
+	// RoutingFailover uses priority-based failover.
+	RoutingFailover RoutingPolicy = "FAILOVER"
 )
 
 // GlobalEndpoint is a destination for traffic, usually a regional load balancer or static IP.

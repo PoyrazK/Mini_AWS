@@ -1,3 +1,4 @@
+// Package ports defines the interfaces for the global load balancer service and repository.
 package ports
 
 import (

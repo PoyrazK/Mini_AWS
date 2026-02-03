@@ -1,3 +1,4 @@
+// Package mock provides mock implementations for ports and services for testing.
 package mock
 
 import (
@@ -8,11 +9,13 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
 
+// MockGlobalLBRepo is a mock implementation of the GlobalLBRepository port.
 type MockGlobalLBRepo struct {
 	GLBs      map[uuid.UUID]*domain.GlobalLoadBalancer
 	Endpoints map[uuid.UUID][]*domain.GlobalEndpoint
 }
 
+// NewMockGlobalLBRepo creates a new instance of MockGlobalLBRepo.
 func NewMockGlobalLBRepo() *MockGlobalLBRepo {
 	return &MockGlobalLBRepo{
 		GLBs:      make(map[uuid.UUID]*domain.GlobalLoadBalancer),
