@@ -42,10 +42,12 @@ func (m *MockGlobalLBRepo) GetByHostname(ctx context.Context, hostname string) (
 	return nil, nil
 }
 
-func (m *MockGlobalLBRepo) List(ctx context.Context) ([]*domain.GlobalLoadBalancer, error) {
+func (m *MockGlobalLBRepo) List(ctx context.Context, userID uuid.UUID) ([]*domain.GlobalLoadBalancer, error) {
 	var list []*domain.GlobalLoadBalancer
 	for _, glb := range m.GLBs {
-		list = append(list, glb)
+		if glb.UserID == userID {
+			list = append(list, glb)
+		}
 	}
 	return list, nil
 }
@@ -55,8 +57,10 @@ func (m *MockGlobalLBRepo) Update(ctx context.Context, glb *domain.GlobalLoadBal
 	return nil
 }
 
-func (m *MockGlobalLBRepo) Delete(ctx context.Context, id uuid.UUID) error {
-	delete(m.GLBs, id)
+func (m *MockGlobalLBRepo) Delete(ctx context.Context, id uuid.UUID, userID uuid.UUID) error {
+	if glb, ok := m.GLBs[id]; ok && glb.UserID == userID {
+		delete(m.GLBs, id)
+	}
 	return nil
 }
 
@@ -77,6 +81,17 @@ func (m *MockGlobalLBRepo) RemoveEndpoint(ctx context.Context, endpointID uuid.U
 		m.Endpoints[glbID] = newEps
 	}
 	return nil
+}
+
+func (m *MockGlobalLBRepo) GetEndpointByID(ctx context.Context, endpointID uuid.UUID) (*domain.GlobalEndpoint, error) {
+	for _, eps := range m.Endpoints {
+		for _, ep := range eps {
+			if ep.ID == endpointID {
+				return ep, nil
+			}
+		}
+	}
+	return nil, nil
 }
 
 func (m *MockGlobalLBRepo) ListEndpoints(ctx context.Context, glbID uuid.UUID) ([]*domain.GlobalEndpoint, error) {
