@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"path/filepath"
 	"strings"
 	"time"
@@ -36,7 +37,8 @@ const (
 
 // DockerAdapter implements the compute backend using Docker.
 type DockerAdapter struct {
-	cli dockerClient
+	cli    dockerClient
+	logger *slog.Logger
 }
 
 // dockerClient is a narrow interface over the Docker SDK client.
@@ -66,12 +68,12 @@ type dockerClient interface {
 }
 
 // NewDockerAdapter constructs a DockerAdapter with a Docker client.
-func NewDockerAdapter() (*DockerAdapter, error) {
+func NewDockerAdapter(logger *slog.Logger) (*DockerAdapter, error) {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return nil, fmt.Errorf("failed to create docker client: %w", err)
 	}
-	return &DockerAdapter{cli: cli}, nil
+	return &DockerAdapter{cli: cli, logger: logger}, nil
 }
 
 // Ping checks if Docker daemon is reachable
@@ -87,7 +89,7 @@ func (a *DockerAdapter) Type() string {
 	return "docker"
 }
 
-func (a *DockerAdapter) CreateInstance(ctx context.Context, opts ports.CreateInstanceOptions) (string, error) {
+func (a *DockerAdapter) LaunchInstanceWithOptions(ctx context.Context, opts ports.CreateInstanceOptions) (string, error) {
 	ctx, span := otel.Tracer(tracerName).Start(ctx, "CreateInstance")
 	defer span.End()
 
@@ -191,7 +193,58 @@ func (a *DockerAdapter) CreateInstance(ctx context.Context, opts ports.CreateIns
 	}
 	startSpan.End()
 
+	// 5. Handle UserData (Bootstrap)
+	if opts.UserData != "" {
+		if err := a.handleUserData(ctx, resp.ID, opts.UserData); err != nil {
+			a.logger.Warn("failed to handle user data", "container_id", resp.ID, "error", err)
+		}
+	}
+
 	return resp.ID, nil
+}
+
+func (a *DockerAdapter) handleUserData(ctx context.Context, containerID string, userData string) error {
+	// For Docker, we simulate Cloud-Init by writing the script to the container and executing it.
+	// If it's a #cloud-config, we'd need a parser. For now, we support shell scripts.
+
+	var scriptPath string
+	var cmd []string
+
+	if strings.HasPrefix(userData, "#!") {
+		scriptPath = "/tmp/bootstrap.sh"
+		cmd = []string{"/bin/sh", scriptPath}
+	} else if strings.HasPrefix(userData, "#cloud-config") {
+		// Minimum support for cloud-config in Docker: write it to a standard location
+		scriptPath = "/var/lib/cloud/instance/user-data.txt"
+		// If we wanted to be fancy, we could parse runcmd here.
+		// For now, just write it.
+	} else {
+		// Assume it's a simple script
+		scriptPath = "/tmp/bootstrap.sh"
+		cmd = []string{"/bin/sh", scriptPath}
+	}
+
+	// Write file to container
+	writeCmd := []string{"sh", "-c", fmt.Sprintf("mkdir -p %s && cat <<'EOF' > %s\n%s\nEOF\nchmod +x %s",
+		filepath.Dir(scriptPath), scriptPath, userData, scriptPath)}
+
+	if _, err := a.Exec(ctx, containerID, writeCmd); err != nil {
+		return fmt.Errorf("failed to write userdata to container: %w", err)
+	}
+
+	// If it's a script, run it in background
+	if len(cmd) > 0 {
+		go func() {
+			// Using a background context as the creation context might expire
+			bgCtx := context.Background()
+			_, err := a.Exec(bgCtx, containerID, cmd)
+			if err != nil {
+				a.logger.Error("failed to execute userdata script", "container_id", containerID, "error", err)
+			}
+		}()
+	}
+
+	return nil
 }
 
 func (a *DockerAdapter) StopInstance(ctx context.Context, name string) error {
