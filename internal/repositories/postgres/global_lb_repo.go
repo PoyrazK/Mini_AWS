@@ -6,16 +6,15 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/errors"
 )
 
 type globalLBRepository struct {
-	db *pgxpool.Pool
+	db DB
 }
 
-func NewGlobalLBRepository(db *pgxpool.Pool) *globalLBRepository {
+func NewGlobalLBRepository(db DB) *globalLBRepository {
 	return &globalLBRepository{db: db}
 }
 
@@ -52,9 +51,9 @@ func (r *globalLBRepository) GetByHostname(ctx context.Context, hostname string)
 	return scanGlobalLB(row)
 }
 
-func (r *globalLBRepository) List(ctx context.Context) ([]*domain.GlobalLoadBalancer, error) {
-	query := `SELECT * FROM global_load_balancers`
-	rows, err := r.db.Query(ctx, query)
+func (r *globalLBRepository) List(ctx context.Context, userID uuid.UUID) ([]*domain.GlobalLoadBalancer, error) {
+	query := `SELECT * FROM global_load_balancers WHERE user_id = $1`
+	rows, err := r.db.Query(ctx, query, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -91,9 +90,9 @@ func (r *globalLBRepository) Update(ctx context.Context, glb *domain.GlobalLoadB
 	return err
 }
 
-func (r *globalLBRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	query := `DELETE FROM global_load_balancers WHERE id = $1`
-	_, err := r.db.Exec(ctx, query, id)
+func (r *globalLBRepository) Delete(ctx context.Context, id uuid.UUID, userID uuid.UUID) error {
+	query := `DELETE FROM global_load_balancers WHERE id = $1 AND user_id = $2`
+	_, err := r.db.Exec(ctx, query, id, userID)
 	return err
 }
 
@@ -115,6 +114,16 @@ func (r *globalLBRepository) RemoveEndpoint(ctx context.Context, endpointID uuid
 	query := `DELETE FROM global_lb_endpoints WHERE id = $1`
 	_, err := r.db.Exec(ctx, query, endpointID)
 	return err
+}
+
+func (r *globalLBRepository) GetEndpointByID(ctx context.Context, endpointID uuid.UUID) (*domain.GlobalEndpoint, error) {
+	query := `
+		SELECT id, global_lb_id, region, target_type, target_id, HOST(target_ip),
+		       weight, priority, healthy, last_health_check, created_at
+		FROM global_lb_endpoints WHERE id = $1
+	`
+	row := r.db.QueryRow(ctx, query, endpointID)
+	return scanEndpoint(row)
 }
 
 func (r *globalLBRepository) ListEndpoints(ctx context.Context, glbID uuid.UUID) ([]*domain.GlobalEndpoint, error) {
