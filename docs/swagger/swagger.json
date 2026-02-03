@@ -1,7 +1,10 @@
 {
     "swagger": "2.0",
     "info": {
-        "contact": {}
+        "description": "The Cloud - Multi-tenant Cloud Infrastructure Engine",
+        "title": "The Cloud API",
+        "contact": {},
+        "version": "1.0"
     },
     "paths": {
         "/api/dashboard/events": {
@@ -1844,6 +1847,11 @@
         },
         "/global-lb": {
             "get": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
                 "produces": [
                     "application/json"
                 ],
@@ -1870,6 +1878,11 @@
                 }
             },
             "post": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
                 "consumes": [
                     "application/json"
                 ],
@@ -1915,6 +1928,11 @@
         },
         "/global-lb/{id}": {
             "get": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
                 "produces": [
                     "application/json"
                 ],
@@ -1953,6 +1971,11 @@
                 }
             },
             "delete": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
                 "tags": [
                     "global-lb"
                 ],
@@ -1987,6 +2010,11 @@
         },
         "/global-lb/{id}/endpoints": {
             "post": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
                 "consumes": [
                     "application/json"
                 ],
@@ -2045,6 +2073,11 @@
         },
         "/global-lb/{id}/endpoints/{epID}": {
             "delete": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
                 "tags": [
                     "global-lb"
                 ],
@@ -7311,6 +7344,13 @@
                     "$ref": "#/definitions/domain.ClusterStatus"
                 }
             }
+        }
+    },
+    "securityDefinitions": {
+        "APIKeyAuth": {
+            "type": "apiKey",
+            "name": "X-API-Key",
+            "in": "header"
         }
     }
 }

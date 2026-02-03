@@ -1701,6 +1701,9 @@ definitions:
     type: object
 info:
   contact: {}
+  description: The Cloud - Multi-tenant Cloud Infrastructure Engine
+  title: The Cloud API
+  version: "1.0"
 paths:
   /api/dashboard/events:
     get:
@@ -2887,6 +2890,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
       summary: List all global load balancers
       tags:
       - global-lb
@@ -2915,6 +2920,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
       summary: Create a new global load balancer
       tags:
       - global-lb
@@ -2937,6 +2944,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
       summary: Delete a global load balancer
       tags:
       - global-lb
@@ -2962,6 +2971,8 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
       summary: Get a global load balancer by ID
       tags:
       - global-lb
@@ -3000,6 +3011,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
       summary: Add an endpoint to a global load balancer
       tags:
       - global-lb
@@ -3027,6 +3040,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
       summary: Remove an endpoint from a global load balancer
       tags:
       - global-lb
@@ -4827,4 +4842,9 @@ paths:
       summary: Get VPC details
       tags:
       - vpcs
+securityDefinitions:
+  APIKeyAuth:
+    in: header
+    name: X-API-Key
+    type: apiKey
 swagger: "2.0"

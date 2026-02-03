@@ -1855,6 +1855,11 @@ const docTemplate = `{
         },
         "/global-lb": {
             "get": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
                 "produces": [
                     "application/json"
                 ],
@@ -1881,6 +1886,11 @@ const docTemplate = `{
                 }
             },
             "post": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
                 "consumes": [
                     "application/json"
                 ],
@@ -1926,6 +1936,11 @@ const docTemplate = `{
         },
         "/global-lb/{id}": {
             "get": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
                 "produces": [
                     "application/json"
                 ],
@@ -1964,6 +1979,11 @@ const docTemplate = `{
                 }
             },
             "delete": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
                 "tags": [
                     "global-lb"
                 ],
@@ -1998,6 +2018,11 @@ const docTemplate = `{
         },
         "/global-lb/{id}/endpoints": {
             "post": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
                 "consumes": [
                     "application/json"
                 ],
@@ -2056,6 +2081,11 @@ const docTemplate = `{
         },
         "/global-lb/{id}/endpoints/{epID}": {
             "delete": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
                 "tags": [
                     "global-lb"
                 ],
@@ -7323,17 +7353,24 @@ const docTemplate = `{
                 }
             }
         }
+    },
+    "securityDefinitions": {
+        "APIKeyAuth": {
+            "type": "apiKey",
+            "name": "X-API-Key",
+            "in": "header"
+        }
     }
 }`
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "",
+	Version:          "1.0",
 	Host:             "",
 	BasePath:         "",
 	Schemes:          []string{},
-	Title:            "",
-	Description:      "",
+	Title:            "The Cloud API",
+	Description:      "The Cloud - Multi-tenant Cloud Infrastructure Engine",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",
