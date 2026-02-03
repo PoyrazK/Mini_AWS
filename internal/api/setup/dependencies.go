@@ -267,6 +267,7 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 		Lifecycle:    services.NewLifecycleService(c.Repos.Lifecycle, c.Repos.Storage),
 		InstanceType: services.NewInstanceTypeService(c.Repos.InstanceType),
 		GlobalLB:     glbSvc,
+		DNS:          dnsSvc,
 	}
 
 	// 7. High Availability & Monitoring
