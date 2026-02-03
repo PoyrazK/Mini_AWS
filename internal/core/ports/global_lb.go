@@ -12,13 +12,14 @@ type GlobalLBRepository interface {
 	Create(ctx context.Context, glb *domain.GlobalLoadBalancer) error
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.GlobalLoadBalancer, error)
 	GetByHostname(ctx context.Context, hostname string) (*domain.GlobalLoadBalancer, error)
-	List(ctx context.Context) ([]*domain.GlobalLoadBalancer, error)
+	List(ctx context.Context, userID uuid.UUID) ([]*domain.GlobalLoadBalancer, error)
 	Update(ctx context.Context, glb *domain.GlobalLoadBalancer) error
-	Delete(ctx context.Context, id uuid.UUID) error
+	Delete(ctx context.Context, id uuid.UUID, userID uuid.UUID) error
 
 	// Endpoint management
 	AddEndpoint(ctx context.Context, ep *domain.GlobalEndpoint) error
 	RemoveEndpoint(ctx context.Context, endpointID uuid.UUID) error
+	GetEndpointByID(ctx context.Context, endpointID uuid.UUID) (*domain.GlobalEndpoint, error)
 	ListEndpoints(ctx context.Context, glbID uuid.UUID) ([]*domain.GlobalEndpoint, error)
 	UpdateEndpointHealth(ctx context.Context, epID uuid.UUID, healthy bool) error
 }
@@ -27,8 +28,8 @@ type GlobalLBRepository interface {
 type GlobalLBService interface {
 	Create(ctx context.Context, name, hostname string, policy domain.RoutingPolicy, healthCheck domain.GlobalHealthCheckConfig) (*domain.GlobalLoadBalancer, error)
 	Get(ctx context.Context, id uuid.UUID) (*domain.GlobalLoadBalancer, error)
-	List(ctx context.Context) ([]*domain.GlobalLoadBalancer, error)
-	Delete(ctx context.Context, id uuid.UUID) error
+	List(ctx context.Context, userID uuid.UUID) ([]*domain.GlobalLoadBalancer, error)
+	Delete(ctx context.Context, id uuid.UUID, userID uuid.UUID) error
 
 	AddEndpoint(ctx context.Context, glbID uuid.UUID, region string, targetType string, targetID *uuid.UUID, targetIP *string, weight, priority int) (*domain.GlobalEndpoint, error)
 	RemoveEndpoint(ctx context.Context, endpointID uuid.UUID) error
