@@ -126,7 +126,7 @@ func TestLaunchInstanceSuccess(t *testing.T) {
 	assert.Equal(t, domain.StatusStarting, inst.Status)
 
 	// 2. Provision (Simulate Worker)
-	err = svc.Provision(ctx, inst.ID, nil)
+	err = svc.Provision(ctx, inst.ID, nil, "")
 	require.NoError(t, err)
 
 	// 3. Verify Running
@@ -152,7 +152,7 @@ func TestTerminateInstanceSuccess(t *testing.T) {
 	// Setup: Launch & Provision
 	inst, err := svc.LaunchInstance(ctx, name, image, "", "basic-2", nil, nil, nil)
 	require.NoError(t, err)
-	err = svc.Provision(ctx, inst.ID, nil)
+	err = svc.Provision(ctx, inst.ID, nil, "")
 	require.NoError(t, err)
 
 	updatedInst, _ := repo.GetByID(ctx, inst.ID)
@@ -246,7 +246,7 @@ func TestInstanceNetworking(t *testing.T) {
 	inst, err := svc.LaunchInstance(ctx, "test-vpc-inst", "alpine:latest", "", "basic-2", &vpcID, nil, nil)
 	require.NoError(t, err)
 
-	err = svc.Provision(ctx, inst.ID, nil)
+	err = svc.Provision(ctx, inst.ID, nil, "")
 	require.NoError(t, err)
 
 	// Check if attached to network
@@ -298,7 +298,7 @@ func TestInstanceService_GetStats_Real(t *testing.T) {
 	// Launch and Provision
 	inst, err := svc.LaunchInstance(ctx, name, image, "", "basic-2", nil, nil, nil)
 	require.NoError(t, err)
-	err = svc.Provision(ctx, inst.ID, nil)
+	err = svc.Provision(ctx, inst.ID, nil, "")
 	require.NoError(t, err)
 
 	// Wait a bit for container to run and gather stats
@@ -351,7 +351,7 @@ func TestNetworking_CIDRExhaustion(t *testing.T) {
 	require.NoError(t, err)
 
 	// Manually provision to trigger network allocation
-	err = svc.Provision(ctx, inst1.ID, nil)
+	err = svc.Provision(ctx, inst1.ID, nil, "")
 	assert.NoError(t, err)
 
 	// 3. Launch 2nd instance (Should succeed in DB)
@@ -359,7 +359,7 @@ func TestNetworking_CIDRExhaustion(t *testing.T) {
 	require.NoError(t, err)
 
 	// Provision 2nd instance (Should fail with CIDR exhaustion)
-	err = svc.Provision(ctx, inst2.ID, nil)
+	err = svc.Provision(ctx, inst2.ID, nil, "")
 	require.Error(t, err, "Expected error due to CIDR exhaustion")
 	t.Logf("Got expected error: %v", err)
 	assert.Contains(t, err.Error(), "allocate IP")
