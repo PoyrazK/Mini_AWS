@@ -24,7 +24,7 @@ func TestCreateInstanceContextCancelled(t *testing.T) {
 		ImageName: "ubuntu",
 	}
 
-	_, err := a.CreateInstance(ctx, opts)
+	_, err := a.LaunchInstanceWithOptions(ctx, opts)
 	assert.Error(t, err)
 	assert.ErrorIs(t, err, context.Canceled)
 }
