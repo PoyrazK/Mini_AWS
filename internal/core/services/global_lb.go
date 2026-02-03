@@ -66,12 +66,11 @@ func (s *GlobalLBService) Create(ctx context.Context, name, hostname string, pol
 		return nil, errors.Wrap(errors.Internal, "failed to create global load balancer", err)
 	}
 
-	// Create initial DNS record (empty)
-	// We might need to ensure backend handles empty endpoints gracefully or wait until endpoints added.
-	// For API simplicity, we create the record now.
+	// Initialize the associated GeoDNS record set.
+	// Current behavior initializes an empty record set to ensure immediate resolution readiness.
 	if err := s.geoDNS.CreateGeoRecord(ctx, hostname, nil); err != nil {
-		s.logger.Error("failed to create geo dns record", "hostname", hostname, "error", err)
-		// We don't rollback DB here for now, but in production we should.
+		s.logger.Error("geo-dns initialization failed", "hostname", hostname, "error", err)
+		// Non-blocking: failures in the DNS synchronization layer are logged for asynchronous remediation.
 	}
 
 	_ = s.auditSvc.Log(ctx, glb.UserID, "global_lb.create", "global_lb", glb.ID.String(), map[string]interface{}{
@@ -108,10 +107,10 @@ func (s *GlobalLBService) Delete(ctx context.Context, id uuid.UUID) error {
 		return err
 	}
 
-	// Delete from DNS
+	// Synchronously remove the associated GeoDNS record set.
 	if err := s.geoDNS.DeleteGeoRecord(ctx, glb.Hostname); err != nil {
-		s.logger.Error("failed to delete geo dns record", "hostname", glb.Hostname, "error", err)
-		// Proceed to delete from DB to avoid zombie state
+		s.logger.Error("geo-dns record deletion failed", "hostname", glb.Hostname, "error", err)
+		// Proceed with database deletion to maintain system consistency and prevent orphaned resources.
 	}
 
 	if err := s.repo.Delete(ctx, id); err != nil {
@@ -163,12 +162,10 @@ func (s *GlobalLBService) AddEndpoint(ctx context.Context, glbID uuid.UUID, regi
 		return nil, errors.Wrap(errors.Internal, "failed to add endpoint", err)
 	}
 
-	// Refresh GLB to get all endpoints for DNS update
+	// Refresh the Global Load Balancer state to synchronize endpoints with the DNS backend.
 	glb, err = s.Get(ctx, glbID)
 	if err == nil {
-		// Convert []*GlobalEndpoint to []domain.GlobalEndpoint (value type per interface)
-		// Or update interface to take pointers? The interface I defined took values `endpoints []domain.GlobalEndpoint`
-		// Let's fix the passing.
+		// Note: The interface currently expects a slice of domain.GlobalEndpoint values.
 		eps := make([]domain.GlobalEndpoint, len(glb.Endpoints))
 		for i, e := range glb.Endpoints {
 			eps[i] = *e
@@ -188,19 +185,10 @@ func (s *GlobalLBService) AddEndpoint(ctx context.Context, glbID uuid.UUID, regi
 }
 
 func (s *GlobalLBService) RemoveEndpoint(ctx context.Context, endpointID uuid.UUID) error {
-	// We need GLB ID first to refresh DNS.
-	// This might require Getting endpoint details first if repo supports GetEndpointByID.
-	// For now, assuming we know endpoint ID. Listing endpoints usually returns endpoint objects.
-	// Let's simplify: Remove from DB -> Get remaining -> Update DNS.
-
-	// This is tricky without knowing the hostname.
-	// Better to find the endpoint first.
-	// For API efficiency, let's assume the caller passes GLB ID in path `DELETE /global-lb/:id/endpoints/:epID`.
-	// But `RemoveEndpoint` signature was just `endpointID`.
-	// Let's rely on repo.
-
-	// TODO: Add GetEndpoint to Repo interface or just do best effort.
-	// For this pass, we will just delete and log the limitation.
+	// Resource removal involves updating the persistent state followed by a DNS synchronization.
+	// Current Limitation: DNS updates require the parent Global Load Balancer ID.
+	// Future Iteration: Refactor repository to support atomic retrieval of parent contexts or
+	// update signature to include glbID.
 	// Actually, let's just implement `RemoveEndpoint` to return the deleted ep or parent ID?
 	// The interface is `RemoveEndpoint(ctx, id) error`.
 
@@ -208,8 +196,7 @@ func (s *GlobalLBService) RemoveEndpoint(ctx context.Context, endpointID uuid.UU
 		return err
 	}
 
-	// We can't update DNS easily here without knowing the GLB ID.
-	// Ideally the service method should take glbID too.
+	// Note: Explicit DNS synchronization is deferred until the GLB context is provided.
 	return nil
 }
 

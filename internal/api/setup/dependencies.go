@@ -14,7 +14,6 @@ import (
 	"github.com/poyrazk/thecloud/internal/platform"
 	"github.com/poyrazk/thecloud/internal/repositories/filesystem"
 	"github.com/poyrazk/thecloud/internal/repositories/k8s"
-	"github.com/poyrazk/thecloud/internal/repositories/mock"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/poyrazk/thecloud/internal/repositories/redis"
 	"github.com/poyrazk/thecloud/internal/storage/coordinator"
@@ -211,9 +210,8 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 	lbWorker := services.NewLBWorker(c.Repos.LB, c.Repos.Instance, c.LBProxy)
 
 	// Global LB Service
-	// TODO: Replace with real GeoDNS backend when implemented
-	mockGeoDNS := mock.NewMockGeoDNS()
-	glbSvc := services.NewGlobalLBService(c.Repos.GlobalLB, c.Repos.LB, mockGeoDNS, auditSvc, c.Logger)
+	// We use the same PowerDNS backend which now implements GeoDNSBackend
+	glbSvc := services.NewGlobalLBService(c.Repos.GlobalLB, c.Repos.LB, pdnsBackend, auditSvc, c.Logger)
 
 	// Encryption Service
 	encryptionRepo := postgres.NewEncryptionRepository(c.DB)
