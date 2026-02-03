@@ -94,8 +94,10 @@ func TestGlobalLBAddEndpoint(t *testing.T) {
 	ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), uuid.New()), uuid.New())
 
 	// Create GLB
+	userID := appcontext.UserIDFromContext(ctx)
 	glb := &domain.GlobalLoadBalancer{
 		ID:        uuid.New(),
+		UserID:    userID,
 		Hostname:  "api.test.com",
 		Status:    "ACTIVE",
 		Endpoints: []*domain.GlobalEndpoint{},
