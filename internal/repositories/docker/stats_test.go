@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"log/slog"
 	"testing"
 
 	"github.com/poyrazk/thecloud/internal/core/ports"
@@ -16,11 +17,11 @@ import (
 
 func TestDockerAdapterGetContainerStats(t *testing.T) {
 	ctx := context.Background()
-	adapter, err := NewDockerAdapter()
+	adapter, err := NewDockerAdapter(slog.Default())
 	require.NoError(t, err)
 
 	// 1. Create a dummy container
-	containerID, err := adapter.CreateInstance(ctx, ports.CreateInstanceOptions{
+	containerID, err := adapter.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{
 		Name:      "stats-test",
 		ImageName: "alpine",
 		Cmd:       []string{"sleep", "10"},
