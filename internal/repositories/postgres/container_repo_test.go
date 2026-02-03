@@ -14,10 +14,10 @@ import (
 )
 
 func TestPostgresContainerRepository(t *testing.T) {
-	db := setupDB(t)
+	db := SetupDB(t)
 	defer db.Close()
 	repo := NewPostgresContainerRepository(db)
-	ctx := setupTestUser(t, db)
+	ctx := SetupTestUser(t, db)
 	userID := appcontext.UserIDFromContext(ctx)
 
 	t.Run("CreateAndGetDeployment", func(t *testing.T) {
