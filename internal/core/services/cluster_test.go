@@ -209,10 +209,10 @@ func TestClusterServiceGetKubeconfigAdmin(t *testing.T) {
 	clusterID := uuid.New()
 	userID := uuid.New()
 	cluster := &domain.Cluster{
-		ID:         clusterID,
-		UserID:     userID,
-		Status:     domain.ClusterStatusRunning,
-		Kubeconfig: "encrypted",
+		ID:                  clusterID,
+		UserID:              userID,
+		Status:              domain.ClusterStatusRunning,
+		KubeconfigEncrypted: "encrypted",
 	}
 
 	repo.On("GetByID", ctx, clusterID).Return(cluster, nil)
