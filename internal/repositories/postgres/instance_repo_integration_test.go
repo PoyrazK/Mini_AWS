@@ -17,10 +17,10 @@ import (
 const integrationInstanceName = "integration-test-inst"
 
 func TestInstanceRepositoryIntegration(t *testing.T) {
-	db := setupDB(t)
+	db := SetupDB(t)
 	defer db.Close()
 	repo := NewInstanceRepository(db)
-	ctx := setupTestUser(t, db)
+	ctx := SetupTestUser(t, db)
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 

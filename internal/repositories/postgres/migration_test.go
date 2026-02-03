@@ -15,7 +15,7 @@ import (
 )
 
 func TestMigrationRollback(t *testing.T) {
-	db := setupDB(t)
+	db := SetupDB(t)
 	defer db.Close()
 	ctx := context.Background()
 	conn, err := db.Acquire(ctx)
