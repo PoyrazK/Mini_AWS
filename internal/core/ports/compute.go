@@ -11,8 +11,8 @@ import (
 type ComputeBackend interface {
 	// Instance Lifecycle
 
-	// CreateInstance provisions a new compute entity based on the provided options.
-	CreateInstance(ctx context.Context, opts CreateInstanceOptions) (string, error)
+	// LaunchInstanceWithOptions provisions a new compute entity based on the provided options.
+	LaunchInstanceWithOptions(ctx context.Context, opts CreateInstanceOptions) (string, error)
 	// StopInstance gracefully shuts down or forcibly terminates a running instance.
 	StopInstance(ctx context.Context, id string) error
 	// DeleteInstance removes an instance and its ephemeral resources.
