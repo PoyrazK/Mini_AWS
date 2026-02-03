@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"os"
 	"path/filepath"
 	"strings"
 	"text/template"
@@ -44,6 +45,14 @@ func NewKubeadmProvisioner(
 	lbSvc ports.LBService,
 	logger *slog.Logger,
 ) *KubeadmProvisioner {
+	templateDir := "internal/repositories/k8s/templates"
+	if _, err := os.Stat(templateDir); os.IsNotExist(err) {
+		// Fallback for running tests from within the k8s repo
+		if _, err := os.Stat("templates"); err == nil {
+			templateDir = "templates"
+		}
+	}
+
 	return &KubeadmProvisioner{
 		instSvc:     instSvc,
 		repo:        repo,
@@ -52,7 +61,7 @@ func NewKubeadmProvisioner(
 		storageSvc:  storageSvc,
 		lbSvc:       lbSvc,
 		logger:      logger,
-		templateDir: "internal/repositories/k8s/templates",
+		templateDir: templateDir,
 	}
 }
 
@@ -105,7 +114,7 @@ func (p *KubeadmProvisioner) provisionControlPlane(ctx context.Context, cluster 
 	nodeName := fmt.Sprintf("%s-cp-0", cluster.Name)
 	inst, err := p.instSvc.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{
 		Name:      nodeName,
-		ImageName: "ubuntu-22.04", // Assume this image exists
+		ImageName: "ubuntu:22.04", // Use canonical docker hub image
 		NetworkID: cluster.VpcID.String(),
 		UserData:  userData,
 	})
