@@ -5018,8 +5018,7 @@ const docTemplate = `{
                 "usage_by_type": {
                     "type": "object",
                     "additionalProperties": {
-                        "type": "number",
-                        "format": "float64"
+                        "type": "number"
                     }
                 },
                 "user_id": {
