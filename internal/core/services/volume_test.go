@@ -162,7 +162,7 @@ func TestVolume_LaunchAttach_Conflict(t *testing.T) {
 	require.NoError(t, err)
 
 	// Provision A to ensure volume becomes "IN_USE"
-	err = svc.Provision(ctx, instA.ID, volsA)
+	err = svc.Provision(ctx, instA.ID, volsA, "")
 	require.NoError(t, err)
 
 	// Verify Volume Status is InUse
@@ -180,7 +180,7 @@ func TestVolume_LaunchAttach_Conflict(t *testing.T) {
 	// LaunchInstance usually does validation.
 	if err == nil {
 		// If Launch succeeded (maybe only validation passed?), try Provision
-		err = svc.Provision(ctx, instB.ID, volsA)
+		err = svc.Provision(ctx, instB.ID, volsA, "")
 		assert.Error(t, err, "Provisioning second instance with same volume should fail")
 		if err == nil {
 			// Cleanup B
