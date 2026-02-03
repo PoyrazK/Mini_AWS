@@ -62,6 +62,7 @@ type Handlers struct {
 	Lifecycle     *httphandlers.LifecycleHandler
 	DNS           *httphandlers.DNSHandler
 	InstanceType  *httphandlers.InstanceTypeHandler
+	GlobalLB      *httphandlers.GlobalLBHandler
 	Ws            *ws.Handler
 }
 
@@ -104,6 +105,7 @@ func InitHandlers(svcs *Services, cfg *platform.Config, logger *slog.Logger) *Ha
 		Lifecycle:     httphandlers.NewLifecycleHandler(svcs.Lifecycle),
 		DNS:           httphandlers.NewDNSHandler(svcs.DNS),
 		InstanceType:  httphandlers.NewInstanceTypeHandler(svcs.InstanceType),
+		GlobalLB:      httphandlers.NewGlobalLBHandler(svcs.GlobalLB),
 		Ws:            ws.NewHandler(hub, svcs.Identity, logger),
 	}
 }
@@ -169,6 +171,7 @@ func SetupRouter(cfg *platform.Config, logger *slog.Logger, handlers *Handlers, 
 	registerAuthRoutes(r, handlers, services, cfg, logger)
 	registerComputeRoutes(r, handlers, services)
 	registerNetworkRoutes(r, handlers, services)
+	registerGlobalLBRoutes(r, handlers, services)
 	registerDataRoutes(r, handlers, services)
 	registerDevOpsRoutes(r, handlers, services)
 	registerTenantRoutes(r, handlers, services)
@@ -321,6 +324,19 @@ func registerNetworkRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 		lbGroup.POST("/:id/targets", httputil.Permission(svcs.RBAC, domain.PermissionLbUpdate), handlers.LB.AddTarget)
 		lbGroup.GET("/:id/targets", httputil.Permission(svcs.RBAC, domain.PermissionLbRead), handlers.LB.ListTargets)
 		lbGroup.DELETE("/:id/targets/:instanceId", httputil.Permission(svcs.RBAC, domain.PermissionLbUpdate), handlers.LB.RemoveTarget)
+	}
+}
+
+func registerGlobalLBRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
+	glbGroup := r.Group("/global-lb")
+	glbGroup.Use(httputil.Auth(svcs.Identity, svcs.Tenant))
+	{
+		glbGroup.POST("", httputil.Permission(svcs.RBAC, domain.PermissionLbCreate), handlers.GlobalLB.Create)
+		glbGroup.GET("", httputil.Permission(svcs.RBAC, domain.PermissionLbRead), handlers.GlobalLB.List)
+		glbGroup.GET("/:id", httputil.Permission(svcs.RBAC, domain.PermissionLbRead), handlers.GlobalLB.Get)
+		glbGroup.DELETE("/:id", httputil.Permission(svcs.RBAC, domain.PermissionLbDelete), handlers.GlobalLB.Delete)
+		glbGroup.POST("/:id/endpoints", httputil.Permission(svcs.RBAC, domain.PermissionLbUpdate), handlers.GlobalLB.AddEndpoint)
+		glbGroup.DELETE("/:id/endpoints/:epID", httputil.Permission(svcs.RBAC, domain.PermissionLbUpdate), handlers.GlobalLB.RemoveEndpoint)
 	}
 }
 

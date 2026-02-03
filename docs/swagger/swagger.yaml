@@ -61,7 +61,6 @@ definitions:
         type: number
       usage_by_type:
         additionalProperties:
-          format: float64
           type: number
         type: object
       user_id:
@@ -281,6 +280,87 @@ definitions:
         type: boolean
       target_url:
         description: Internal destination (e.g., "http://service-a:8080")
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: string
+    type: object
+  domain.GlobalEndpoint:
+    properties:
+      created_at:
+        type: string
+      global_lb_id:
+        type: string
+      healthy:
+        type: boolean
+      id:
+        type: string
+      last_health_check:
+        type: string
+      priority:
+        description: Lower is higher priority (for FAILOVER)
+        type: integer
+      region:
+        description: e.g., "us-east-1"
+        type: string
+      target_id:
+        description: Reference to regional LB
+        type: string
+      target_ip:
+        description: Static IP if TargetType == "IP"
+        type: string
+      target_type:
+        description: '"LB" or "IP"'
+        type: string
+      weight:
+        description: 1-100, default 1
+        type: integer
+    type: object
+  domain.GlobalHealthCheckConfig:
+    properties:
+      healthy_count:
+        type: integer
+      interval_sec:
+        type: integer
+      path:
+        description: For HTTP/HTTPS
+        type: string
+      port:
+        type: integer
+      protocol:
+        description: HTTP, HTTPS, TCP
+        type: string
+      timeout_sec:
+        type: integer
+      unhealthy_count:
+        type: integer
+    type: object
+  domain.GlobalLoadBalancer:
+    properties:
+      created_at:
+        type: string
+      endpoints:
+        items:
+          $ref: '#/definitions/domain.GlobalEndpoint'
+        type: array
+      health_check:
+        allOf:
+        - $ref: '#/definitions/domain.GlobalHealthCheckConfig'
+        description: Health check configuration for all endpoints
+      hostname:
+        description: e.g., "api.myapp.thecloud.io"
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      routing_policy:
+        $ref: '#/definitions/domain.RoutingPolicy'
+      status:
+        description: CREATING, ACTIVE, DELETING
+        type: string
+      tenant_id:
         type: string
       updated_at:
         type: string
@@ -767,6 +847,18 @@ definitions:
           $ref: '#/definitions/domain.Permission'
         type: array
     type: object
+  domain.RoutingPolicy:
+    enum:
+    - LATENCY
+    - GEOLOCATION
+    - WEIGHTED
+    - FAILOVER
+    type: string
+    x-enum-varnames:
+    - RoutingLatency
+    - RoutingGeolocation
+    - RoutingWeighted
+    - RoutingFailover
   domain.RuleDirection:
     enum:
     - ingress
@@ -1155,6 +1247,28 @@ definitions:
     - VolumeStatusAvailable
     - VolumeStatusInUse
     - VolumeStatusDeleting
+  httphandlers.AddGlobalEndpointRequest:
+    properties:
+      priority:
+        description: Default 1
+        type: integer
+      region:
+        type: string
+      target_id:
+        type: string
+      target_ip:
+        type: string
+      target_type:
+        enum:
+        - LB
+        - IP
+        type: string
+      weight:
+        type: integer
+    required:
+    - region
+    - target_type
+    type: object
   httphandlers.AddPermissionRequest:
     properties:
       permission:
@@ -1233,6 +1347,28 @@ definitions:
     required:
     - name
     - vpc_id
+    type: object
+  httphandlers.CreateGlobalLBRequest:
+    properties:
+      health_check:
+        $ref: '#/definitions/domain.GlobalHealthCheckConfig'
+      hostname:
+        type: string
+      name:
+        type: string
+      policy:
+        allOf:
+        - $ref: '#/definitions/domain.RoutingPolicy'
+        enum:
+        - LATENCY
+        - GEOLOCATION
+        - WEIGHTED
+        - FAILOVER
+    required:
+    - health_check
+    - hostname
+    - name
+    - policy
     type: object
   httphandlers.CreateGroupRequest:
     properties:
@@ -1565,6 +1701,9 @@ definitions:
     type: object
 info:
   contact: {}
+  description: The Cloud - Multi-tenant Cloud Infrastructure Engine
+  title: The Cloud API
+  version: "1.0"
 paths:
   /api/dashboard/events:
     get:
@@ -2736,6 +2875,176 @@ paths:
       summary: Delete a gateway route
       tags:
       - gateway
+  /global-lb:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.GlobalLoadBalancer'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: List all global load balancers
+      tags:
+      - global-lb
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: GLB creation request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httphandlers.CreateGlobalLBRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/domain.GlobalLoadBalancer'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Create a new global load balancer
+      tags:
+      - global-lb
+  /global-lb/{id}:
+    delete:
+      parameters:
+      - description: Global LB ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Delete a global load balancer
+      tags:
+      - global-lb
+    get:
+      parameters:
+      - description: Global LB ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.GlobalLoadBalancer'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Get a global load balancer by ID
+      tags:
+      - global-lb
+  /global-lb/{id}/endpoints:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Global LB ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Endpoint details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httphandlers.AddGlobalEndpointRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/domain.GlobalEndpoint'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Add an endpoint to a global load balancer
+      tags:
+      - global-lb
+  /global-lb/{id}/endpoints/{epID}:
+    delete:
+      parameters:
+      - description: Global LB ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Endpoint ID
+        in: path
+        name: epID
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Remove an endpoint from a global load balancer
+      tags:
+      - global-lb
   /health/live:
     get:
       responses:
@@ -4533,4 +4842,9 @@ paths:
       summary: Get VPC details
       tags:
       - vpcs
+securityDefinitions:
+  APIKeyAuth:
+    in: header
+    name: X-API-Key
+    type: apiKey
 swagger: "2.0"

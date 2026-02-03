@@ -1,5 +1,12 @@
-// Package main provides the API server entrypoint.
 package main
+
+// @title The Cloud API
+// @version 1.0
+// @description The Cloud - Multi-tenant Cloud Infrastructure Engine
+
+// @securityDefinitions.apikey APIKeyAuth
+// @in header
+// @name X-API-Key
 
 import (
 	"context"

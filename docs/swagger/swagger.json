@@ -1,7 +1,10 @@
 {
     "swagger": "2.0",
     "info": {
-        "contact": {}
+        "description": "The Cloud - Multi-tenant Cloud Infrastructure Engine",
+        "title": "The Cloud API",
+        "contact": {},
+        "version": "1.0"
     },
     "paths": {
         "/api/dashboard/events": {
@@ -1829,6 +1832,278 @@
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/global-lb": {
+            "get": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "global-lb"
+                ],
+                "summary": "List all global load balancers",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/domain.GlobalLoadBalancer"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "global-lb"
+                ],
+                "summary": "Create a new global load balancer",
+                "parameters": [
+                    {
+                        "description": "GLB creation request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httphandlers.CreateGlobalLBRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/domain.GlobalLoadBalancer"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/global-lb/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "global-lb"
+                ],
+                "summary": "Get a global load balancer by ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Global LB ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.GlobalLoadBalancer"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "tags": [
+                    "global-lb"
+                ],
+                "summary": "Delete a global load balancer",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Global LB ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/global-lb/{id}/endpoints": {
+            "post": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "global-lb"
+                ],
+                "summary": "Add an endpoint to a global load balancer",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Global LB ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Endpoint details",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httphandlers.AddGlobalEndpointRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/domain.GlobalEndpoint"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/global-lb/{id}/endpoints/{epID}": {
+            "delete": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "tags": [
+                    "global-lb"
+                ],
+                "summary": "Remove an endpoint from a global load balancer",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Global LB ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Endpoint ID",
+                        "name": "epID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/httputil.Response"
                         }
@@ -4765,8 +5040,7 @@
                 "usage_by_type": {
                     "type": "object",
                     "additionalProperties": {
-                        "type": "number",
-                        "format": "float64"
+                        "type": "number"
                     }
                 },
                 "user_id": {
@@ -5080,6 +5354,126 @@
                 },
                 "target_url": {
                     "description": "Internal destination (e.g., \"http://service-a:8080\")",
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.GlobalEndpoint": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "global_lb_id": {
+                    "type": "string"
+                },
+                "healthy": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "last_health_check": {
+                    "type": "string"
+                },
+                "priority": {
+                    "description": "Lower is higher priority (for FAILOVER)",
+                    "type": "integer"
+                },
+                "region": {
+                    "description": "e.g., \"us-east-1\"",
+                    "type": "string"
+                },
+                "target_id": {
+                    "description": "Reference to regional LB",
+                    "type": "string"
+                },
+                "target_ip": {
+                    "description": "Static IP if TargetType == \"IP\"",
+                    "type": "string"
+                },
+                "target_type": {
+                    "description": "\"LB\" or \"IP\"",
+                    "type": "string"
+                },
+                "weight": {
+                    "description": "1-100, default 1",
+                    "type": "integer"
+                }
+            }
+        },
+        "domain.GlobalHealthCheckConfig": {
+            "type": "object",
+            "properties": {
+                "healthy_count": {
+                    "type": "integer"
+                },
+                "interval_sec": {
+                    "type": "integer"
+                },
+                "path": {
+                    "description": "For HTTP/HTTPS",
+                    "type": "string"
+                },
+                "port": {
+                    "type": "integer"
+                },
+                "protocol": {
+                    "description": "HTTP, HTTPS, TCP",
+                    "type": "string"
+                },
+                "timeout_sec": {
+                    "type": "integer"
+                },
+                "unhealthy_count": {
+                    "type": "integer"
+                }
+            }
+        },
+        "domain.GlobalLoadBalancer": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "endpoints": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.GlobalEndpoint"
+                    }
+                },
+                "health_check": {
+                    "description": "Health check configuration for all endpoints",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/domain.GlobalHealthCheckConfig"
+                        }
+                    ]
+                },
+                "hostname": {
+                    "description": "e.g., \"api.myapp.thecloud.io\"",
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "routing_policy": {
+                    "$ref": "#/definitions/domain.RoutingPolicy"
+                },
+                "status": {
+                    "description": "CREATING, ACTIVE, DELETING",
+                    "type": "string"
+                },
+                "tenant_id": {
                     "type": "string"
                 },
                 "updated_at": {
@@ -5715,6 +6109,21 @@
                 }
             }
         },
+        "domain.RoutingPolicy": {
+            "type": "string",
+            "enum": [
+                "LATENCY",
+                "GEOLOCATION",
+                "WEIGHTED",
+                "FAILOVER"
+            ],
+            "x-enum-varnames": [
+                "RoutingLatency",
+                "RoutingGeolocation",
+                "RoutingWeighted",
+                "RoutingFailover"
+            ]
+        },
         "domain.RuleDirection": {
             "type": "string",
             "enum": [
@@ -6267,6 +6676,38 @@
                 "VolumeStatusDeleting"
             ]
         },
+        "httphandlers.AddGlobalEndpointRequest": {
+            "type": "object",
+            "required": [
+                "region",
+                "target_type"
+            ],
+            "properties": {
+                "priority": {
+                    "description": "Default 1",
+                    "type": "integer"
+                },
+                "region": {
+                    "type": "string"
+                },
+                "target_id": {
+                    "type": "string"
+                },
+                "target_ip": {
+                    "type": "string"
+                },
+                "target_type": {
+                    "type": "string",
+                    "enum": [
+                        "LB",
+                        "IP"
+                    ]
+                },
+                "weight": {
+                    "type": "integer"
+                }
+            }
+        },
         "httphandlers.AddPermissionRequest": {
             "type": "object",
             "required": [
@@ -6381,6 +6822,39 @@
                 },
                 "workers": {
                     "type": "integer"
+                }
+            }
+        },
+        "httphandlers.CreateGlobalLBRequest": {
+            "type": "object",
+            "required": [
+                "health_check",
+                "hostname",
+                "name",
+                "policy"
+            ],
+            "properties": {
+                "health_check": {
+                    "$ref": "#/definitions/domain.GlobalHealthCheckConfig"
+                },
+                "hostname": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "policy": {
+                    "enum": [
+                        "LATENCY",
+                        "GEOLOCATION",
+                        "WEIGHTED",
+                        "FAILOVER"
+                    ],
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/domain.RoutingPolicy"
+                        }
+                    ]
                 }
             }
         },
@@ -6870,6 +7344,13 @@
                     "$ref": "#/definitions/domain.ClusterStatus"
                 }
             }
+        }
+    },
+    "securityDefinitions": {
+        "APIKeyAuth": {
+            "type": "apiKey",
+            "name": "X-API-Key",
+            "in": "header"
         }
     }
 }

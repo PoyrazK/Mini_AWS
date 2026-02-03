@@ -156,7 +156,8 @@ type StorageBackend interface {
 - `InstanceService` - Compute lifecycle
 - `VolumeService` - Block storage
 - `VPCService` - Network isolation
-- `LoadBalancerService` - Traffic distribution
+- `LoadBalancerService` - Traffic distribution (Regional)
+- `GlobalLBService` - Multi-region traffic steering (DNS-based) 🆕
 - `AutoScalingService` - Dynamic scaling
 - `RBACService` - Access control (100% coverage)
 - `FunctionService` - Serverless execution

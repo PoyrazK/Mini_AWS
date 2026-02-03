@@ -50,7 +50,7 @@ func TestInstanceTypesE2E(t *testing.T) {
 		payload := map[string]string{
 			"name":          instanceName,
 			"image":         "nginx:alpine",
-			"ports":         "80:80",
+			"ports":         "0:80",
 			"instance_type": selectedType.ID,
 		}
 		resp := postRequest(t, client, testutil.TestBaseURL+testutil.TestRouteInstances, token, payload)

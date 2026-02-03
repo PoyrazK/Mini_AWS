@@ -59,6 +59,7 @@ type Repositories struct {
 	Lifecycle     ports.LifecycleRepository
 	DNS           ports.DNSRepository
 	InstanceType  ports.InstanceTypeRepository
+	GlobalLB      ports.GlobalLBRepository
 }
 
 // InitRepositories constructs repositories using the provided database clients.
@@ -97,6 +98,7 @@ func InitRepositories(db postgres.DB, rdb *redisv9.Client) *Repositories {
 		Lifecycle:     postgres.NewLifecycleRepository(db),
 		DNS:           postgres.NewDNSRepository(db),
 		InstanceType:  postgres.NewInstanceTypeRepository(db),
+		GlobalLB:      postgres.NewGlobalLBRepository(db),
 	}
 }
 
@@ -137,6 +139,7 @@ type Services struct {
 	Lifecycle     ports.LifecycleService
 	DNS           ports.DNSService
 	InstanceType  ports.InstanceTypeService
+	GlobalLB      ports.GlobalLBService
 }
 
 // Workers struct to return background workers
@@ -206,6 +209,12 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 	lbSvc := services.NewLBService(c.Repos.LB, c.Repos.Vpc, c.Repos.Instance, auditSvc)
 	lbWorker := services.NewLBWorker(c.Repos.LB, c.Repos.Instance, c.LBProxy)
 
+	// Global LB Service
+	// We use the same PowerDNS backend which now implements GeoDNSBackend
+	glbSvc := services.NewGlobalLBService(services.GlobalLBServiceParams{
+		Repo: c.Repos.GlobalLB, LBRepo: c.Repos.LB, GeoDNS: pdnsBackend, AuditSvc: auditSvc, Logger: c.Logger,
+	})
+
 	// Encryption Service
 	encryptionRepo := postgres.NewEncryptionRepository(c.DB)
 	encryptionSvc, err := services.NewEncryptionService(encryptionRepo, c.Config.SecretsEncryptionKey)
@@ -258,8 +267,9 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 		Cluster:      clusterSvc,
 		Dashboard:    services.NewDashboardService(c.Repos.Instance, c.Repos.Volume, c.Repos.Vpc, c.Repos.Event, c.Logger),
 		Lifecycle:    services.NewLifecycleService(c.Repos.Lifecycle, c.Repos.Storage),
-		DNS:          dnsSvc,
 		InstanceType: services.NewInstanceTypeService(c.Repos.InstanceType),
+		GlobalLB:     glbSvc,
+		DNS:          dnsSvc,
 	}
 
 	// 7. High Availability & Monitoring

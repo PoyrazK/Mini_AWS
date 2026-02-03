@@ -17,11 +17,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func setupDB(t *testing.T) *pgxpool.Pool {
+// SetupDB initializes the database connection for integration tests.
+// It prioritizes the DATABASE_URL environment variable, falling back to a
+// temporary Docker container via Testcontainers if the variable is not set.
+func SetupDB(t *testing.T) *pgxpool.Pool {
 	ctx := context.Background()
 	dbURL := os.Getenv("DATABASE_URL")
 
 	if dbURL == "" {
+		// Initialize a temporary PostgreSQL container if a local instance is not available.
 		container, cleanup := testutil.SetupPostgresContainer(t)
 		t.Cleanup(cleanup)
 		dbURL = container.ConnString
@@ -42,7 +46,9 @@ func setupDB(t *testing.T) *pgxpool.Pool {
 	return db
 }
 
-func setupTestUser(t *testing.T, db *pgxpool.Pool) context.Context {
+// SetupTestUser creates a dedicated test user and tenant context for a test run.
+// It returns a context containing both the UserID and TenantID for multi-tenant isolation.
+func SetupTestUser(t *testing.T, db *pgxpool.Pool) context.Context {
 	ctx := context.Background()
 	userRepo := NewUserRepo(db)
 
@@ -82,7 +88,9 @@ func setupTestUser(t *testing.T, db *pgxpool.Pool) context.Context {
 	return appcontext.WithTenantID(appcontext.WithUserID(ctx, userID), tenantID)
 }
 
-func cleanDB(t *testing.T, db *pgxpool.Pool) {
+// CleanDB removes test data from the database to ensure test isolation.
+// This function executes a series of DELETE operations on standard resource tables.
+func CleanDB(t *testing.T, db *pgxpool.Pool) {
 	ctx := context.Background()
 	queries := []string{
 		"DELETE FROM cron_job_runs",
@@ -105,16 +113,14 @@ func cleanDB(t *testing.T, db *pgxpool.Pool) {
 		"DELETE FROM tenant_members",
 		"DELETE FROM tenant_quotas",
 		"DELETE FROM tenants",
-		// Users are usually not deleted to keep test user valid if reused,
-		// but here we create a new user per test with setupTestUser, so we accumulate users.
-		// We can leave users or delete them if we track the ID.
-		// For now, let's just clean resources.
+		// Users are intentionally preserved to ensure the established identity context
+		// remains valid for subsequent test executions within the same container.
 	}
 
 	for _, q := range queries {
 		_, err := db.Exec(ctx, q)
-		// Ignore errors if table doesn't exist (42P01 error code)
-		// This allows tests to run even if not all migrations have been applied
+		// Suppress errors if a table does not exist (PostgreSQL error 42P01).
+		// This ensures stability when migrations are partially applied.
 		if err != nil {
 			t.Logf("Cleanup query failed (ignoring): %s - %v", q, err)
 		}

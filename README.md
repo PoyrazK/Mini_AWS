@@ -12,7 +12,8 @@ An open-source cloud platform that anyone can run, modify, and own.
 - **Networking**: Advanced VPC with SDN (Open vSwitch), Subnet isolation, and IPAM.
 - **Identity**: API Key authentication ([Guide](docs/guides/authentication.md))
 - **Observability**: Prometheus metrics and Grafana dashboards ([Guide](docs/guides/observability.md)) with **Distributed Tracing** (Jaeger).
-- **Load Balancer**: Layer 7 HTTP traffic distribution
+- **Load Balancer**: Layer 7 HTTP traffic distribution (Regional)
+- **Global Load Balancer**: Multi-region traffic steering at the DNS level ([Guide](docs/services/cloud-global-lb.md))
 - **Auto-Scaling**: Dynamic scaling of compute resources based on metrics
 - **Managed Databases (RDS)**: Launch PostgreSQL/MySQL instances with a single command ([Guide](docs/guides/rds.md))
 - **Managed Caches (Redis)**: Launch and manage Redis instances ([Guide](docs/guides/cache.md))
@@ -117,6 +118,7 @@ npm run dev
     - **Gossip Protocol**: Fully decentralized node discovery and health tracking.
     - **Quorum-based Replication**: Configurable N-way replication with write-quorum consistency.
 - **Clean Code**: Eliminated duplicate literals and improved test security across all service layers.
+- **Global Load Balancing**: Implemented a **GeoDNS-based** global steering service with multi-region health tracking and latency-optimized routing.
 
 ### AI & Automation
 - **AI Context**: Added `GEMINI.md` to provide AI assistants with project-specific hexagonal architecture rules and coding standards.
@@ -154,6 +156,7 @@ See [CHANGELOG.md](CHANGELOG.md) for detailed changes.
 | [CloudGateway](docs/services/cloud-gateway.md) | Gateway & Proxy guide |
 | [CloudContainers](docs/services/cloud-containers.md) | Container Orchestration |
 | [CloudDNS](docs/services/cloud-dns.md) | Managed DNS Service |
+| [CloudGlobalLB](docs/services/cloud-global-lb.md) | Multi-Region Traffic Steering |
 
 ### Guides
 | Guide | Description |

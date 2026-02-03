@@ -334,15 +334,47 @@ Create a new volume.
 
 ---
 
-## Load Balancers
+## Global Load Balancers 🆕
 
 **Headers Required:** `X-API-Key: <your-api-key>`
 
-### GET /loadbalancers
-List load balancers.
+### GET /global-lb
+List all global load balancers owned by the authenticated user.
 
-### POST /loadbalancers
-Create a load balancer.
+### POST /global-lb
+Create a new global load balancer.
+```json
+{
+  "name": "api-global",
+  "hostname": "api.myapp.com",
+  "policy": "LATENCY",
+  "health_check": {
+    "protocol": "HTTP",
+    "port": 80,
+    "path": "/health"
+  }
+}
+```
+
+### GET /global-lb/:id
+Get details of a GLB including its endpoints.
+
+### DELETE /global-lb/:id
+Delete a global load balancer and its DNS records. Only the owner can delete the resource.
+
+### POST /global-lb/:id/endpoints
+Add a regional endpoint to the GLB.
+```json
+{
+  "region": "us-east-1",
+  "target_type": "IP",
+  "target_ip": "1.2.3.4",
+  "weight": 100
+}
+```
+
+### DELETE /global-lb/:id/endpoints/:epID
+Remove an endpoint from the GLB.
 
 ---
 

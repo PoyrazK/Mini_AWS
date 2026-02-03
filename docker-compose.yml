@@ -72,6 +72,7 @@ services:
       start_period: 60s
 
   api:
+    image: thecloud-api:latest
     build:
       context: .
       dockerfile: Dockerfile
