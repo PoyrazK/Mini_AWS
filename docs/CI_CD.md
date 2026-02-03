@@ -26,13 +26,7 @@ The Cloud uses GitHub Actions for continuous integration and deployment. The pip
    - Executes k6 performance tests
    - Validates API latency and throughput
 
-4. **SonarQube Analysis** (`.github/workflows/sonar.yml`)
-   - Runs on: Push to `main` and all PRs
-   - Performs static code analysis
-   - Reports code quality metrics
-   - Tracks technical debt and security issues
-
-5. **Release Pipeline** (`.github/workflows/release.yml`)
+4. **Release Pipeline** (`.github/workflows/release.yml`)
    - Runs on: Version tags (`v*`)
    - Creates GitHub releases
    - Publishes artifacts
@@ -444,37 +438,6 @@ Jobs run in parallel when possible:
 - API server process stopped automatically
 - Services torn down
 
-## SonarQube Analysis
-
-### Static Analysis
-
-**Purpose**: Comprehensive code quality and security analysis
-
-**Triggers**:
-- Push to `main` branch
-- All pull requests
-
-**Metrics Tracked**:
-- Code smells and technical debt
-- Security vulnerabilities
-- Code coverage (imported from Codecov)
-- Duplication percentage
-- Maintainability rating
-- Reliability rating
-- Security rating
-
-**Quality Gates**:
-- New code coverage > 80%
-- No critical vulnerabilities
-- Maintainability rating ≥ A
-- No security hotspots
-
-**Recent Fixes**:
-- ✅ Removed sonarqube-mcp-server (297 files)
-- ✅ Fixed cognitive complexity issues
-- ✅ Resolved parameter count violations
-- ✅ Eliminated code duplication
-
 ## References
 
 - [GitHub Actions Documentation](https://docs.github.com/en/actions)
@@ -483,4 +446,3 @@ Jobs run in parallel when possible:
 - [Codecov Documentation](https://docs.codecov.com/)
 - [golangci-lint Linters](https://golangci-lint.run/usage/linters/)
 - [k6 Load Testing](https://k6.io/docs/)
-- [SonarQube Documentation](https://docs.sonarqube.org/)
