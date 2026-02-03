@@ -20,7 +20,9 @@ func setupGlobalLBTest(t *testing.T) (*services.GlobalLBService, *mock.MockGloba
 	audit := mock.NewMockAuditService()
 	logger := mock.NewNoopLogger()
 
-	svc := services.NewGlobalLBService(repo, lbRepo, geoDNS, audit, logger)
+	svc := services.NewGlobalLBService(services.GlobalLBServiceParams{
+		Repo: repo, LBRepo: lbRepo, GeoDNS: geoDNS, AuditSvc: audit, Logger: logger,
+	})
 	return svc, repo, lbRepo, geoDNS.(*mock.MockGeoDNS)
 }
 
@@ -153,7 +155,7 @@ func TestGlobalLBRemoveEndpoint(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("success with dns sync", func(t *testing.T) {
-		err := svc.RemoveEndpoint(ctx, ep.ID)
+		err := svc.RemoveEndpoint(ctx, glb.ID, ep.ID)
 		assert.NoError(t, err)
 
 		// Verify repo

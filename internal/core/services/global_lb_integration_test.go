@@ -53,13 +53,13 @@ func TestGlobalLBServiceIntegration(t *testing.T) {
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
-	svc := services.NewGlobalLBService(
-		repo,
-		lbRepo,
-		geoDNS,
-		auditSvc,
-		logger,
-	)
+	svc := services.NewGlobalLBService(services.GlobalLBServiceParams{
+		Repo:     repo,
+		LBRepo:   lbRepo,
+		GeoDNS:   geoDNS,
+		AuditSvc: auditSvc,
+		Logger:   logger,
+	})
 
 	t.Run("Scenario 1: Multi-User Isolation", func(t *testing.T) {
 		cleanDB(t, db)
@@ -162,7 +162,7 @@ func TestGlobalLBServiceIntegration(t *testing.T) {
 		assert.Len(t, geoDNS.CreatedRecords[hostname], 2)
 
 		// Remove 1 endpoint
-		err = svc.RemoveEndpoint(ctx, ep1.ID)
+		err = svc.RemoveEndpoint(ctx, glb.ID, ep1.ID)
 		assert.NoError(t, err)
 
 		// Verify DNS has exactly 1 remaining record
