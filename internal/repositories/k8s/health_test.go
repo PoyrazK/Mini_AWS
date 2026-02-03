@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -47,6 +48,13 @@ func (m *mockClusterRepo) UpdateNode(ctx context.Context, n *domain.ClusterNode)
 
 func (m *mockInstanceService) LaunchInstance(ctx context.Context, name, image, ports, instanceType string, vpcID, subnetID *uuid.UUID, volumes []domain.VolumeAttachment) (*domain.Instance, error) {
 	args := m.Called(ctx, name, image, ports, instanceType, vpcID, subnetID, volumes)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Instance), args.Error(1)
+}
+func (m *mockInstanceService) LaunchInstanceWithOptions(ctx context.Context, opts ports.CreateInstanceOptions) (*domain.Instance, error) {
+	args := m.Called(ctx, opts)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
