@@ -147,6 +147,16 @@ This document provides a comprehensive overview of every feature currently imple
 - **Health Tracking**: Target health status tracking (`unknown`, `healthy`, `unhealthy`).
 - **Idempotency**: Idempotency keys prevent duplicate LB creation.
 - **Versioning**: Optimistic locking via version field for concurrent updates.
+- **Global Scope**: Use Global Load Balancers (GLB) for multi-region traffic distribution across different regional ELBs.
+
+### 9. Global Load Balancer (GLB) 🆕
+**What it is**: Multi-region traffic steering at the DNS level.
+**Tech Stack**: PowerDNS (LUA/Geo), Go, PostgreSQL.
+**Implementation**:
+- **GeoDNS Orchestration**: Dynamically manages DNS A/CNAME records based on regional health.
+- **Routing Policies**: Supports `LATENCY`, `GEOLOCATION`, `WEIGHTED`, and `FAILOVER`.
+- **Health Tracking**: Global probes monitor regional endpoints; unhealthy targets are automatically pulled from DNS.
+- **Hybrid Support**: Can route to internal Regional LBs or external static IPs.
 
 ### 9. Managed Kubernetes (KaaS) 🆕
 **What it is**: Provision and manage production-ready Kubernetes clusters.
