@@ -17,6 +17,7 @@ import (
 const (
 	kubeMasterIP = "10.0.0.10"
 	kubeShell    = "/bin/sh"
+	kubectlBase  = "kubectl --kubeconfig /etc/kubernetes/admin.conf"
 )
 
 type mockInstanceService struct{ mock.Mock }
