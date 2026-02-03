@@ -7,6 +7,10 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   lint:
     runs-on: ubuntu-latest
@@ -19,8 +23,8 @@ jobs:
           cache: true
       - name: Verify Swagger
         run: |
-          go install github.com/swaggo/swag/cmd/swag@latest
-          swag init -g cmd/api/main.go --output docs/swagger
+          go install github.com/swaggo/swag/cmd/swag@v1.16.3
+          swag init -d cmd/api,internal/handlers -g main.go -o docs/swagger --parseDependency --parseInternal
           if [ -n "$(git status --porcelain docs/swagger)" ]; then
             echo "Swagger docs are out of sync. Run 'swag init' and commit changes."
             exit 1
@@ -68,8 +72,15 @@ jobs:
           docker network create cloud-network || true
           go test -p 1 -v ./cmd/... ./internal/... ./pkg/...
 
-  core-services-race:
+  race-detection:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        package: [
+          "./internal/core/services/...",
+          "./internal/repositories/...",
+          "./cmd/... ./pkg/..."
+        ]
     services: *postgres-service
     steps:
       - uses: actions/checkout@v6
@@ -86,77 +97,13 @@ jobs:
             echo "Waiting for postgres..."
             sleep 2
           done
-      - name: Run Core Services Race Detection
+      - name: Run Race Detection (${{ matrix.package }})
         env:
           DATABASE_URL: postgres://cloud:cloud@localhost:5433/cloud?sslmode=disable
         run: |
           set -o pipefail
           docker network create cloud-network || true
-          go test -race -p 1 -v ./internal/core/services/... 2>&1 | tee race-core-output.txt || {
-             echo "Race detection (Core) found issues."
-             grep -A 30 "WARNING: DATA RACE" race-core-output.txt || true
-             exit 1
-          }
-
-  repositories-race:
-    runs-on: ubuntu-latest
-    services: *postgres-service
-    steps:
-      - uses: actions/checkout@v6
-      - name: Setup Go
-        uses: actions/setup-go@v6
-        with:
-          go-version: '1.24'
-          cache: true
-      - name: Install Dependencies
-        run: go mod download
-      - name: Wait for Database
-        run: |
-          until pg_isready -h localhost -p 5433 -U cloud; do
-            echo "Waiting for postgres..."
-            sleep 2
-          done
-      - name: Run Repositories Race Detection
-        env:
-          DATABASE_URL: postgres://cloud:cloud@localhost:5433/cloud?sslmode=disable
-        run: |
-          set -o pipefail
-          docker network create cloud-network || true
-          go test -race -p 1 -v ./internal/repositories/... 2>&1 | tee race-repos-output.txt || {
-             echo "Race detection (Repos) found issues."
-             grep -A 30 "WARNING: DATA RACE" race-repos-output.txt || true
-             exit 1
-          }
-
-  cmd-pkg-race:
-    runs-on: ubuntu-latest
-    services: *postgres-service
-    steps:
-      - uses: actions/checkout@v6
-      - name: Setup Go
-        uses: actions/setup-go@v6
-        with:
-          go-version: '1.24'
-          cache: true
-      - name: Install Dependencies
-        run: go mod download
-      - name: Wait for Database
-        run: |
-          until pg_isready -h localhost -p 5433 -U cloud; do
-            echo "Waiting for postgres..."
-            sleep 2
-          done
-      - name: Run Cmd/Pkg Race Detection
-        env:
-          DATABASE_URL: postgres://cloud:cloud@localhost:5433/cloud?sslmode=disable
-        run: |
-          set -o pipefail
-          docker network create cloud-network || true
-          go test -race -p 1 -v ./cmd/... ./pkg/... 2>&1 | tee race-cmd-pkg-output.txt || {
-             echo "Race detection (Cmd/Pkg) found issues."
-             grep -A 30 "WARNING: DATA RACE" race-cmd-pkg-output.txt || true
-             exit 1
-          }
+          go test -race -p 1 -v ${{ matrix.package }}
 
   integration-tests:
     runs-on: ubuntu-latest
@@ -310,13 +257,19 @@ jobs:
           go test -v -run TestInstanceService ./internal/core/services/...
 
   build:
-    needs: [lint, unit-tests, core-services-race, repositories-race, cmd-pkg-race, integration-tests, test-libvirt]
+    needs: [lint, unit-tests, race-detection, integration-tests, test-libvirt]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
       
       - name: Build Docker Image
-        run: docker build . -t thecloud-api:latest
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: thecloud-api:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
         
       - name: Scan Image Vulnerabilities
         uses: aquasecurity/trivy-action@master
@@ -358,6 +311,8 @@ jobs:
           tags: |
             ghcr.io/${{ steps.repo_name.outputs.REPO_LC }}:staging
             ghcr.io/${{ steps.repo_name.outputs.REPO_LC }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   deploy-production:
     needs: build
@@ -390,3 +345,5 @@ jobs:
             ghcr.io/${{ steps.repo_name.outputs.REPO_LC }}:latest
             ghcr.io/${{ steps.repo_name.outputs.REPO_LC }}:${{ github.ref_name }}
             ghcr.io/${{ steps.repo_name.outputs.REPO_LC }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

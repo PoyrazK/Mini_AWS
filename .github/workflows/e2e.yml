@@ -7,6 +7,10 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   e2e:
     name: End-to-End Suite
@@ -37,6 +41,19 @@ jobs:
             sleep 2
           done
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build API
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: thecloud-api:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # The 'api' service in thecompose file already uses the latest build
       - name: Start API
         env:
           DB_PORT_MAPPING: 5433:5432
@@ -55,8 +72,8 @@ jobs:
           # Ensure Docker socket has proper permissions for API to create containers
           sudo chmod 666 /var/run/docker.sock
 
-          # Build and start API
-          docker compose up -d --build api
+          # Start API using the pulled/cached image
+          docker compose up -d api
           
           # Wait for API to be ready
           echo "Waiting for API to be ready..."
