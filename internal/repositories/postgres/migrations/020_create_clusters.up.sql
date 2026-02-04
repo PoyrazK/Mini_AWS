@@ -1,4 +1,4 @@
-CREATE TABLE clusters (
+CREATE TABLE IF NOT EXISTS clusters (
     id UUID PRIMARY KEY,
     user_id UUID NOT NULL REFERENCES users(id),
     vpc_id UUID NOT NULL REFERENCES vpcs(id),
@@ -24,7 +24,7 @@ CREATE TABLE clusters (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE cluster_nodes (
+CREATE TABLE IF NOT EXISTS cluster_nodes (
     id UUID PRIMARY KEY,
     cluster_id UUID NOT NULL REFERENCES clusters(id) ON DELETE CASCADE,
     instance_id UUID NOT NULL REFERENCES instances(id),
