@@ -1,9 +1,9 @@
 -- Add pattern matching columns to gateway_routes
 ALTER TABLE gateway_routes 
-    ADD COLUMN pattern_type VARCHAR(20) DEFAULT 'prefix' NOT NULL,
-    ADD COLUMN path_pattern TEXT,
-    ADD COLUMN param_names JSONB DEFAULT '[]'::jsonb,
-    ADD COLUMN priority INTEGER DEFAULT 0;
+    ADD COLUMN IF NOT EXISTS pattern_type VARCHAR(20) DEFAULT 'prefix' NOT NULL,
+    ADD COLUMN IF NOT EXISTS path_pattern TEXT,
+    ADD COLUMN IF NOT EXISTS param_names JSONB DEFAULT '[]'::jsonb,
+    ADD COLUMN IF NOT EXISTS priority INTEGER DEFAULT 0;
 
 -- Migrate existing routes to use pattern_type='prefix'
 UPDATE gateway_routes 
