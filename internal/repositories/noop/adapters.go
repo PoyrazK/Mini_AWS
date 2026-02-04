@@ -94,6 +94,10 @@ func (r *NoopSubnetRepository) Delete(ctx context.Context, id uuid.UUID) error {
 // NoopComputeBackend is a no-op compute backend.
 type NoopComputeBackend struct{}
 
+func NewNoopComputeBackend() *NoopComputeBackend {
+	return &NoopComputeBackend{}
+}
+
 func (c *NoopComputeBackend) LaunchInstanceWithOptions(ctx context.Context, opts ports.CreateInstanceOptions) (string, error) {
 	return "cid", nil
 }
@@ -328,6 +332,9 @@ func (r *NoopVolumeRepository) List(ctx context.Context) ([]*domain.Volume, erro
 func (r *NoopVolumeRepository) ListByInstanceID(ctx context.Context, id uuid.UUID) ([]*domain.Volume, error) {
 	return []*domain.Volume{}, nil
 }
+func (r *NoopVolumeRepository) ListByUserID(ctx context.Context, userID uuid.UUID) ([]*domain.Volume, error) {
+	return []*domain.Volume{}, nil
+}
 func (r *NoopVolumeRepository) Update(ctx context.Context, v *domain.Volume) error { return nil }
 func (r *NoopVolumeRepository) Delete(ctx context.Context, id uuid.UUID) error     { return nil }
 
@@ -387,7 +394,7 @@ func (r *NoopUserRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain
 	return &domain.User{ID: id}, nil
 }
 func (r *NoopUserRepository) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
-	return &domain.User{ID: uuid.New(), Email: email}, nil
+	return nil, nil
 }
 func (r *NoopUserRepository) Update(ctx context.Context, u *domain.User) error { return nil }
 func (r *NoopUserRepository) List(ctx context.Context) ([]*domain.User, error) {
@@ -410,6 +417,22 @@ func (s *NoopIdentityService) RevokeKey(ctx context.Context, userID, id uuid.UUI
 func (s *NoopIdentityService) RotateKey(ctx context.Context, userID, id uuid.UUID) (*domain.APIKey, error) {
 	return &domain.APIKey{ID: id}, nil
 }
+
+type NoopIdentityRepository struct{}
+
+func (r *NoopIdentityRepository) CreateAPIKey(ctx context.Context, key *domain.APIKey) error {
+	return nil
+}
+func (r *NoopIdentityRepository) GetAPIKeyByKey(ctx context.Context, key string) (*domain.APIKey, error) {
+	return &domain.APIKey{Key: key}, nil
+}
+func (r *NoopIdentityRepository) GetAPIKeyByID(ctx context.Context, id uuid.UUID) (*domain.APIKey, error) {
+	return &domain.APIKey{ID: id}, nil
+}
+func (r *NoopIdentityRepository) ListAPIKeysByUserID(ctx context.Context, userID uuid.UUID) ([]*domain.APIKey, error) {
+	return []*domain.APIKey{}, nil
+}
+func (r *NoopIdentityRepository) DeleteAPIKey(ctx context.Context, id uuid.UUID) error { return nil }
 
 type NoopCacheRepository struct{}
 
