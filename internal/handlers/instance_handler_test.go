@@ -12,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -29,12 +30,28 @@ type instanceServiceMock struct {
 	mock.Mock
 }
 
-func (m *instanceServiceMock) LaunchInstance(ctx context.Context, name, image, ports, instanceType string, vpcID, subnetID *uuid.UUID, volumes []domain.VolumeAttachment) (*domain.Instance, error) {
-	args := m.Called(ctx, name, image, ports, instanceType, vpcID, subnetID, volumes)
+func (m *instanceServiceMock) LaunchInstance(ctx context.Context, name, image, portsStr, instanceType string, vpcID, subnetID *uuid.UUID, volumes []domain.VolumeAttachment) (*domain.Instance, error) {
+	args := m.Called(ctx, name, image, portsStr, instanceType, vpcID, subnetID, volumes)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*domain.Instance), args.Error(1)
+}
+
+func (m *instanceServiceMock) LaunchInstanceWithOptions(ctx context.Context, opts ports.CreateInstanceOptions) (*domain.Instance, error) {
+	args := m.Called(ctx, opts)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Instance), args.Error(1)
+}
+
+func (m *instanceServiceMock) Provision(ctx context.Context, id uuid.UUID, volumes []domain.VolumeAttachment, userData string) error {
+	return m.Called(ctx, id, volumes, userData).Error(0)
+}
+
+func (m *instanceServiceMock) StartInstance(ctx context.Context, idOrName string) error {
+	return m.Called(ctx, idOrName).Error(0)
 }
 
 func (m *instanceServiceMock) StopInstance(ctx context.Context, idOrName string) error {
@@ -93,6 +110,7 @@ func setupInstanceHandlerTest(_ *testing.T) (*instanceServiceMock, *InstanceHand
 }
 
 func TestInstanceHandlerLaunchRejectsEmptyImage(t *testing.T) {
+	t.Parallel()
 	mockSvc, handler, r := setupInstanceHandlerTest(t)
 	defer mockSvc.AssertExpectations(t)
 	r.POST(instancesPath, handler.Launch)
@@ -116,6 +134,7 @@ func TestInstanceHandlerLaunchRejectsEmptyImage(t *testing.T) {
 }
 
 func TestInstanceHandlerLaunchRejectsInvalidJSON(t *testing.T) {
+	t.Parallel()
 	mockSvc, handler, r := setupInstanceHandlerTest(t)
 	defer mockSvc.AssertExpectations(t)
 	r.POST(instancesPath, handler.Launch)
@@ -131,6 +150,7 @@ func TestInstanceHandlerLaunchRejectsInvalidJSON(t *testing.T) {
 }
 
 func TestInstanceHandlerLaunchRejectsInvalidNameCharacters(t *testing.T) {
+	t.Parallel()
 	mockSvc, handler, r := setupInstanceHandlerTest(t)
 	defer mockSvc.AssertExpectations(t)
 	r.POST(instancesPath, handler.Launch)
@@ -147,6 +167,7 @@ func TestInstanceHandlerLaunchRejectsInvalidNameCharacters(t *testing.T) {
 }
 
 func TestInstanceHandlerLaunch(t *testing.T) {
+	t.Parallel()
 	mockSvc, handler, r := setupInstanceHandlerTest(t)
 	defer mockSvc.AssertExpectations(t)
 	r.POST(instancesPath, handler.Launch)
@@ -165,6 +186,7 @@ func TestInstanceHandlerLaunch(t *testing.T) {
 }
 
 func TestInstanceHandlerLaunchRejectsInvalidMountPath(t *testing.T) {
+	t.Parallel()
 	mockSvc, handler, r := setupInstanceHandlerTest(t)
 	defer mockSvc.AssertExpectations(t)
 	r.POST(instancesPath, handler.Launch)
@@ -181,6 +203,7 @@ func TestInstanceHandlerLaunchRejectsInvalidMountPath(t *testing.T) {
 }
 
 func TestInstanceHandlerList(t *testing.T) {
+	t.Parallel()
 	mockSvc, handler, r := setupInstanceHandlerTest(t)
 	defer mockSvc.AssertExpectations(t)
 	r.GET(instancesPath, handler.List)
@@ -197,6 +220,7 @@ func TestInstanceHandlerList(t *testing.T) {
 }
 
 func TestInstanceHandlerGet(t *testing.T) {
+	t.Parallel()
 	mockSvc, handler, r := setupInstanceHandlerTest(t)
 	defer mockSvc.AssertExpectations(t)
 	r.GET(instancesPath+"/:id", handler.Get)
@@ -214,6 +238,7 @@ func TestInstanceHandlerGet(t *testing.T) {
 }
 
 func TestInstanceHandlerStop(t *testing.T) {
+	t.Parallel()
 	mockSvc, handler, r := setupInstanceHandlerTest(t)
 	defer mockSvc.AssertExpectations(t)
 	r.POST(instancesPath+"/:id/stop", handler.Stop)
@@ -230,6 +255,7 @@ func TestInstanceHandlerStop(t *testing.T) {
 }
 
 func TestInstanceHandlerTerminate(t *testing.T) {
+	t.Parallel()
 	mockSvc, handler, r := setupInstanceHandlerTest(t)
 	defer mockSvc.AssertExpectations(t)
 	r.DELETE(instancesPath+"/:id", handler.Terminate)
@@ -246,6 +272,7 @@ func TestInstanceHandlerTerminate(t *testing.T) {
 }
 
 func TestInstanceHandlerStopNotFound(t *testing.T) {
+	t.Parallel()
 	mockSvc, handler, r := setupInstanceHandlerTest(t)
 	defer mockSvc.AssertExpectations(t)
 	r.POST(instancesPath+"/:id/stop", handler.Stop)
@@ -262,6 +289,7 @@ func TestInstanceHandlerStopNotFound(t *testing.T) {
 }
 
 func TestInstanceHandlerTerminateNotFound(t *testing.T) {
+	t.Parallel()
 	mockSvc, handler, r := setupInstanceHandlerTest(t)
 	defer mockSvc.AssertExpectations(t)
 	r.DELETE(instancesPath+"/:id", handler.Terminate)
@@ -278,6 +306,7 @@ func TestInstanceHandlerTerminateNotFound(t *testing.T) {
 }
 
 func TestInstanceHandlerGetLogs(t *testing.T) {
+	t.Parallel()
 	mockSvc, handler, r := setupInstanceHandlerTest(t)
 	defer mockSvc.AssertExpectations(t)
 	r.GET(instancesPath+"/:id/logs", handler.GetLogs)
@@ -295,6 +324,7 @@ func TestInstanceHandlerGetLogs(t *testing.T) {
 }
 
 func TestInstanceHandlerGetStats(t *testing.T) {
+	t.Parallel()
 	mockSvc, handler, r := setupInstanceHandlerTest(t)
 	defer mockSvc.AssertExpectations(t)
 	r.GET(instancesPath+"/:id/stats", handler.GetStats)
@@ -312,6 +342,7 @@ func TestInstanceHandlerGetStats(t *testing.T) {
 }
 
 func TestInstanceHandlerLaunchWithVolumesAndVPC(t *testing.T) {
+	t.Parallel()
 	mockSvc, handler, r := setupInstanceHandlerTest(t)
 	defer mockSvc.AssertExpectations(t)
 	r.POST(instancesPath, handler.Launch)
@@ -349,6 +380,7 @@ func TestInstanceHandlerLaunchWithVolumesAndVPC(t *testing.T) {
 }
 
 func TestInstanceHandlerLaunchRejectsInvalidVPCID(t *testing.T) {
+	t.Parallel()
 	mockSvc, handler, r := setupInstanceHandlerTest(t)
 	defer mockSvc.AssertExpectations(t)
 	r.POST(instancesPath, handler.Launch)
@@ -365,6 +397,7 @@ func TestInstanceHandlerLaunchRejectsInvalidVPCID(t *testing.T) {
 }
 
 func TestInstanceHandlerGetConsole(t *testing.T) {
+	t.Parallel()
 	mockSvc, handler, r := setupInstanceHandlerTest(t)
 	defer mockSvc.AssertExpectations(t)
 	r.GET(instancesPath+"/:id/console", handler.GetConsole)
@@ -387,6 +420,7 @@ func TestInstanceHandlerGetConsole(t *testing.T) {
 }
 
 func TestInstanceHandlerGetConsoleError(t *testing.T) {
+	t.Parallel()
 	mockSvc, handler, r := setupInstanceHandlerTest(t)
 	defer mockSvc.AssertExpectations(t)
 	r.GET(instancesPath+"/:id/console", handler.GetConsole)

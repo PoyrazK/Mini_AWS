@@ -11,6 +11,7 @@ type ProvisionJob struct {
 	UserID     uuid.UUID          `json:"user_id"`
 	TenantID   uuid.UUID          `json:"tenant_id"`
 	Volumes    []VolumeAttachment `json:"volumes"` // List of storage volumes to attach during initialization
+	UserData   string             `json:"user_data,omitempty"`
 }
 
 // ClusterJobType describes the kind of cluster lifecycle operation.

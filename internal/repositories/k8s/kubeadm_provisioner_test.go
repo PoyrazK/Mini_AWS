@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/repositories/k8s"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -21,6 +22,13 @@ func (m *MockInstanceService) LaunchInstance(ctx context.Context, name, image, p
 	args := m.Called(ctx, name, image, ports, instanceType, vpcID, subnetID, volumes)
 	return args.Get(0).(*domain.Instance), args.Error(1)
 }
+func (m *MockInstanceService) LaunchInstanceWithOptions(ctx context.Context, opts ports.CreateInstanceOptions) (*domain.Instance, error) {
+	args := m.Called(ctx, opts)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Instance), args.Error(1)
+}
 func (m *MockInstanceService) GetInstance(ctx context.Context, id string) (*domain.Instance, error) {
 	args := m.Called(ctx, id)
 	return args.Get(0).(*domain.Instance), args.Error(1)
@@ -28,11 +36,18 @@ func (m *MockInstanceService) GetInstance(ctx context.Context, id string) (*doma
 func (m *MockInstanceService) TerminateInstance(ctx context.Context, id string) error {
 	return m.Called(ctx, id).Error(0)
 }
+func (m *MockInstanceService) StartInstance(ctx context.Context, id string) error {
+	return nil
+}
 func (m *MockInstanceService) StopInstance(ctx context.Context, id string) error {
 	return nil
 }
 func (m *MockInstanceService) ListInstances(ctx context.Context) ([]*domain.Instance, error) {
-	return nil, nil
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Instance), args.Error(1)
 }
 func (m *MockInstanceService) GetInstanceLogs(ctx context.Context, id string) (string, error) {
 	return "", nil
@@ -302,7 +317,7 @@ func TestKubeadmProvisionerProvisionHA(t *testing.T) {
 			Role:       domain.NodeRoleControlPlane,
 		})
 
-		instSvc.On("LaunchInstance", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(instance, nil).Once()
+		instSvc.On("LaunchInstanceWithOptions", mock.Anything, mock.Anything).Return(instance, nil).Once()
 		instSvc.On("GetInstance", mock.Anything, nodeID.String()).Return(instance, nil).Maybe()
 		lbSvc.On("AddTarget", mock.Anything, lbID, nodeID, 6443, 10).Return(nil)
 	}
@@ -314,7 +329,15 @@ kubeadm join 10.0.0.100:6443 --token abc --discovery-token-ca-cert-hash sha256:1
 
 kubeadm join 10.0.0.100:6443 --token abc --discovery-token-ca-cert-hash sha256:123 --control-plane --certificate-key xyz
 `
+	// Collect instances for ListInstances mock
+	var instances []*domain.Instance
+	for _, n := range allNodes {
+		inst, _ := instSvc.GetInstance(ctx, n.InstanceID.String())
+		instances = append(instances, inst)
+	}
+
 	instSvc.On("Exec", mock.Anything, mock.Anything, mock.Anything).Return(kubeadmOutput, nil).Maybe()
+	instSvc.On("ListInstances", mock.Anything).Return(instances, nil).Maybe()
 
 	err := p.Provision(ctx, cluster)
 

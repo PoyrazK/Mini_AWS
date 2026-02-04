@@ -33,30 +33,39 @@ const (
 
 // Cluster represents a managed Kubernetes cluster.
 type Cluster struct {
-	ID                 uuid.UUID     `json:"id"`
-	Name               string        `json:"name"`
-	UserID             uuid.UUID     `json:"user_id"`
-	VpcID              uuid.UUID     `json:"vpc_id"`
-	Version            string        `json:"version"`
-	ControlPlaneIPs    []string      `json:"control_plane_ips"`
-	WorkerCount        int           `json:"worker_count"`
-	Status             ClusterStatus `json:"status"`
-	SSHKey             string        `json:"-"` // Base64 encoded private key
-	Kubeconfig         string        `json:"-"` // Encrypted
-	NetworkIsolation   bool          `json:"network_isolation"`
-	HAEnabled          bool          `json:"ha_enabled"`
-	APIServerLBAddress *string       `json:"api_server_lb_address,omitempty"`
-	JobID              *string       `json:"job_id,omitempty"`
-	CreatedAt          time.Time     `json:"created_at"`
-	UpdatedAt          time.Time     `json:"updated_at"`
+	ID              uuid.UUID     `json:"id"`
+	Name            string        `json:"name"`
+	UserID          uuid.UUID     `json:"user_id"`
+	VpcID           uuid.UUID     `json:"vpc_id"`
+	Version         string        `json:"version"`
+	ControlPlaneIPs []string      `json:"control_plane_ips"`
+	WorkerCount     int           `json:"worker_count"`
+	Status          ClusterStatus `json:"status"`
+	// Networking
+	PodCIDR     string `json:"pod_cidr"`
+	ServiceCIDR string `json:"service_cidr"`
+	// Secrets (Encrypted)
+	SSHPrivateKeyEncrypted string     `json:"-"`
+	KubeconfigEncrypted    string     `json:"-"`
+	JoinToken              string     `json:"-"`
+	TokenExpiresAt         *time.Time `json:"-"`
+	CACertHash             string     `json:"-"`
+
+	NetworkIsolation   bool      `json:"network_isolation"`
+	HAEnabled          bool      `json:"ha_enabled"`
+	APIServerLBAddress *string   `json:"api_server_lb_address,omitempty"`
+	JobID              *string   `json:"job_id,omitempty"`
+	CreatedAt          time.Time `json:"created_at"`
+	UpdatedAt          time.Time `json:"updated_at"`
 }
 
 // ClusterNode represents a node within a Kubernetes cluster.
 type ClusterNode struct {
-	ID         uuid.UUID `json:"id"`
-	ClusterID  uuid.UUID `json:"cluster_id"`
-	InstanceID uuid.UUID `json:"instance_id"`
-	Role       NodeRole  `json:"role"`
-	Status     string    `json:"status"`
-	JoinedAt   time.Time `json:"joined_at"`
+	ID            uuid.UUID  `json:"id"`
+	ClusterID     uuid.UUID  `json:"cluster_id"`
+	InstanceID    uuid.UUID  `json:"instance_id"`
+	Role          NodeRole   `json:"role"`
+	Status        string     `json:"status"`
+	LastHeartbeat *time.Time `json:"last_heartbeat,omitempty"`
+	JoinedAt      time.Time  `json:"joined_at"`
 }

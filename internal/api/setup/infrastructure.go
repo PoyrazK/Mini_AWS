@@ -65,7 +65,7 @@ func InitComputeBackend(cfg *platform.Config, logger *slog.Logger) (ports.Comput
 		return libvirt.NewLibvirtAdapter(logger, "")
 	}
 	logger.Info("using docker compute backend")
-	return docker.NewDockerAdapter()
+	return docker.NewDockerAdapter(logger)
 }
 
 // InitStorageBackend initializes the storage backend (LVM or Noop)

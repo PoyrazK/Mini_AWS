@@ -1,1 +1,1 @@
-ALTER TABLE volumes ADD COLUMN backend_path TEXT;
+ALTER TABLE volumes ADD COLUMN IF NOT EXISTS backend_path TEXT;

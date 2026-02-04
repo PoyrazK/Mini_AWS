@@ -144,8 +144,53 @@ func (s *InstanceService) LaunchInstance(ctx context.Context, name, image, ports
 	return inst, nil
 }
 
+// LaunchInstanceWithOptions provisions an instance using structured options.
+func (s *InstanceService) LaunchInstanceWithOptions(ctx context.Context, opts ports.CreateInstanceOptions) (*domain.Instance, error) {
+	ctx, span := otel.Tracer("instance-service").Start(ctx, "LaunchInstanceWithOptions")
+	defer span.End()
+
+	inst := &domain.Instance{
+		ID:           uuid.New(),
+		UserID:       appcontext.UserIDFromContext(ctx),
+		TenantID:     appcontext.TenantIDFromContext(ctx),
+		Name:         opts.Name,
+		Image:        opts.ImageName,
+		Status:       domain.StatusStarting,
+		InstanceType: "custom", // Marking as custom since we are passing raw constraints or defaults
+		Version:      1,
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
+	}
+
+	if opts.NetworkID != "" {
+		vpcID, err := uuid.Parse(opts.NetworkID)
+		if err == nil {
+			inst.VpcID = &vpcID
+		}
+	}
+
+	if err := s.repo.Create(ctx, inst); err != nil {
+		return nil, err
+	}
+
+	// 4. Enqueue provision task with UserData
+	job := domain.ProvisionJob{
+		InstanceID: inst.ID,
+		UserID:     inst.UserID,
+		TenantID:   inst.TenantID,
+		UserData:   opts.UserData,
+	}
+
+	if err := s.taskQueue.Enqueue(ctx, "provision_queue", job); err != nil {
+		s.logger.Error("failed to enqueue provision job", "instance_id", inst.ID, "error", err)
+		return nil, errors.Wrap(errors.Internal, "failed to enqueue provisioning task", err)
+	}
+
+	return inst, nil
+}
+
 // Provision contains the heavy lifting of instance launch, called by background workers.
-func (s *InstanceService) Provision(ctx context.Context, instanceID uuid.UUID, volumes []domain.VolumeAttachment) error {
+func (s *InstanceService) Provision(ctx context.Context, instanceID uuid.UUID, volumes []domain.VolumeAttachment, userData string) error {
 	inst, err := s.repo.GetByID(ctx, instanceID)
 	if err != nil {
 		return err
@@ -178,7 +223,7 @@ func (s *InstanceService) Provision(ctx context.Context, instanceID uuid.UUID, v
 
 	dockerName := s.formatContainerName(inst.ID)
 	portList, _ := s.parseAndValidatePorts(inst.Ports)
-	containerID, err := s.compute.CreateInstance(ctx, ports.CreateInstanceOptions{
+	containerID, err := s.compute.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{
 		Name:        dockerName,
 		ImageName:   inst.Image,
 		Ports:       portList,
@@ -189,6 +234,7 @@ func (s *InstanceService) Provision(ctx context.Context, instanceID uuid.UUID, v
 		CPULimit:    cpuLimit,
 		MemoryLimit: memLimit,
 		DiskLimit:   diskLimit,
+		UserData:    userData,
 	})
 	if err != nil {
 		platform.InstanceOperationsTotal.WithLabelValues("launch", "failure").Inc()
@@ -324,6 +370,50 @@ func parsePort(s string) (int, error) {
 		return 0, err
 	}
 	return port, nil
+}
+
+// StartInstance boots up a stopped instance.
+func (s *InstanceService) StartInstance(ctx context.Context, idOrName string) error {
+	// 1. Get from DB
+	inst, err := s.GetInstance(ctx, idOrName)
+	if err != nil {
+		return err
+	}
+
+	if inst.Status == domain.StatusRunning {
+		return nil // Already running
+	}
+
+	// 2. Call Compute backend
+	target := inst.ContainerID
+	if target == "" {
+		// Try to recover ID from name if missing
+		target = s.formatContainerName(inst.ID)
+	}
+
+	if err := s.compute.StartInstance(ctx, target); err != nil {
+		platform.InstanceOperationsTotal.WithLabelValues("start", "failure").Inc()
+		s.logger.Error("failed to start instance", "instance_id", inst.ID, "container_id", target, "error", err)
+		return errors.Wrap(errors.Internal, "failed to start instance", err)
+	}
+
+	// 3. Update Metrics & Status
+	platform.InstancesTotal.WithLabelValues("stopped", s.compute.Type()).Dec()
+	platform.InstancesTotal.WithLabelValues("running", s.compute.Type()).Inc()
+	platform.InstanceOperationsTotal.WithLabelValues("start", "success").Inc()
+
+	s.logger.Info("instance started", "instance_id", inst.ID)
+
+	inst.Status = domain.StatusRunning
+	if err := s.repo.Update(ctx, inst); err != nil {
+		return err
+	}
+
+	_ = s.auditSvc.Log(ctx, inst.UserID, "instance.start", "instance", inst.ID.String(), map[string]interface{}{
+		"name": inst.Name,
+	})
+
+	return nil
 }
 
 // StopInstance halts a running instance's associated compute resource (e.g., container).

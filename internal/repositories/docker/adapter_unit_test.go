@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -215,7 +216,7 @@ func TestDockerAdapterCreateInstance(t *testing.T) {
 		Cmd:       []string{"/bin/sh"},
 		Ports:     []string{"8080:80"},
 	}
-	id, err := adapter.CreateInstance(context.Background(), opts)
+	id, err := adapter.LaunchInstanceWithOptions(context.Background(), opts)
 	require.NoError(t, err)
 	require.Equal(t, "cid", id)
 }
@@ -251,7 +252,7 @@ func TestDockerAdapterPing(t *testing.T) {
 func TestDockerAdapterNewDockerAdapterError(t *testing.T) {
 	// Triggering error by setting an invalid DOCKER_HOST
 	t.Setenv("DOCKER_HOST", "invalid-proto://")
-	_, err := NewDockerAdapter()
+	_, err := NewDockerAdapter(slog.Default())
 	require.Error(t, err)
 }
 
@@ -362,7 +363,7 @@ func TestDockerAdapterCreateInstanceError(t *testing.T) {
 		Name:      "inst1",
 		ImageName: "alpine",
 	}
-	_, err := adapter.CreateInstance(context.Background(), opts)
+	_, err := adapter.LaunchInstanceWithOptions(context.Background(), opts)
 	require.Error(t, err)
 }
 
@@ -372,4 +373,33 @@ func TestDockerAdapterDeleteNetworkError(t *testing.T) {
 
 	err := adapter.DeleteNetwork(context.Background(), "net1")
 	require.Error(t, err)
+}
+func TestDockerAdapterLaunchWithUserData(t *testing.T) {
+	cli := &fakeDockerClient{}
+	adapter, err := NewDockerAdapter(slog.Default())
+	require.NoError(t, err)
+	adapter.cli = cli
+
+	opts := ports.CreateInstanceOptions{
+		Name:      "test-userdata",
+		ImageName: "alpine",
+		UserData:  "#!/bin/sh\necho 'hello world' > /tmp/output",
+	}
+
+	id, err := adapter.LaunchInstanceWithOptions(context.Background(), opts)
+	require.NoError(t, err)
+	require.Equal(t, "cid", id)
+
+	// UserData execution occurs asynchronously in a background goroutine.
+	// A brief pause ensures that the goroutine has sufficient time to initiate its Exec calls.
+	time.Sleep(50 * time.Millisecond)
+
+	// Verify the two-stage bootstrap sequence:
+	// Stage 1: Payload delivery (writing the bootstrap script to the container filesystem).
+	// Stage 2: Bootstrap execution (invoking the script via a background Exec operation).
+	// Each 'Exec' operation sequentially triggers ContainerExecCreate, ContainerExecAttach,
+	// and ContainerExecInspect according to the adapter's implementation.
+	require.Equal(t, 2, cli.CallCount("ContainerExecCreate"), "Expected dual Stage (delivery + execution) Exec invocations")
+	require.Equal(t, 2, cli.CallCount("ContainerExecAttach"), "Expected associated ExecAttach calls for I/O")
+	require.Equal(t, 2, cli.CallCount("ContainerExecInspect"), "Expected ExecInspect calls to verify termination state")
 }

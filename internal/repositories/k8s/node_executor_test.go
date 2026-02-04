@@ -20,7 +20,7 @@ func TestServiceExecutor(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("Run", func(t *testing.T) {
-		expectedCmd := []string{"/bin/sh", "-c", "echo hello"}
+		expectedCmd := []string{"sh", "-c", "echo hello"}
 		instSvc.On("Exec", ctx, instID.String(), expectedCmd).Return("hello", nil).Once()
 
 		out, err := exec.Run(ctx, "echo hello")
@@ -29,7 +29,7 @@ func TestServiceExecutor(t *testing.T) {
 	})
 
 	t.Run("WaitForReady Success", func(t *testing.T) {
-		expectedCmd := []string{"/bin/sh", "-c", "echo ready"}
+		expectedCmd := []string{"sh", "-c", "echo ready"}
 		instSvc.On("Exec", mock.Anything, instID.String(), expectedCmd).Return("ready", nil).Once()
 
 		err := exec.WaitForReady(ctx, 5*time.Second)

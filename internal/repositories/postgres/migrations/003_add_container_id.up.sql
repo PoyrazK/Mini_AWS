@@ -1,3 +1,3 @@
 -- +goose Up
 
-ALTER TABLE instances ADD COLUMN container_id TEXT;
+ALTER TABLE instances ADD COLUMN IF NOT EXISTS container_id TEXT;

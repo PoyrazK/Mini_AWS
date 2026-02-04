@@ -89,18 +89,27 @@ func (s *ClusterService) CreateCluster(ctx context.Context, params ports.CreateC
 
 	// 3. Create cluster record in database
 	cluster := &domain.Cluster{
-		ID:               uuid.New(),
-		Name:             params.Name,
-		UserID:           params.UserID,
-		VpcID:            vpc.ID,
-		Version:          params.Version,
-		WorkerCount:      params.Workers,
-		NetworkIsolation: params.NetworkIsolation,
-		HAEnabled:        params.HAEnabled,
-		Status:           domain.ClusterStatusPending,
-		SSHKey:           encryptedKey,
-		CreatedAt:        time.Now(),
-		UpdatedAt:        time.Now(),
+		ID:                     uuid.New(),
+		Name:                   params.Name,
+		UserID:                 params.UserID,
+		VpcID:                  vpc.ID,
+		Version:                params.Version,
+		WorkerCount:            params.Workers,
+		NetworkIsolation:       params.NetworkIsolation,
+		HAEnabled:              params.HAEnabled,
+		Status:                 domain.ClusterStatusPending,
+		PodCIDR:                params.PodCIDR,
+		ServiceCIDR:            params.ServiceCIDR,
+		SSHPrivateKeyEncrypted: encryptedKey,
+		CreatedAt:              time.Now(),
+		UpdatedAt:              time.Now(),
+	}
+
+	if cluster.PodCIDR == "" {
+		cluster.PodCIDR = "10.244.0.0/16"
+	}
+	if cluster.ServiceCIDR == "" {
+		cluster.ServiceCIDR = "10.96.0.0/12"
 	}
 
 	if err := s.repo.Create(ctx, cluster); err != nil {
@@ -183,12 +192,12 @@ func (s *ClusterService) GetKubeconfig(ctx context.Context, id uuid.UUID, role s
 
 	// For admin role, use the stored kubeconfig
 	if role == "" || role == "admin" {
-		if cluster.Kubeconfig == "" {
+		if cluster.KubeconfigEncrypted == "" {
 			return "", errors.New(errors.NotFound, "kubeconfig not found for cluster")
 		}
 
 		// Decrypt the kubeconfig
-		decrypted, err := s.secretSvc.Decrypt(ctx, cluster.UserID, cluster.Kubeconfig)
+		decrypted, err := s.secretSvc.Decrypt(ctx, cluster.UserID, cluster.KubeconfigEncrypted)
 		if err != nil {
 			s.logger.Error("failed to decrypt kubeconfig", "cluster_id", cluster.ID, "error", err)
 			return "", errors.Wrap(errors.Internal, "failed to decrypt kubeconfig", err)

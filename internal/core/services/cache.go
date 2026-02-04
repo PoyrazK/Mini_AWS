@@ -130,7 +130,7 @@ func (s *CacheService) launchCacheContainer(ctx context.Context, cache *domain.C
 		"--tcp-keepalive", "300",
 	}
 
-	containerID, err := s.compute.CreateInstance(ctx, ports.CreateInstanceOptions{
+	containerID, err := s.compute.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{
 		Name:      dockerName,
 		ImageName: imageName,
 		Ports:     []string{"0:6379"},

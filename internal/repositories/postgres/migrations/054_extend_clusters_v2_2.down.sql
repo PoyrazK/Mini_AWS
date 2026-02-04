@@ -1,7 +1,7 @@
 ALTER TABLE clusters 
-DROP COLUMN ha_enabled,
-DROP COLUMN api_server_lb_address,
-DROP COLUMN job_id;
+DROP COLUMN IF EXISTS ha_enabled,
+DROP COLUMN IF EXISTS api_server_lb_address,
+DROP COLUMN IF EXISTS job_id;
 
 ALTER TABLE load_balancers
-DROP COLUMN ip;
+DROP COLUMN IF EXISTS ip;

@@ -13,4 +13,5 @@ type CreateInstanceOptions struct {
 	CPULimit    int64    // CPU cores (or millicores)
 	MemoryLimit int64    // Memory in bytes
 	DiskLimit   int64    // Disk in bytes
+	UserData    string   // Cloud-init user data
 }

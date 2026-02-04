@@ -1,1 +1,1 @@
-ALTER TABLE clusters DROP COLUMN network_isolation;
+ALTER TABLE clusters DROP COLUMN IF EXISTS network_isolation;
