@@ -83,13 +83,13 @@ func (e *SSHExecutor) Run(ctx context.Context, cmd string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to dial ssh: %w", err)
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	session, err := client.NewSession()
 	if err != nil {
 		return "", fmt.Errorf("failed to create session: %w", err)
 	}
-	defer session.Close()
+	defer func() { _ = session.Close() }()
 
 	var stdout, stderr strings.Builder
 	session.Stdout = &stdout

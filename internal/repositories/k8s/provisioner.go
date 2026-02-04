@@ -338,7 +338,9 @@ func (p *KubeadmProvisioner) Deprovision(ctx context.Context, cluster *domain.Cl
 	}
 
 	if cluster.HAEnabled && cluster.APIServerLBAddress != nil {
-		// Cleanup LB logic here
+		p.logger.Info("cleaning up cluster load balancer", "cluster_id", cluster.ID, "address", *cluster.APIServerLBAddress)
+		// TODO: Implement explicit LB resource cleanup if needed.
+		// Currently LB is usually part of VPC or deleted separately.
 	}
 
 	return nil

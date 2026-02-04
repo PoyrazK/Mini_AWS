@@ -213,9 +213,6 @@ func (a *DockerAdapter) handleUserData(ctx context.Context, containerID string, 
 
 	// Default fallback: treat as shell script
 	scriptPath := "/tmp/bootstrap.sh"
-	if strings.HasPrefix(userData, "#!") {
-		// e.g. /bin/bash or /bin/python specified
-	}
 
 	// Write file to container
 	// Note: We use base64 encoding to avoid escaping issues with complex scripts
