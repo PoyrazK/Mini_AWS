@@ -182,24 +182,40 @@ func (r *NoopClusterRepository) DeleteNode(ctx context.Context, id uuid.UUID) er
 // NoopClusterService
 type NoopClusterService struct{}
 
-func (s *NoopClusterService) CreateCluster(ctx context.Context, name string, vpcID uuid.UUID) (*domain.Cluster, error) {
-	return nil, nil
+func (s *NoopClusterService) CreateCluster(ctx context.Context, params ports.CreateClusterParams) (*domain.Cluster, error) {
+	return &domain.Cluster{ID: uuid.New(), Name: params.Name}, nil
 }
 func (s *NoopClusterService) DeleteCluster(ctx context.Context, id uuid.UUID) error { return nil }
 func (s *NoopClusterService) GetCluster(ctx context.Context, id uuid.UUID) (*domain.Cluster, error) {
+	return &domain.Cluster{ID: id}, nil
+}
+func (s *NoopClusterService) ListClusters(ctx context.Context, userID uuid.UUID) ([]*domain.Cluster, error) {
 	return nil, nil
 }
-func (s *NoopClusterService) ListClusters(ctx context.Context) ([]*domain.Cluster, error) {
-	return nil, nil
+func (s *NoopClusterService) GetKubeconfig(ctx context.Context, id uuid.UUID, role string) (string, error) {
+	return "", nil
 }
+func (s *NoopClusterService) RepairCluster(ctx context.Context, id uuid.UUID) error { return nil }
+func (s *NoopClusterService) ScaleCluster(ctx context.Context, id uuid.UUID, workers int) error {
+	return nil
+}
+func (s *NoopClusterService) GetClusterHealth(ctx context.Context, id uuid.UUID) (*ports.ClusterHealth, error) {
+	return &ports.ClusterHealth{Status: domain.ClusterStatusRunning}, nil
+}
+func (s *NoopClusterService) UpgradeCluster(ctx context.Context, id uuid.UUID, version string) error {
+	return nil
+}
+func (s *NoopClusterService) RotateSecrets(ctx context.Context, id uuid.UUID) error { return nil }
+func (s *NoopClusterService) CreateBackup(ctx context.Context, id uuid.UUID) error  { return nil }
+func (s *NoopClusterService) RestoreBackup(ctx context.Context, id uuid.UUID, backupPath string) error {
+	return nil
+}
+
 func (s *NoopClusterService) AddNode(ctx context.Context, clusterID uuid.UUID, role string) (*domain.ClusterNode, error) {
-	return nil, nil
+	return &domain.ClusterNode{ID: uuid.New(), ClusterID: clusterID, Role: domain.NodeRole(role)}, nil
 }
 func (s *NoopClusterService) RemoveNode(ctx context.Context, clusterID, nodeID uuid.UUID) error {
 	return nil
-}
-func (s *NoopClusterService) GetKubeconfig(ctx context.Context, clusterID uuid.UUID) (string, error) {
-	return "", nil
 }
 
 // NoopSecretService is a no-op secret service.
@@ -401,11 +417,47 @@ func (r *NoopCacheRepository) Create(ctx context.Context, c *domain.Cache) error
 func (r *NoopCacheRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Cache, error) {
 	return &domain.Cache{ID: id}, nil
 }
-func (r *NoopCacheRepository) List(ctx context.Context) ([]*domain.Cache, error) {
+func (r *NoopCacheRepository) GetByName(ctx context.Context, userID uuid.UUID, name string) (*domain.Cache, error) {
+	return &domain.Cache{ID: uuid.New(), Name: name, UserID: userID}, nil
+}
+func (r *NoopCacheRepository) List(ctx context.Context, userID uuid.UUID) ([]*domain.Cache, error) {
 	return []*domain.Cache{}, nil
 }
 func (r *NoopCacheRepository) Update(ctx context.Context, c *domain.Cache) error { return nil }
 func (r *NoopCacheRepository) Delete(ctx context.Context, id uuid.UUID) error    { return nil }
+
+type NoopLBRepository struct{}
+
+func (r *NoopLBRepository) Create(ctx context.Context, lb *domain.LoadBalancer) error { return nil }
+func (r *NoopLBRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.LoadBalancer, error) {
+	return &domain.LoadBalancer{ID: id}, nil
+}
+func (r *NoopLBRepository) GetByIdempotencyKey(ctx context.Context, key string) (*domain.LoadBalancer, error) {
+	return nil, nil
+}
+func (r *NoopLBRepository) List(ctx context.Context) ([]*domain.LoadBalancer, error) {
+	return []*domain.LoadBalancer{}, nil
+}
+func (r *NoopLBRepository) ListAll(ctx context.Context) ([]*domain.LoadBalancer, error) {
+	return []*domain.LoadBalancer{}, nil
+}
+func (r *NoopLBRepository) Update(ctx context.Context, lb *domain.LoadBalancer) error { return nil }
+func (r *NoopLBRepository) Delete(ctx context.Context, id uuid.UUID) error            { return nil }
+func (r *NoopLBRepository) AddTarget(ctx context.Context, target *domain.LBTarget) error {
+	return nil
+}
+func (r *NoopLBRepository) RemoveTarget(ctx context.Context, lbID, instanceID uuid.UUID) error {
+	return nil
+}
+func (r *NoopLBRepository) ListTargets(ctx context.Context, lbID uuid.UUID) ([]*domain.LBTarget, error) {
+	return []*domain.LBTarget{}, nil
+}
+func (r *NoopLBRepository) UpdateTargetHealth(ctx context.Context, lbID, instanceID uuid.UUID, health string) error {
+	return nil
+}
+func (r *NoopLBRepository) GetTargetsForInstance(ctx context.Context, instanceID uuid.UUID) ([]*domain.LBTarget, error) {
+	return []*domain.LBTarget{}, nil
+}
 
 type NoopStorageRepository struct{}
 
@@ -455,24 +507,23 @@ func (r *NoopStorageRepository) ListParts(ctx context.Context, uid uuid.UUID) ([
 type NoopStorageBackend struct{}
 
 func NewNoopStorageBackend() *NoopStorageBackend { return &NoopStorageBackend{} }
-func (s *NoopStorageBackend) CreateSnapshot(ctx context.Context, volumeID, name string) error {
+func (s *NoopStorageBackend) CreateSnapshot(ctx context.Context, volumeName, snapshotName string) error {
 	return nil
 }
-func (s *NoopStorageBackend) DeleteSnapshot(ctx context.Context, snapshotID string) error { return nil }
-func (s *NoopStorageBackend) RestoreSnapshot(ctx context.Context, snapshotID string) (string, error) {
-	return "vol-restored", nil
+func (s *NoopStorageBackend) DeleteSnapshot(ctx context.Context, snapshotName string) error {
+	return nil
 }
-func (s *NoopStorageBackend) CreateVolume(ctx context.Context, size int64) (string, error) {
+func (s *NoopStorageBackend) RestoreSnapshot(ctx context.Context, volumeName, snapshotName string) error {
+	return nil
+}
+func (s *NoopStorageBackend) CreateVolume(ctx context.Context, name string, sizeGB int) (string, error) {
 	return "vol-1", nil
 }
-func (s *NoopStorageBackend) DeleteVolume(ctx context.Context, id string) error { return nil }
-func (s *NoopStorageBackend) ResizeVolume(ctx context.Context, id string, newSize int64) error {
+func (s *NoopStorageBackend) DeleteVolume(ctx context.Context, name string) error { return nil }
+func (s *NoopStorageBackend) AttachVolume(ctx context.Context, volumeName, instanceID string) error {
 	return nil
 }
-func (s *NoopStorageBackend) AttachVolume(ctx context.Context, volID, instanceID string) error {
-	return nil
-}
-func (s *NoopStorageBackend) DetachVolume(ctx context.Context, volID, instanceID string) error {
+func (s *NoopStorageBackend) DetachVolume(ctx context.Context, volumeName, instanceID string) error {
 	return nil
 }
 func (s *NoopStorageBackend) Ping(ctx context.Context) error { return nil }
