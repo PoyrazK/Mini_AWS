@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS cluster_nodes;
+DROP TABLE IF EXISTS clusters;
