@@ -17,14 +17,14 @@ import (
 )
 
 const (
-	cronPath       = "/cron"
-	testJobName    = "job-1"
-	testExampleURL = "http://example.com"
-	pausePath      = "/:id/pause"
-	resumePath     = "/:id/resume"
-	pauseSuffix    = "/pause"
-	resumeSuffix   = "/resume"
-	cronPathInvalid    = "/invalid"
+	cronPath        = "/cron"
+	testJobName     = "job-1"
+	testExampleURL  = "http://example.com"
+	pausePath       = "/:id/pause"
+	resumePath      = "/:id/resume"
+	pauseSuffix     = "/pause"
+	resumeSuffix    = "/resume"
+	cronPathInvalid = "/invalid"
 )
 
 type mockCronService struct {

@@ -33,7 +33,7 @@ func TestRunMigrations(t *testing.T) {
 
 	err = RunMigrations(context.Background(), mock, logger)
 	assert.NoError(t, err)
-	
+
 	// Ensure all expectations were met
 	assert.NoError(t, mock.ExpectationsWereMet())
 }

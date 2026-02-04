@@ -61,7 +61,7 @@ func TestSanitizeDomainName(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-		t.Parallel()
+			t.Parallel()
 			result := a.sanitizeDomainName(tt.input)
 			if tt.input == "" {
 				// Empty string generates UUID
@@ -149,7 +149,7 @@ func TestGenerateUserData(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-		t.Parallel()
+			t.Parallel()
 			result := a.generateUserData(tt.env, tt.cmd, "")
 			content := string(result)
 
@@ -181,7 +181,7 @@ func TestResolveBinds(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-		t.Parallel()
+			t.Parallel()
 			result := a.resolveBinds(context.Background(), tt.binds)
 			assert.Empty(t, result)
 		})
@@ -232,7 +232,7 @@ func TestPrepareCloudInit(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-		t.Parallel()
+			t.Parallel()
 			result := a.prepareCloudInit(context.Background(), "test", tt.env, tt.cmd, "")
 			assert.Equal(t, tt.expected, result)
 		})
@@ -275,7 +275,7 @@ func TestValidateID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-		t.Parallel()
+			t.Parallel()
 			err := validateID(tt.id)
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -342,7 +342,7 @@ func TestParseAndValidatePortExtended(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-		t.Parallel()
+			t.Parallel()
 			host, cont, err := a.parseAndValidatePort(tt.port)
 			if tt.wantErr {
 				assert.Error(t, err)

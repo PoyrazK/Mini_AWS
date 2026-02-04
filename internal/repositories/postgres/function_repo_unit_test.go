@@ -19,17 +19,17 @@ func TestFunctionRepository_Create(t *testing.T) {
 
 	repo := NewFunctionRepository(mock)
 	f := &domain.Function{
-		ID:             uuid.New(),
-		UserID:         uuid.New(),
-		Name:           "test-func",
-		Runtime:        "python3.9",
-		Handler:        "main.handler",
-		CodePath:       "/tmp/code",
-		Timeout:        30,
-		MemoryMB:       128,
-		Status:         "ready",
-		CreatedAt:      time.Now(),
-		UpdatedAt:      time.Now(),
+		ID:        uuid.New(),
+		UserID:    uuid.New(),
+		Name:      "test-func",
+		Runtime:   "python3.9",
+		Handler:   "main.handler",
+		CodePath:  "/tmp/code",
+		Timeout:   30,
+		MemoryMB:  128,
+		Status:    "ready",
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
 	}
 
 	mock.ExpectExec("INSERT INTO functions").

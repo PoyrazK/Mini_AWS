@@ -117,7 +117,7 @@ func TestLaunchInstanceSuccess(t *testing.T) {
 	_, svc, compute, repo, _, _, ctx := setupInstanceServiceTest(t)
 	name := "test-inst-launch"
 	image := "alpine:latest"
-	ports := "8080:80"
+	ports := "8888:80"
 
 	// 1. Launch (Enqueue)
 	inst, err := svc.LaunchInstance(ctx, name, image, ports, "basic-2", nil, nil, nil)

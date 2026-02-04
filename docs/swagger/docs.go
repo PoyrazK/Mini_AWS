@@ -5115,6 +5115,13 @@ const docTemplate = `{
                 "network_isolation": {
                     "type": "boolean"
                 },
+                "pod_cidr": {
+                    "description": "Networking",
+                    "type": "string"
+                },
+                "service_cidr": {
+                    "type": "string"
+                },
                 "status": {
                     "$ref": "#/definitions/domain.ClusterStatus"
                 },

@@ -17,13 +17,13 @@ import (
 )
 
 const (
-	topicsPath      = "/notify/topics"
-	subsPath        = "/notify/subscriptions"
-	testTopicName   = "topic-1"
-	testExampleURL2 = "http://example.com"
-	subSuffix       = "/subscriptions"
-	publishSuffix   = "/publish"
-	notifyPathInvalid     = "/invalid"
+	topicsPath        = "/notify/topics"
+	subsPath          = "/notify/subscriptions"
+	testTopicName     = "topic-1"
+	testExampleURL2   = "http://example.com"
+	subSuffix         = "/subscriptions"
+	publishSuffix     = "/publish"
+	notifyPathInvalid = "/invalid"
 )
 
 type mockNotifyService struct {
