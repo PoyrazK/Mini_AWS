@@ -172,3 +172,57 @@ func TestGlobalLBRemoveEndpoint(t *testing.T) {
 		assert.Len(t, dnsRecs, 0)
 	})
 }
+
+func TestGlobalLBListEndpoints(t *testing.T) {
+	t.Parallel()
+	svc, repo, _, _ := setupGlobalLBTest(t)
+	userID := uuid.New()
+	ctx := appcontext.WithUserID(context.Background(), userID)
+	glbID := uuid.New()
+
+	// Add GLB to avoid nil pointer in Get()
+	repo.GLBs[glbID] = &domain.GlobalLoadBalancer{ID: glbID, UserID: userID}
+
+	repo.Endpoints[glbID] = []*domain.GlobalEndpoint{
+		{ID: uuid.New(), Region: "us-east-1", GlobalLBID: glbID},
+		{ID: uuid.New(), Region: "eu-west-1", GlobalLBID: glbID},
+	}
+
+	eps, err := svc.ListEndpoints(ctx, glbID)
+	assert.NoError(t, err)
+	assert.Len(t, eps, 2)
+}
+
+func TestGlobalLBGet(t *testing.T) {
+	t.Parallel()
+	svc, repo, _, _ := setupGlobalLBTest(t)
+	userID := uuid.New()
+	ctx := appcontext.WithUserID(context.Background(), userID)
+	glb := &domain.GlobalLoadBalancer{ID: uuid.New(), UserID: userID, Name: "test"}
+	repo.GLBs[glb.ID] = glb
+
+	t.Run("success", func(t *testing.T) {
+		res, err := svc.Get(ctx, glb.ID)
+		assert.NoError(t, err)
+		assert.Equal(t, glb.Name, res.Name)
+	})
+
+	t.Run("not found", func(t *testing.T) {
+		_, err := svc.Get(ctx, uuid.New())
+		assert.Error(t, err)
+	})
+}
+
+func TestGlobalLBDelete(t *testing.T) {
+	t.Parallel()
+	svc, repo, _, geoDNS := setupGlobalLBTest(t)
+	userID := uuid.New()
+	ctx := appcontext.WithUserID(context.Background(), userID)
+	glb := &domain.GlobalLoadBalancer{ID: uuid.New(), UserID: userID, Hostname: "delete-me.com"}
+	repo.GLBs[glb.ID] = glb
+	geoDNS.Records[glb.Hostname] = []domain.GlobalEndpoint{}
+
+	err := svc.Delete(ctx, glb.ID, userID)
+	assert.NoError(t, err)
+	assert.Nil(t, repo.GLBs[glb.ID])
+}
