@@ -138,7 +138,8 @@ func TestGlobalLBHandlerGet(t *testing.T) {
 		var resp struct {
 			Data domain.GlobalLoadBalancer `json:"data"`
 		}
-		json.Unmarshal(w.Body.Bytes(), &resp)
+		err := json.Unmarshal(w.Body.Bytes(), &resp)
+		assert.NoError(t, err)
 		assert.Equal(t, id, resp.Data.ID)
 	})
 
@@ -182,7 +183,8 @@ func TestGlobalLBHandlerList(t *testing.T) {
 		var resp struct {
 			Data []domain.GlobalLoadBalancer `json:"data"`
 		}
-		json.Unmarshal(w.Body.Bytes(), &resp)
+		err := json.Unmarshal(w.Body.Bytes(), &resp)
+		assert.NoError(t, err)
 		assert.Len(t, resp.Data, 2)
 	})
 }
@@ -246,7 +248,8 @@ func TestGlobalLBHandlerAddEndpoint(t *testing.T) {
 		var resp struct {
 			Data domain.GlobalEndpoint `json:"data"`
 		}
-		json.Unmarshal(w.Body.Bytes(), &resp)
+		err := json.Unmarshal(w.Body.Bytes(), &resp)
+		assert.NoError(t, err)
 		assert.Equal(t, ep.ID, resp.Data.ID)
 	})
 }
