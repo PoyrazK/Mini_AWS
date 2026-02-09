@@ -174,3 +174,44 @@ func TestIdentityHandlerRegenerateKey(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), "new_key_gen")
 }
+
+func TestIdentityHandlerErrors(t *testing.T) {
+	t.Parallel()
+	userID := uuid.New()
+
+	t.Run("CreateKeyInvalidJSON", func(t *testing.T) {
+		_, handler, r := setupIdentityHandlerTest(userID)
+		r.POST(authKeysPath, handler.CreateKey)
+		req := httptest.NewRequest("POST", authKeysPath, bytes.NewBufferString("invalid"))
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("RevokeKeyInvalidID", func(t *testing.T) {
+		_, handler, r := setupIdentityHandlerTest(userID)
+		r.DELETE(authKeysPath+"/:id", handler.RevokeKey)
+		req := httptest.NewRequest("DELETE", authKeysPath+"/invalid", nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("RotateKeyInvalidID", func(t *testing.T) {
+		_, handler, r := setupIdentityHandlerTest(userID)
+		r.POST(authKeysPath+"/:id/rotate", handler.RotateKey)
+		req := httptest.NewRequest("POST", authKeysPath+"/invalid/rotate", nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("RegenerateKeyInvalidID", func(t *testing.T) {
+		_, handler, r := setupIdentityHandlerTest(userID)
+		r.POST(authKeysPath+"/:id/regenerate", handler.RegenerateKey)
+		req := httptest.NewRequest("POST", authKeysPath+"/invalid/regenerate", nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+}

@@ -95,6 +95,9 @@ func (s *GlobalLBService) Get(ctx context.Context, id uuid.UUID) (*domain.Global
 	if err != nil {
 		return nil, err
 	}
+	if glb == nil {
+		return nil, errors.New(errors.NotFound, "global load balancer not found")
+	}
 
 	// Verify ownership
 	userID := appcontext.UserIDFromContext(ctx)

@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -35,6 +36,9 @@ func (m *mockLBService) Create(ctx context.Context, name string, vpcID uuid.UUID
 
 func (m *mockLBService) List(ctx context.Context) ([]*domain.LoadBalancer, error) {
 	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	return args.Get(0).([]*domain.LoadBalancer), args.Error(1)
 }
 
@@ -63,6 +67,9 @@ func (m *mockLBService) RemoveTarget(ctx context.Context, lbID, instanceID uuid.
 
 func (m *mockLBService) ListTargets(ctx context.Context, lbID uuid.UUID) ([]*domain.LBTarget, error) {
 	args := m.Called(ctx, lbID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	return args.Get(0).([]*domain.LBTarget), args.Error(1)
 }
 
@@ -216,4 +223,131 @@ func TestLBHandlerListTargets(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestLBHandlerErrors(t *testing.T) {
+	t.Parallel()
+
+	t.Run("CreateInvalidJSON", func(t *testing.T) {
+		_, handler, r := setupLBHandlerTest(t)
+		r.POST(lbPath, handler.Create)
+		req := httptest.NewRequest("POST", lbPath, bytes.NewBufferString("invalid"))
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("CreateInvalidVPC", func(t *testing.T) {
+		_, handler, r := setupLBHandlerTest(t)
+		r.POST(lbPath, handler.Create)
+		body, _ := json.Marshal(map[string]interface{}{
+			"name":   "n",
+			"vpc_id": "invalid",
+			"port":   80,
+		})
+		req := httptest.NewRequest("POST", lbPath, bytes.NewBuffer(body))
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("GetInvalidID", func(t *testing.T) {
+		_, handler, r := setupLBHandlerTest(t)
+		r.GET(lbPath+"/:id", handler.Get)
+		req := httptest.NewRequest("GET", lbPath+"/invalid", nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("DeleteInvalidID", func(t *testing.T) {
+		_, handler, r := setupLBHandlerTest(t)
+		r.DELETE(lbPath+"/:id", handler.Delete)
+		req := httptest.NewRequest("DELETE", lbPath+"/invalid", nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("AddTargetInvalidLBID", func(t *testing.T) {
+		_, handler, r := setupLBHandlerTest(t)
+		r.POST(lbPath+"/:id/targets", handler.AddTarget)
+		req := httptest.NewRequest("POST", lbPath+"/invalid/targets", nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("AddTargetInvalidJSON", func(t *testing.T) {
+		_, handler, r := setupLBHandlerTest(t)
+		r.POST(lbPath+"/:id/targets", handler.AddTarget)
+		id := uuid.New()
+		req := httptest.NewRequest("POST", lbPath+"/"+id.String()+"/targets", bytes.NewBufferString("invalid"))
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("RemoveTargetInvalidID", func(t *testing.T) {
+		_, handler, r := setupLBHandlerTest(t)
+		r.DELETE(lbPath+"/:id/targets/:instanceId", handler.RemoveTarget)
+		id := uuid.New()
+		req := httptest.NewRequest("DELETE", lbPath+"/"+id.String()+"/targets/invalid", nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("CreateServiceError", func(t *testing.T) {
+		svc, handler, r := setupLBHandlerTest(t)
+		r.POST(lbPath, handler.Create)
+		svc.On("Create", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+			Return(nil, errors.New(errors.Internal, "internal error"))
+
+		body, _ := json.Marshal(map[string]interface{}{
+			"name":   "n",
+			"vpc_id": uuid.New().String(),
+			"port":   80,
+		})
+		req := httptest.NewRequest("POST", lbPath, bytes.NewBuffer(body))
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+	})
+
+	t.Run("GetServiceError", func(t *testing.T) {
+		svc, handler, r := setupLBHandlerTest(t)
+		r.GET(lbPath+"/:id", handler.Get)
+		id := uuid.New()
+		svc.On("Get", mock.Anything, id).Return(nil, errors.New(errors.NotFound, "not found"))
+
+		req := httptest.NewRequest("GET", lbPath+"/"+id.String(), nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusNotFound, w.Code)
+	})
+
+	t.Run("ListTargetsServiceError", func(t *testing.T) {
+		svc, handler, r := setupLBHandlerTest(t)
+		r.GET(lbPath+"/:id/targets", handler.ListTargets)
+		id := uuid.New()
+		svc.On("ListTargets", mock.Anything, id).Return(nil, errors.New(errors.Internal, "error"))
+
+		req := httptest.NewRequest("GET", lbPath+"/"+id.String()+"/targets", nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+	})
+
+	t.Run("DeleteServiceError", func(t *testing.T) {
+		svc, handler, r := setupLBHandlerTest(t)
+		r.DELETE(lbPath+"/:id", handler.Delete)
+		id := uuid.New()
+		svc.On("Delete", mock.Anything, id).Return(errors.New(errors.Internal, "error"))
+
+		req := httptest.NewRequest("DELETE", lbPath+"/"+id.String(), nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+	})
 }
