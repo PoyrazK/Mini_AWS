@@ -333,7 +333,7 @@ func TestAutoScalingWorkerFailureBackoffSkipsScaleOut(t *testing.T) {
 
 	worker.Evaluate(ctx)
 
-	mockInstSvc.AssertNotCalled(t, "LaunchInstance", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+	mockInstSvc.AssertNotCalled(t, "LaunchInstance", mock.Anything, mock.Anything)
 }
 
 func TestAutoScalingWorkerAdjustDesiredBounds(t *testing.T) {
