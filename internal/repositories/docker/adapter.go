@@ -28,6 +28,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+const shellBin = "/bin/sh"
+
 const (
 	// ImagePullTimeout is the maximum time allowed for pulling a Docker image
 	ImagePullTimeout = 5 * time.Minute
@@ -129,7 +131,7 @@ func (a *DockerAdapter) LaunchInstanceWithOptions(ctx context.Context, opts port
 	// HACK: For kindest/node, we MUST NOT override the entrypoint/command as it starts systemd.
 	isKIND := strings.Contains(opts.ImageName, "kindest/node")
 	if len(config.Cmd) == 0 && !isKIND {
-		config.Cmd = []string{"/bin/sh", "-c", "tail -f /dev/null"}
+		config.Cmd = []string{shellBin, "-c", "tail -f /dev/null"}
 	}
 
 	hostConfig := &container.HostConfig{
@@ -224,14 +226,15 @@ func (a *DockerAdapter) handleUserData(ctx context.Context, containerID string, 
 		return fmt.Errorf("failed to write userdata to container: %w", err)
 	}
 
-	// Run in background
-	go func() {
-		bgCtx := context.Background()
-		_, err := a.Exec(bgCtx, containerID, []string{"/bin/sh", scriptPath})
-		if err != nil {
-			a.logger.Error("failed to execute userdata script", "container_id", containerID, "error", err)
-		}
-	}()
+	// Synchronous execution with timeout
+	ctxWithTimeout, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancel()
+
+	out, err := a.Exec(ctxWithTimeout, containerID, []string{shellBin, scriptPath})
+	if err != nil {
+		a.logger.Error("failed to execute userdata script", "container_id", containerID, "error", err, "output", out)
+		return fmt.Errorf("userdata script execution failed: %w", err)
+	}
 
 	return nil
 }
@@ -258,7 +261,7 @@ func (a *DockerAdapter) processCloudConfig(ctx context.Context, containerID stri
 
 	// We'll build a single giant shell script to execute these steps
 	var scriptBuilder strings.Builder
-	scriptBuilder.WriteString("#!/bin/sh\n")
+	scriptBuilder.WriteString("#!" + shellBin + "\n")
 	scriptBuilder.WriteString("set -e\n") // Exit on error
 	scriptBuilder.WriteString("export DEBIAN_FRONTEND=noninteractive\n")
 
@@ -310,17 +313,18 @@ func (a *DockerAdapter) processCloudConfig(ctx context.Context, containerID stri
 		return fmt.Errorf("failed to upload cloud-init bootstrap: %w", err)
 	}
 
-	// Execute in background
-	go func() {
-		bgCtx := context.Background()
-		// We stream output to logs ideally, but here just run it
-		out, err := a.Exec(bgCtx, containerID, []string{"/bin/sh", bootstrapPath})
-		if err != nil {
-			a.logger.Error("cloud-init execution failed", "container_id", containerID, "error", err, "output", out)
-		} else {
-			a.logger.Info("cloud-init execution success", "container_id", containerID)
-		}
-	}()
+	// Synchronous execution with timeout
+	ctxWithTimeout, cancel := context.WithTimeout(ctx, 10*time.Minute)
+	defer cancel()
+
+	// We stream output to logs ideally, but here just run it
+	out, err := a.Exec(ctxWithTimeout, containerID, []string{shellBin, bootstrapPath})
+	if err != nil {
+		a.logger.Error("cloud-init execution failed", "container_id", containerID, "error", err, "output", out)
+		return fmt.Errorf("cloud-init execution failed: %w", err)
+	}
+
+	a.logger.Info("cloud-init execution success", "container_id", containerID)
 
 	return nil
 }
