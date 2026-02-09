@@ -23,7 +23,7 @@ jobs:
           cache: true
       - name: Verify Swagger
         run: |
-          go install github.com/swaggo/swag/cmd/swag@v1.16.4
+          go install github.com/swaggo/swag/cmd/swag@v1.16.6
           make swagger
           if [ -n "$(git status --porcelain docs/swagger)" ]; then
             echo "Swagger docs are out of sync. Run 'swag init' and commit changes."
