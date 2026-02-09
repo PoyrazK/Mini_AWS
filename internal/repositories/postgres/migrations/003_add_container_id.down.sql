@@ -1,1 +1,1 @@
-ALTER TABLE instances DROP COLUMN container_id;
+ALTER TABLE instances DROP COLUMN IF EXISTS container_id;

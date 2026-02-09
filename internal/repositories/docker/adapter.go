@@ -3,8 +3,10 @@ package docker
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"io"
+	"log/slog"
 	"path/filepath"
 	"strings"
 	"time"
@@ -23,7 +25,10 @@ import (
 	"github.com/poyrazk/thecloud/internal/errors"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"gopkg.in/yaml.v3"
 )
+
+const shellBin = "/bin/sh"
 
 const (
 	// ImagePullTimeout is the maximum time allowed for pulling a Docker image
@@ -36,7 +41,8 @@ const (
 
 // DockerAdapter implements the compute backend using Docker.
 type DockerAdapter struct {
-	cli dockerClient
+	cli    dockerClient
+	logger *slog.Logger
 }
 
 // dockerClient is a narrow interface over the Docker SDK client.
@@ -66,12 +72,12 @@ type dockerClient interface {
 }
 
 // NewDockerAdapter constructs a DockerAdapter with a Docker client.
-func NewDockerAdapter() (*DockerAdapter, error) {
+func NewDockerAdapter(logger *slog.Logger) (*DockerAdapter, error) {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return nil, fmt.Errorf("failed to create docker client: %w", err)
 	}
-	return &DockerAdapter{cli: cli}, nil
+	return &DockerAdapter{cli: cli, logger: logger}, nil
 }
 
 // Ping checks if Docker daemon is reachable
@@ -87,7 +93,7 @@ func (a *DockerAdapter) Type() string {
 	return "docker"
 }
 
-func (a *DockerAdapter) CreateInstance(ctx context.Context, opts ports.CreateInstanceOptions) (string, error) {
+func (a *DockerAdapter) LaunchInstanceWithOptions(ctx context.Context, opts ports.CreateInstanceOptions) (string, error) {
 	ctx, span := otel.Tracer(tracerName).Start(ctx, "CreateInstance")
 	defer span.End()
 
@@ -125,7 +131,7 @@ func (a *DockerAdapter) CreateInstance(ctx context.Context, opts ports.CreateIns
 	// HACK: For kindest/node, we MUST NOT override the entrypoint/command as it starts systemd.
 	isKIND := strings.Contains(opts.ImageName, "kindest/node")
 	if len(config.Cmd) == 0 && !isKIND {
-		config.Cmd = []string{"/bin/sh", "-c", "tail -f /dev/null"}
+		config.Cmd = []string{shellBin, "-c", "tail -f /dev/null"}
 	}
 
 	hostConfig := &container.HostConfig{
@@ -191,7 +197,143 @@ func (a *DockerAdapter) CreateInstance(ctx context.Context, opts ports.CreateIns
 	}
 	startSpan.End()
 
+	// 5. Handle UserData (Bootstrap)
+	if opts.UserData != "" {
+		if err := a.handleUserData(ctx, resp.ID, opts.UserData); err != nil {
+			a.logger.Warn("failed to handle user data", "container_id", resp.ID, "error", err)
+		}
+	}
+
 	return resp.ID, nil
+}
+
+func (a *DockerAdapter) handleUserData(ctx context.Context, containerID string, userData string) error {
+	// For Docker, we simulate Cloud-Init by writing the script to the container and executing it.
+	if strings.HasPrefix(userData, "#cloud-config") {
+		return a.processCloudConfig(ctx, containerID, userData)
+	}
+
+	// Default fallback: treat as shell script
+	scriptPath := "/tmp/bootstrap.sh"
+
+	// Write file to container
+	// Note: We use base64 encoding to avoid escaping issues with complex scripts
+	encoded := base64.StdEncoding.EncodeToString([]byte(userData))
+	writeCmd := []string{"sh", "-c", fmt.Sprintf("mkdir -p %s && echo %s | base64 -d > %s && chmod +x %s",
+		filepath.Dir(scriptPath), encoded, scriptPath, scriptPath)}
+
+	if _, err := a.Exec(ctx, containerID, writeCmd); err != nil {
+		return fmt.Errorf("failed to write userdata to container: %w", err)
+	}
+
+	// Synchronous execution with timeout
+	ctxWithTimeout, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancel()
+
+	out, err := a.Exec(ctxWithTimeout, containerID, []string{shellBin, scriptPath})
+	if err != nil {
+		a.logger.Error("failed to execute userdata script", "container_id", containerID, "error", err, "output", out)
+		return fmt.Errorf("userdata script execution failed: %w", err)
+	}
+
+	return nil
+}
+
+type cloudConfig struct {
+	PackageUpdate  bool              `yaml:"package_update"`
+	PackageUpgrade bool              `yaml:"package_upgrade"`
+	Packages       []string          `yaml:"packages"`
+	WriteFiles     []cloudConfigFile `yaml:"write_files"`
+	RunCmd         []interface{}     `yaml:"runcmd"` // Can be string or list
+}
+
+type cloudConfigFile struct {
+	Path        string `yaml:"path"`
+	Content     string `yaml:"content"`
+	Permissions string `yaml:"permissions"`
+}
+
+func (a *DockerAdapter) processCloudConfig(ctx context.Context, containerID string, userData string) error {
+	var cfg cloudConfig
+	if err := yaml.Unmarshal([]byte(userData), &cfg); err != nil {
+		return fmt.Errorf("failed to parse cloud-config: %w", err)
+	}
+
+	// We'll build a single giant shell script to execute these steps
+	var scriptBuilder strings.Builder
+	scriptBuilder.WriteString("#!" + shellBin + "\n")
+	scriptBuilder.WriteString("set -e\n") // Exit on error
+	scriptBuilder.WriteString("export DEBIAN_FRONTEND=noninteractive\n")
+
+	// 1. Packages
+	if cfg.PackageUpdate {
+		scriptBuilder.WriteString("apt-get update -y\n")
+	}
+	if cfg.PackageUpgrade {
+		scriptBuilder.WriteString("apt-get upgrade -y\n")
+	}
+	if len(cfg.Packages) > 0 {
+		scriptBuilder.WriteString("apt-get install -y " + strings.Join(cfg.Packages, " ") + "\n")
+	}
+
+	// 2. Write Files
+	for _, f := range cfg.WriteFiles {
+		encodedContent := base64.StdEncoding.EncodeToString([]byte(f.Content))
+		scriptBuilder.WriteString(fmt.Sprintf("mkdir -p $(dirname %s)\n", f.Path))
+		scriptBuilder.WriteString(fmt.Sprintf("echo %s | base64 -d > %s\n", encodedContent, f.Path))
+		if f.Permissions != "" {
+			scriptBuilder.WriteString(fmt.Sprintf("chmod %s %s\n", f.Permissions, f.Path))
+		}
+	}
+
+	// 3. RunCmd
+	for _, cmd := range cfg.RunCmd {
+		switch v := cmd.(type) {
+		case string:
+			scriptBuilder.WriteString(v + "\n")
+		case []interface{}:
+			// Convert ["echo", "hello"] to "echo hello"
+			var parts []string
+			for _, p := range v {
+				parts = append(parts, fmt.Sprintf("%v", p))
+			}
+			scriptBuilder.WriteString(strings.Join(parts, " ") + "\n")
+		}
+	}
+
+	// Upload and Execute the generated script
+	finalScript := scriptBuilder.String()
+	bootstrapPath := "/tmp/cloud-init-bootstrap.sh"
+
+	encodedScript := base64.StdEncoding.EncodeToString([]byte(finalScript))
+	writeCmd := []string{"sh", "-c", fmt.Sprintf("echo %s | base64 -d > %s && chmod +x %s",
+		encodedScript, bootstrapPath, bootstrapPath)}
+
+	if _, err := a.Exec(ctx, containerID, writeCmd); err != nil {
+		return fmt.Errorf("failed to upload cloud-init bootstrap: %w", err)
+	}
+
+	// Synchronous execution with timeout
+	ctxWithTimeout, cancel := context.WithTimeout(ctx, 10*time.Minute)
+	defer cancel()
+
+	// We stream output to logs ideally, but here just run it
+	out, err := a.Exec(ctxWithTimeout, containerID, []string{shellBin, bootstrapPath})
+	if err != nil {
+		a.logger.Error("cloud-init execution failed", "container_id", containerID, "error", err, "output", out)
+		return fmt.Errorf("cloud-init execution failed: %w", err)
+	}
+
+	a.logger.Info("cloud-init execution success", "container_id", containerID)
+
+	return nil
+}
+
+func (a *DockerAdapter) StartInstance(ctx context.Context, id string) error {
+	if err := a.cli.ContainerStart(ctx, id, container.StartOptions{}); err != nil {
+		return fmt.Errorf("failed to start container %s: %w", id, err)
+	}
+	return nil
 }
 
 func (a *DockerAdapter) StopInstance(ctx context.Context, name string) error {

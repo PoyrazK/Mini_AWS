@@ -1,228 +1,205 @@
+//go:build integration
+
 package k8s_test
 
 import (
-	"bytes"
 	"context"
-	"io"
 	"log/slog"
+	"os"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/core/ports"
+	"github.com/poyrazk/thecloud/internal/core/services"
+	"github.com/poyrazk/thecloud/internal/platform"
+	"github.com/poyrazk/thecloud/internal/repositories/docker"
 	"github.com/poyrazk/thecloud/internal/repositories/k8s"
+	"github.com/poyrazk/thecloud/internal/repositories/noop"
+	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
-// Re-defining mocks correctly to use mock.Mock.Called
-type MockStorageServiceV2 struct{ mock.Mock }
-
-func (m *MockStorageServiceV2) Upload(ctx context.Context, bucket, key string, r io.Reader) (*domain.Object, error) {
-	args := m.Called(ctx, bucket, key, r)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
+// TestK8sProvisionerLifecycle provides a realistic integration test for the K8s provisioner
+// using a real Docker compute backend and real Postgres storage.
+func TestK8sProvisionerLifecycle(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
 	}
-	return args.Get(0).(*domain.Object), args.Error(1)
-}
-func (m *MockStorageServiceV2) Download(ctx context.Context, bucket, key string) (io.ReadCloser, *domain.Object, error) {
-	args := m.Called(ctx, bucket, key)
-	if args.Get(0) == nil {
-		return nil, nil, args.Error(2)
-	}
-	return args.Get(0).(io.ReadCloser), args.Get(1).(*domain.Object), args.Error(2)
-}
-func (m *MockStorageServiceV2) ListObjects(ctx context.Context, bucket string) ([]*domain.Object, error) {
-	return nil, nil
-}
-func (m *MockStorageServiceV2) DeleteObject(ctx context.Context, bucket, key string) error {
-	return nil
-}
-func (m *MockStorageServiceV2) DownloadVersion(ctx context.Context, bucket, key, versionID string) (io.ReadCloser, *domain.Object, error) {
-	return nil, nil, nil
-}
-func (m *MockStorageServiceV2) ListVersions(ctx context.Context, bucket, key string) ([]*domain.Object, error) {
-	return nil, nil
-}
-func (m *MockStorageServiceV2) DeleteVersion(ctx context.Context, bucket, key, versionID string) error {
-	return nil
-}
-func (m *MockStorageServiceV2) CreateBucket(ctx context.Context, name string, isPublic bool) (*domain.Bucket, error) {
-	return &domain.Bucket{Name: name}, nil
-}
-func (m *MockStorageServiceV2) GetBucket(ctx context.Context, name string) (*domain.Bucket, error) {
-	return &domain.Bucket{Name: name}, nil
-}
-func (m *MockStorageServiceV2) DeleteBucket(ctx context.Context, name string) error {
-	return nil
-}
-func (m *MockStorageServiceV2) ListBuckets(ctx context.Context) ([]*domain.Bucket, error) {
-	return nil, nil
-}
-func (m *MockStorageServiceV2) GetClusterStatus(ctx context.Context) (*domain.StorageCluster, error) {
-	return nil, nil
-}
-func (m *MockStorageServiceV2) SetBucketVersioning(ctx context.Context, name string, enabled bool) error {
-	return nil
-}
-func (m *MockStorageServiceV2) GeneratePresignedURL(ctx context.Context, bucket, key, method string, expiry time.Duration) (*domain.PresignedURL, error) {
-	return nil, nil
-}
-func (m *MockStorageServiceV2) CreateMultipartUpload(ctx context.Context, bucket, key string) (*domain.MultipartUpload, error) {
-	return nil, nil
-}
-func (m *MockStorageServiceV2) UploadPart(ctx context.Context, uploadID uuid.UUID, partNumber int, r io.Reader) (*domain.Part, error) {
-	return nil, nil
-}
-func (m *MockStorageServiceV2) CompleteMultipartUpload(ctx context.Context, uploadID uuid.UUID) (*domain.Object, error) {
-	return nil, nil
-}
-func (m *MockStorageServiceV2) AbortMultipartUpload(ctx context.Context, uploadID uuid.UUID) error {
-	return nil
-}
 
-const (
-	testIPMaster   = "10.0.0.1"
-	testIPWorker   = "10.0.0.2"
-	testBackupPath = "path/to/backup"
-)
-
-func TestKubeadmProvisionerUpgrade(t *testing.T) {
 	ctx := context.Background()
-	instSvc := new(MockInstanceService)
-	repo := new(MockClusterRepo)
-	secretSvc := new(MockSecretService)
-	sgSvc := new(MockSecurityGroupService)
-	storageSvc := new(MockStorageServiceV2)
-	lbSvc := new(MockLBService)
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
-	p := k8s.NewKubeadmProvisioner(instSvc, repo, secretSvc, sgSvc, storageSvc, lbSvc, logger)
-	clusterID := uuid.New()
+	// Infrastructure Setup: Real Postgres
+	db := postgres.SetupDB(t)
+	defer db.Close()
+
+	// Inject real identity context
+	ctx = postgres.SetupTestUser(t, db)
+
+	// Infrastructure Setup: Real Docker
+	compute, err := docker.NewDockerAdapter(logger)
+	require.NoError(t, err)
+
+	// Repositories: Using real Postgres implementations
+	clusterRepo := postgres.NewClusterRepository(db)
+	instanceRepo := postgres.NewInstanceRepository(db)
+	vpcRepo := postgres.NewVpcRepository(db)
+	subnetRepo := postgres.NewSubnetRepository(db)
+	secretRepo := postgres.NewSecretRepository(db)
+	sgRepo := postgres.NewSecurityGroupRepository(db)
+	storageRepo := postgres.NewStorageRepository(db)
+	lbRepo := postgres.NewLBRepository(db)
+
+	// Secondary Infrastructure (No-op services for side-effects)
+	eventSvc := &noop.NoopEventService{}
+	auditSvc := &noop.NoopAuditService{}
+
+	// Real SecretService
+	secretSvc := services.NewSecretService(secretRepo, eventSvc, auditSvc, logger, "test-master-key-32-chars-long-!!!", "default")
+
+	// Network: No-op for OVS logic (requires local system support)
+	netBackend := &noopNetworkBackend{}
+
+	// Core Services
+	sgSvc := services.NewSecurityGroupService(sgRepo, vpcRepo, netBackend, auditSvc, logger)
+	storageSvc := services.NewStorageService(storageRepo, nil, auditSvc, nil, &platform.Config{})
+	lbSvc := services.NewLBService(lbRepo, vpcRepo, instanceRepo, auditSvc)
+
+	// InstanceService: The real one!
+	// We use a SyncTaskQueue to make the provisioning synchronous in the test.
+	taskQueue := &syncTaskQueue{}
+
+	instSvc := services.NewInstanceService(services.InstanceServiceParams{
+		Repo:             instanceRepo,
+		VpcRepo:          vpcRepo,
+		SubnetRepo:       subnetRepo,
+		VolumeRepo:       nil,
+		InstanceTypeRepo: &noop.NoopInstanceTypeRepository{},
+		Compute:          compute,
+		Network:          netBackend,
+		EventSvc:         eventSvc,
+		AuditSvc:         auditSvc,
+		TaskQueue:        taskQueue,
+		Logger:           logger,
+	})
+
+	// Inject the service into the task queue so it can call Provision
+	taskQueue.svc = instSvc
+
+	provisioner := k8s.NewKubeadmProvisioner(instSvc, clusterRepo, secretSvc, sgSvc, storageSvc, lbSvc, logger)
+
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	// Define a functional test VPC and Subnet
+	vpc := &domain.VPC{
+		ID:        uuid.New(),
+		UserID:    userID,
+		TenantID:  tenantID,
+		Name:      "k8s-vpc",
+		NetworkID: "bridge",
+	}
+	err = vpcRepo.Create(ctx, vpc)
+	require.NoError(t, err)
+
 	cluster := &domain.Cluster{
-		ID:              clusterID,
-		ControlPlaneIPs: []string{testIPMaster},
+		ID:          uuid.New(),
+		UserID:      userID,
+		Name:        "integration-cluster-real-" + time.Now().Format("20060102150405"),
+		VpcID:       vpc.ID,
+		Version:     "v1.29.0",
+		PodCIDR:     "10.244.0.0/16",
+		ServiceCIDR: "10.96.0.0/12",
+		WorkerCount: 1,
+		Status:      domain.ClusterStatusProvisioning,
+		CreatedAt:   time.Now(),
+	}
+	err = clusterRepo.Create(ctx, cluster)
+	require.NoError(t, err)
+
+	// EXECUTION: Start the real provisioning flow
+	// We use a short timeout (30s) because we know full K8s install (apt-get, kubeadm) takes minutes.
+	// We only want to verify that the container launches and the provisioner starts waiting.
+	t.Log("Starting Kubeadm provisioning (real Docker containers)...")
+	provisionCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	err = provisioner.Provision(provisionCtx, cluster)
+
+	// We expect a timeout because we cut it short.
+	// If it fails immediately with something else (e.g. image pull error), that's a real fail.
+	if err != nil {
+		if strings.Contains(err.Error(), "context deadline exceeded") ||
+			strings.Contains(err.Error(), "timed out") {
+			t.Logf("Provisioning timed out as expected (full install takes too long): %v", err)
+		} else {
+			require.NoError(t, err, "Provisioning failed with unexpected error")
+		}
 	}
 
-	t.Run("Success", func(t *testing.T) {
-		masterNode := &domain.ClusterNode{InstanceID: uuid.New(), Role: domain.NodeRoleControlPlane}
-		workerID := uuid.New()
-		workerNode := &domain.ClusterNode{ID: uuid.New(), InstanceID: workerID, Role: domain.NodeRoleWorker}
-		workerInst := &domain.Instance{ID: workerID, PrivateIP: testIPWorker}
-
-		repo.On("GetNodes", ctx, clusterID).Return([]*domain.ClusterNode{masterNode, workerNode}, nil)
-		instSvc.On("GetInstance", ctx, workerID.String()).Return(workerInst, nil)
-		instSvc.On("GetInstance", ctx, masterNode.InstanceID.String()).Return(&domain.Instance{ID: masterNode.InstanceID, PrivateIP: testIPMaster}, nil)
-
-		instSvc.On("Exec", ctx, masterNode.InstanceID.String(), mock.Anything).Return("success", nil).Once()
-		instSvc.On("Exec", ctx, workerID.String(), mock.Anything).Return("success", nil).Once()
-
-		err := p.Upgrade(ctx, cluster, "v1.30.0")
-		assert.NoError(t, err)
-	})
-
-	t.Run("No Control Plane IPs", func(t *testing.T) {
-		badCluster := &domain.Cluster{ID: clusterID}
-		err := p.Upgrade(ctx, badCluster, "v1.30.0")
-		assert.Error(t, err)
-	})
+	// Verify outcome
+	// instSvc.ListInstances uses repo.List under the hood
+	instances, _ := instSvc.ListInstances(ctx)
+	found := false
+	for _, inst := range instances {
+		if strings.Contains(inst.Name, cluster.Name) {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "Expected at least one Docker container to be created for the cluster")
 }
 
-func TestKubeadmProvisionerRotateSecrets(t *testing.T) {
-	ctx := context.Background()
-	instSvc := new(MockInstanceService)
-	repo := new(MockClusterRepo)
-	secretSvc := new(MockSecretService)
-	sgSvc := new(MockSecurityGroupService)
-	storageSvc := new(MockStorageServiceV2)
-	lbSvc := new(MockLBService)
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-
-	p := k8s.NewKubeadmProvisioner(instSvc, repo, secretSvc, sgSvc, storageSvc, lbSvc, logger)
-	clusterID := uuid.New()
-	cluster := &domain.Cluster{
-		ID:              clusterID,
-		ControlPlaneIPs: []string{testIPMaster},
-	}
-
-	masterID := uuid.New()
-	repo.On("GetNodes", ctx, clusterID).Return([]*domain.ClusterNode{{InstanceID: masterID, Role: domain.NodeRoleControlPlane}}, nil)
-	instSvc.On("GetInstance", ctx, masterID.String()).Return(&domain.Instance{ID: masterID, PrivateIP: testIPMaster}, nil)
-
-	t.Run("Success", func(t *testing.T) {
-		instSvc.On("Exec", ctx, masterID.String(), mock.MatchedBy(func(args []string) bool {
-			return args[len(args)-1] == "kubeadm certs renew all"
-		})).Return("success", nil).Once()
-
-		instSvc.On("Exec", ctx, masterID.String(), mock.MatchedBy(func(args []string) bool {
-			return args[len(args)-1] == "cat /etc/kubernetes/admin.conf"
-		})).Return("kubeconfig-data", nil).Once()
-
-		repo.On("Update", ctx, cluster).Return(nil).Once()
-
-		err := p.RotateSecrets(ctx, cluster)
-		assert.NoError(t, err)
-		assert.Equal(t, "kubeconfig-data", cluster.Kubeconfig)
-	})
+// noopNetworkBackend stub for environments without OVS
+type noopNetworkBackend struct {
+	ports.NetworkBackend
 }
 
-func TestKubeadmProvisionerCreateBackup(t *testing.T) {
-	ctx := context.Background()
-	instSvc := new(MockInstanceService)
-	repo := new(MockClusterRepo)
-	secretSvc := new(MockSecretService)
-	sgSvc := new(MockSecurityGroupService)
-	storageSvc := new(MockStorageServiceV2)
-	lbSvc := new(MockLBService)
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+func (n *noopNetworkBackend) CreateBridge(ctx context.Context, name string, vxlanID int) error {
+	return nil
+}
+func (n *noopNetworkBackend) DeleteBridge(ctx context.Context, name string) error        { return nil }
+func (n *noopNetworkBackend) ListBridges(ctx context.Context) ([]string, error)          { return nil, nil }
+func (n *noopNetworkBackend) AddPort(ctx context.Context, bridge, portName string) error { return nil }
+func (n *noopNetworkBackend) DeletePort(ctx context.Context, bridge, portName string) error {
+	return nil
+}
+func (n *noopNetworkBackend) CreateVXLANTunnel(ctx context.Context, b string, v int, r string) error {
+	return nil
+}
+func (n *noopNetworkBackend) DeleteVXLANTunnel(ctx context.Context, b, r string) error { return nil }
+func (n *noopNetworkBackend) AddFlowRule(ctx context.Context, bridge string, rule ports.FlowRule) error {
+	return nil
+}
+func (n *noopNetworkBackend) DeleteFlowRule(ctx context.Context, bridge, match string) error {
+	return nil
+}
+func (n *noopNetworkBackend) ListFlowRules(ctx context.Context, bridge string) ([]ports.FlowRule, error) {
+	return nil, nil
+}
+func (n *noopNetworkBackend) CreateVethPair(ctx context.Context, h, c string) error { return nil }
+func (n *noopNetworkBackend) AttachVethToBridge(ctx context.Context, bridge, vethEnd string) error {
+	return nil
+}
+func (n *noopNetworkBackend) DeleteVethPair(ctx context.Context, hostEnd string) error { return nil }
+func (n *noopNetworkBackend) SetVethIP(ctx context.Context, v, ip, c string) error     { return nil }
+func (n *noopNetworkBackend) Type() string                                             { return "noop" }
+func (n *noopNetworkBackend) Ping(ctx context.Context) error                           { return nil }
 
-	p := k8s.NewKubeadmProvisioner(instSvc, repo, secretSvc, sgSvc, storageSvc, lbSvc, logger)
-	clusterID := uuid.New()
-	cluster := &domain.Cluster{
-		ID:              clusterID,
-		ControlPlaneIPs: []string{testIPMaster},
-	}
-
-	masterID := uuid.New()
-	repo.On("GetNodes", ctx, clusterID).Return([]*domain.ClusterNode{{InstanceID: masterID, Role: domain.NodeRoleControlPlane}}, nil)
-	instSvc.On("GetInstance", ctx, masterID.String()).Return(&domain.Instance{ID: masterID, PrivateIP: testIPMaster}, nil)
-
-	t.Run("Success", func(t *testing.T) {
-		instSvc.On("Exec", ctx, masterID.String(), mock.Anything).Return("bW9jay1kYXRhCg==", nil)
-		storageSvc.On("Upload", ctx, "k8s-backups", mock.Anything, mock.Anything).Return(&domain.Object{}, nil).Once()
-
-		err := p.CreateBackup(ctx, cluster)
-		assert.NoError(t, err)
-	})
+type syncTaskQueue struct {
+	ports.TaskQueue
+	svc *services.InstanceService
 }
 
-func TestKubeadmProvisionerRestore(t *testing.T) {
-	ctx := context.Background()
-	instSvc := new(MockInstanceService)
-	repo := new(MockClusterRepo)
-	secretSvc := new(MockSecretService)
-	sgSvc := new(MockSecurityGroupService)
-	storageSvc := new(MockStorageServiceV2)
-	lbSvc := new(MockLBService)
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-
-	p := k8s.NewKubeadmProvisioner(instSvc, repo, secretSvc, sgSvc, storageSvc, lbSvc, logger)
-	clusterID := uuid.New()
-	cluster := &domain.Cluster{
-		ID:              clusterID,
-		ControlPlaneIPs: []string{testIPMaster},
+func (q *syncTaskQueue) Enqueue(ctx context.Context, queue string, payload interface{}) error {
+	if job, ok := payload.(domain.ProvisionJob); ok {
+		// Run synchronously for integration test
+		return q.svc.Provision(ctx, job)
 	}
-
-	masterID := uuid.New()
-	repo.On("GetNodes", ctx, clusterID).Return([]*domain.ClusterNode{{InstanceID: masterID, Role: domain.NodeRoleControlPlane}}, nil)
-	instSvc.On("GetInstance", ctx, masterID.String()).Return(&domain.Instance{ID: masterID, PrivateIP: testIPMaster}, nil)
-
-	t.Run("Success", func(t *testing.T) {
-		mockData := []byte("backup-data")
-		storageSvc.On("Download", ctx, "k8s-backups", testBackupPath).Return(io.NopCloser(bytes.NewReader(mockData)), &domain.Object{}, nil).Once()
-		instSvc.On("Exec", ctx, masterID.String(), mock.Anything).Return("success", nil)
-
-		err := p.Restore(ctx, cluster, testBackupPath)
-		assert.NoError(t, err)
-	})
+	return nil
 }

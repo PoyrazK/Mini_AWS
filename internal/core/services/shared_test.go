@@ -185,12 +185,22 @@ func (m *MockAutoScalingRepo) GetAverageCPU(ctx context.Context, instanceIDs []u
 // MockInstanceService
 type MockInstanceService struct{ mock.Mock }
 
-func (m *MockInstanceService) LaunchInstance(ctx context.Context, name, image, ports, instanceType string, vpcID, subnetID *uuid.UUID, volumes []domain.VolumeAttachment) (*domain.Instance, error) {
-	args := m.Called(ctx, name, image, ports, instanceType, vpcID, subnetID, volumes)
+func (m *MockInstanceService) LaunchInstance(ctx context.Context, params ports.LaunchParams) (*domain.Instance, error) {
+	args := m.Called(ctx, params)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*domain.Instance), args.Error(1)
+}
+func (m *MockInstanceService) LaunchInstanceWithOptions(ctx context.Context, opts ports.CreateInstanceOptions) (*domain.Instance, error) {
+	args := m.Called(ctx, opts)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Instance), args.Error(1)
+}
+func (m *MockInstanceService) StartInstance(ctx context.Context, idOrName string) error {
+	return m.Called(ctx, idOrName).Error(0)
 }
 func (m *MockInstanceService) StopInstance(ctx context.Context, idOrName string) error {
 	return m.Called(ctx, idOrName).Error(0)
@@ -1031,7 +1041,7 @@ func (m *MockInstanceRepo) ListByVPC(ctx context.Context, vpcID uuid.UUID) ([]*d
 // MockDockerClient
 type MockComputeBackend struct{ mock.Mock }
 
-func (m *MockComputeBackend) CreateInstance(ctx context.Context, opts ports.CreateInstanceOptions) (string, error) {
+func (m *MockComputeBackend) LaunchInstanceWithOptions(ctx context.Context, opts ports.CreateInstanceOptions) (string, error) {
 	args := m.Called(ctx, opts)
 	return args.String(0), args.Error(1)
 }

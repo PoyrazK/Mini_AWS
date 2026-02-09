@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS tenant_quotas (
 );
 
 -- Add default_tenant_id to users table
-ALTER TABLE users ADD COLUMN default_tenant_id UUID REFERENCES tenants(id) ON DELETE SET NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS default_tenant_id UUID REFERENCES tenants(id) ON DELETE SET NULL;
 
 -- Add default_tenant_id to api_keys table
-ALTER TABLE api_keys ADD COLUMN default_tenant_id UUID REFERENCES tenants(id) ON DELETE SET NULL;
+ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS default_tenant_id UUID REFERENCES tenants(id) ON DELETE SET NULL;

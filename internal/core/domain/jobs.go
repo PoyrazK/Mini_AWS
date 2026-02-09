@@ -7,10 +7,18 @@ import (
 
 // ProvisionJob represents an asynchronous task to initialize and configure a new compute instance.
 type ProvisionJob struct {
-	InstanceID uuid.UUID          `json:"instance_id"`
-	UserID     uuid.UUID          `json:"user_id"`
-	TenantID   uuid.UUID          `json:"tenant_id"`
-	Volumes    []VolumeAttachment `json:"volumes"` // List of storage volumes to attach during initialization
+	InstanceID  uuid.UUID          `json:"instance_id"`
+	UserID      uuid.UUID          `json:"user_id"`
+	TenantID    uuid.UUID          `json:"tenant_id"`
+	Volumes     []VolumeAttachment `json:"volumes"` // List of storage volumes to attach during initialization
+	UserData    string             `json:"user_data,omitempty"`
+	Ports       []string           `json:"ports,omitempty"`
+	VolumeBinds []string           `json:"volume_binds,omitempty"`
+	Env         []string           `json:"env,omitempty"`
+	Cmd         []string           `json:"cmd,omitempty"`
+	CPULimit    int64              `json:"cpu_limit,omitempty"`
+	MemoryLimit int64              `json:"memory_limit,omitempty"`
+	DiskLimit   int64              `json:"disk_limit,omitempty"`
 }
 
 // ClusterJobType describes the kind of cluster lifecycle operation.

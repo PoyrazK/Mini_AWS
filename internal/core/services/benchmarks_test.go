@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/poyrazk/thecloud/internal/repositories/noop"
 	"github.com/poyrazk/thecloud/pkg/testutil"
@@ -98,7 +99,13 @@ func BenchmarkInstanceServiceCreate(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, _ = svc.LaunchInstance(ctx, "test", "alpine", "80:80", "basic-2", nil, &subnetID, nil)
+		_, _ = svc.LaunchInstance(ctx, ports.LaunchParams{
+			Name:         "test",
+			Image:        "alpine",
+			Ports:        "80:80",
+			InstanceType: "basic-2",
+			SubnetID:     &subnetID,
+		})
 	}
 }
 
@@ -152,7 +159,12 @@ func BenchmarkInstanceServiceCreateParallel(b *testing.B) {
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			_, _ = svc.LaunchInstance(ctx, "test-inst", "alpine", "80:80", "basic-2", nil, nil, nil)
+			_, _ = svc.LaunchInstance(ctx, ports.LaunchParams{
+				Name:         "test-inst",
+				Image:        "alpine",
+				Ports:        "80:80",
+				InstanceType: "basic-2",
+			})
 		}
 	})
 }

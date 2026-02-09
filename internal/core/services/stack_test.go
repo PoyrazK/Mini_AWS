@@ -36,6 +36,7 @@ func setupStackServiceTest(_ *testing.T) (*MockStackRepo, *MockInstanceService, 
 }
 
 func TestCreateStackSuccess(t *testing.T) {
+	t.Parallel()
 	repo, instanceSvc, vpcSvc, _, _, svc := setupStackServiceTest(t)
 	defer repo.AssertExpectations(t)
 	defer instanceSvc.AssertExpectations(t)
@@ -69,7 +70,9 @@ Resources:
 
 	instID := uuid.New()
 	inst := &domain.Instance{ID: instID, Name: stackTestInst}
-	instanceSvc.On("LaunchInstance", mock.Anything, stackTestInst, "alpine", "80", "", &vpcID, mock.Anything, mock.Anything).Return(inst, nil)
+	instanceSvc.On("LaunchInstance", mock.Anything, mock.MatchedBy(func(p ports.LaunchParams) bool {
+		return p.Name == stackTestInst && p.Image == "alpine" && p.VpcID != nil && *p.VpcID == vpcID
+	})).Return(inst, nil)
 	repo.On("AddResource", mock.Anything, mock.MatchedBy(func(r *domain.StackResource) bool {
 		return r.LogicalID == "MyInstance" && r.ResourceType == "Instance"
 	})).Return(nil)
@@ -90,6 +93,7 @@ Resources:
 }
 
 func TestDeleteStackSuccess(t *testing.T) {
+	t.Parallel()
 	repo, instanceSvc, vpcSvc, _, _, svc := setupStackServiceTest(t)
 	defer repo.AssertExpectations(t)
 	defer instanceSvc.AssertExpectations(t)
@@ -120,6 +124,7 @@ func TestDeleteStackSuccess(t *testing.T) {
 }
 
 func TestCreateStackRollback(t *testing.T) {
+	t.Parallel()
 	repo, instanceSvc, vpcSvc, _, _, svc := setupStackServiceTest(t)
 	defer repo.AssertExpectations(t)
 	defer instanceSvc.AssertExpectations(t)
@@ -152,7 +157,9 @@ Resources:
 	})).Return(nil)
 
 	// 2. Instance Fail
-	instanceSvc.On("LaunchInstance", mock.Anything, stackTestInst, "alpine", "80", "", &vpcID, mock.Anything, mock.Anything).Return(nil, fmt.Errorf("launch failed"))
+	instanceSvc.On("LaunchInstance", mock.Anything, mock.MatchedBy(func(p ports.LaunchParams) bool {
+		return p.Name == stackTestInst && p.Image == "alpine" && p.VpcID != nil && *p.VpcID == vpcID
+	})).Return(nil, fmt.Errorf("launch failed"))
 
 	// 3. Rollback
 	repo.On("Update", mock.Anything, mock.MatchedBy(func(s *domain.Stack) bool {
@@ -186,6 +193,7 @@ Resources:
 }
 
 func TestCreateStackRollbackDeletesResourcesAllTypes(t *testing.T) {
+	t.Parallel()
 	repo, instanceSvc, vpcSvc, volumeSvc, snapshotSvc, svc := setupStackServiceTest(t)
 	defer repo.AssertExpectations(t)
 	defer instanceSvc.AssertExpectations(t)
@@ -249,6 +257,7 @@ Resources:
 }
 
 func TestCreateStackRollbackFailureUpdatesStatus(t *testing.T) {
+	t.Parallel()
 	repo, instanceSvc, vpcSvc, volumeSvc, _, svc := setupStackServiceTest(t)
 	defer repo.AssertExpectations(t)
 	defer instanceSvc.AssertExpectations(t)
@@ -294,6 +303,7 @@ Resources:
 	time.Sleep(150 * time.Millisecond)
 }
 func TestGetStack(t *testing.T) {
+	t.Parallel()
 	repo, _, _, _, _, svc := setupStackServiceTest(t)
 	defer repo.AssertExpectations(t)
 
@@ -309,6 +319,7 @@ func TestGetStack(t *testing.T) {
 }
 
 func TestListStacks(t *testing.T) {
+	t.Parallel()
 	repo, _, _, _, _, svc := setupStackServiceTest(t)
 	defer repo.AssertExpectations(t)
 
@@ -324,6 +335,7 @@ func TestListStacks(t *testing.T) {
 }
 
 func TestValidateTemplate(t *testing.T) {
+	t.Parallel()
 	_, _, _, _, _, svc := setupStackServiceTest(t)
 
 	t.Run("valid template", func(t *testing.T) {
@@ -361,6 +373,7 @@ Resources:
 }
 
 func TestCreateStackComplex(t *testing.T) {
+	t.Parallel()
 	repo, instanceSvc, vpcSvc, volumeSvc, snapshotSvc, svc := setupStackServiceTest(t)
 	defer repo.AssertExpectations(t)
 	defer instanceSvc.AssertExpectations(t)

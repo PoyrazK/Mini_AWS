@@ -7,11 +7,13 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/mock"
 )
 
 func TestContainerWorkerReconcile(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 
 	t.Run("Reconcile Scale Up", func(t *testing.T) {
@@ -39,8 +41,12 @@ func TestContainerWorkerReconcile(t *testing.T) {
 		// LaunchInstance called twice
 		inst1 := &domain.Instance{ID: uuid.New(), Name: "dep-inst-1"}
 		inst2 := &domain.Instance{ID: uuid.New(), Name: "dep-inst-2"}
-		instSvc.On("LaunchInstance", mock.Anything, mock.Anything, "nginx", "", "", (*uuid.UUID)(nil), (*uuid.UUID)(nil), []domain.VolumeAttachment(nil)).Return(inst1, nil).Once()
-		instSvc.On("LaunchInstance", mock.Anything, mock.Anything, "nginx", "", "", (*uuid.UUID)(nil), (*uuid.UUID)(nil), []domain.VolumeAttachment(nil)).Return(inst2, nil).Once()
+		instSvc.On("LaunchInstance", mock.Anything, mock.MatchedBy(func(p ports.LaunchParams) bool {
+			return p.Image == "nginx"
+		})).Return(inst1, nil).Once()
+		instSvc.On("LaunchInstance", mock.Anything, mock.MatchedBy(func(p ports.LaunchParams) bool {
+			return p.Image == "nginx"
+		})).Return(inst2, nil).Once()
 
 		// AddContainer called twice
 		repo.On("AddContainer", mock.Anything, depID, inst1.ID).Return(nil)
@@ -137,6 +143,7 @@ func TestContainerWorkerReconcile(t *testing.T) {
 }
 
 func TestContainerWorkerLaunchError(t *testing.T) {
+	t.Parallel()
 	repo := new(MockContainerRepo)
 	instSvc := new(MockInstanceService)
 	eventSvc := new(MockEventService)
@@ -153,7 +160,7 @@ func TestContainerWorkerLaunchError(t *testing.T) {
 
 	repo.On("ListAllDeployments", ctx).Return([]*domain.Deployment{dep}, nil)
 	repo.On("GetContainers", mock.Anything, depID).Return([]uuid.UUID{}, nil) // Launch fails
-	instSvc.On("LaunchInstance", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+	instSvc.On("LaunchInstance", mock.Anything, mock.Anything).
 		Return(nil, context.DeadlineExceeded)
 
 	// Since launch failed, replica count is 0 < 1, so status becomes SCALING
@@ -168,6 +175,7 @@ func TestContainerWorkerLaunchError(t *testing.T) {
 }
 
 func TestContainerWorkerRun(t *testing.T) {
+	t.Parallel()
 	repo := new(MockContainerRepo)
 	instSvc := new(MockInstanceService)
 	eventSvc := new(MockEventService)

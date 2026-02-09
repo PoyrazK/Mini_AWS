@@ -12,23 +12,24 @@ import (
 )
 
 func TestFunctionRepository_Create(t *testing.T) {
+	t.Parallel()
 	mock, err := pgxmock.NewPool()
 	assert.NoError(t, err)
 	defer mock.Close()
 
 	repo := NewFunctionRepository(mock)
 	f := &domain.Function{
-		ID:             uuid.New(),
-		UserID:         uuid.New(),
-		Name:           "test-func",
-		Runtime:        "python3.9",
-		Handler:        "main.handler",
-		CodePath:       "/tmp/code",
-		Timeout:        30,
-		MemoryMB:       128,
-		Status:         "ready",
-		CreatedAt:      time.Now(),
-		UpdatedAt:      time.Now(),
+		ID:        uuid.New(),
+		UserID:    uuid.New(),
+		Name:      "test-func",
+		Runtime:   "python3.9",
+		Handler:   "main.handler",
+		CodePath:  "/tmp/code",
+		Timeout:   30,
+		MemoryMB:  128,
+		Status:    "ready",
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
 	}
 
 	mock.ExpectExec("INSERT INTO functions").
@@ -40,6 +41,7 @@ func TestFunctionRepository_Create(t *testing.T) {
 }
 
 func TestFunctionRepository_GetByID(t *testing.T) {
+	t.Parallel()
 	mock, err := pgxmock.NewPool()
 	assert.NoError(t, err)
 	defer mock.Close()
@@ -60,6 +62,7 @@ func TestFunctionRepository_GetByID(t *testing.T) {
 }
 
 func TestFunctionRepository_List(t *testing.T) {
+	t.Parallel()
 	mock, err := pgxmock.NewPool()
 	assert.NoError(t, err)
 	defer mock.Close()
@@ -79,6 +82,7 @@ func TestFunctionRepository_List(t *testing.T) {
 }
 
 func TestFunctionRepository_Delete(t *testing.T) {
+	t.Parallel()
 	mock, err := pgxmock.NewPool()
 	assert.NoError(t, err)
 	defer mock.Close()

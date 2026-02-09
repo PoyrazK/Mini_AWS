@@ -40,6 +40,8 @@ type CreateClusterParams struct {
 	VpcID            uuid.UUID
 	Version          string
 	Workers          int
+	PodCIDR          string
+	ServiceCIDR      string
 	NetworkIsolation bool
 	HAEnabled        bool
 }

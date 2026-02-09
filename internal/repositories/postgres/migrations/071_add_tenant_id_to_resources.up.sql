@@ -1,67 +1,67 @@
 -- Add tenant_id to core resource tables (with existence checks if possible, but here we just list known tables)
 DO $$ 
 BEGIN 
-    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'instances') THEN 
+    IF EXISTS (SELECT FROM pg_tables WHERE tablename = 'instances') THEN 
         ALTER TABLE instances ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id) ON DELETE RESTRICT;
     END IF;
-    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'vpcs') THEN 
+    IF EXISTS (SELECT FROM pg_tables WHERE tablename = 'vpcs') THEN 
         ALTER TABLE vpcs ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id) ON DELETE RESTRICT;
     END IF;
-    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'volumes') THEN 
+    IF EXISTS (SELECT FROM pg_tables WHERE tablename = 'volumes') THEN 
         ALTER TABLE volumes ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id) ON DELETE RESTRICT;
     END IF;
-    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'load_balancers') THEN 
+    IF EXISTS (SELECT FROM pg_tables WHERE tablename = 'load_balancers') THEN 
         ALTER TABLE load_balancers ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id) ON DELETE RESTRICT;
     END IF;
-    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'scaling_groups') THEN 
+    IF EXISTS (SELECT FROM pg_tables WHERE tablename = 'scaling_groups') THEN 
         ALTER TABLE scaling_groups ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id) ON DELETE RESTRICT;
     END IF;
-    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'buckets') THEN 
+    IF EXISTS (SELECT FROM pg_tables WHERE tablename = 'buckets') THEN 
         ALTER TABLE buckets ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id) ON DELETE RESTRICT;
     END IF;
-    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'clusters') THEN 
+    IF EXISTS (SELECT FROM pg_tables WHERE tablename = 'clusters') THEN 
         ALTER TABLE clusters ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id) ON DELETE RESTRICT;
     END IF;
-    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'security_groups') THEN 
+    IF EXISTS (SELECT FROM pg_tables WHERE tablename = 'security_groups') THEN 
         ALTER TABLE security_groups ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id) ON DELETE RESTRICT;
     END IF;
-    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'subnets') THEN 
+    IF EXISTS (SELECT FROM pg_tables WHERE tablename = 'subnets') THEN 
         ALTER TABLE subnets ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id) ON DELETE RESTRICT;
     END IF;
-    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'snapshots') THEN 
+    IF EXISTS (SELECT FROM pg_tables WHERE tablename = 'snapshots') THEN 
         ALTER TABLE snapshots ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id) ON DELETE RESTRICT;
     END IF;
-    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'secrets') THEN 
+    IF EXISTS (SELECT FROM pg_tables WHERE tablename = 'secrets') THEN 
         ALTER TABLE secrets ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id) ON DELETE RESTRICT;
     END IF;
-    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'functions') THEN 
+    IF EXISTS (SELECT FROM pg_tables WHERE tablename = 'functions') THEN 
         ALTER TABLE functions ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id) ON DELETE RESTRICT;
     END IF;
-    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'caches') THEN 
+    IF EXISTS (SELECT FROM pg_tables WHERE tablename = 'caches') THEN 
         ALTER TABLE caches ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id) ON DELETE RESTRICT;
     END IF;
-    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'queues') THEN 
+    IF EXISTS (SELECT FROM pg_tables WHERE tablename = 'queues') THEN 
         ALTER TABLE queues ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id) ON DELETE RESTRICT;
     END IF;
-    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'topics') THEN 
+    IF EXISTS (SELECT FROM pg_tables WHERE tablename = 'topics') THEN 
         ALTER TABLE topics ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id) ON DELETE RESTRICT;
     END IF;
-    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'subscriptions') THEN 
+    IF EXISTS (SELECT FROM pg_tables WHERE tablename = 'subscriptions') THEN 
         ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id) ON DELETE RESTRICT;
     END IF;
-    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'cron_jobs') THEN 
+    IF EXISTS (SELECT FROM pg_tables WHERE tablename = 'cron_jobs') THEN 
         ALTER TABLE cron_jobs ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id) ON DELETE RESTRICT;
     END IF;
-    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'gateway_routes') THEN 
+    IF EXISTS (SELECT FROM pg_tables WHERE tablename = 'gateway_routes') THEN 
         ALTER TABLE gateway_routes ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id) ON DELETE RESTRICT;
     END IF;
-    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'deployments') THEN 
+    IF EXISTS (SELECT FROM pg_tables WHERE tablename = 'deployments') THEN 
         ALTER TABLE deployments ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id) ON DELETE RESTRICT;
     END IF;
-    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'stacks') THEN 
+    IF EXISTS (SELECT FROM pg_tables WHERE tablename = 'stacks') THEN 
         ALTER TABLE stacks ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id) ON DELETE RESTRICT;
     END IF;
-    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'images') THEN 
+    IF EXISTS (SELECT FROM pg_tables WHERE tablename = 'images') THEN 
         ALTER TABLE images ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id) ON DELETE RESTRICT;
     END IF;
 END $$;

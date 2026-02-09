@@ -45,7 +45,7 @@ func main() {
 	// We use 'alpine' as a dummy image name.
 	// NOTE: This test expects an 'alpine-root' or similar to be setup if we had a real pool.
 	// Since we implement a "create empty volume" fallback in CreateInstance, it should at least define the VM.
-	id, err := adapter.CreateInstance(ctx, ports.CreateInstanceOptions{
+	id, err := adapter.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{
 		Name:      instanceName,
 		ImageName: "alpine",
 		Ports:     []string{"8080:80"},

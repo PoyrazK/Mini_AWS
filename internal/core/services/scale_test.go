@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
+	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/poyrazk/thecloud/internal/repositories/noop"
 )
@@ -48,7 +49,14 @@ func BenchmarkRealWorldLifecycle(b *testing.B) {
 		vID := uuid.New()
 		sID := uuid.New()
 
-		inst, err := instSvc.LaunchInstance(pCtx, "test-server", "ubuntu", "22:22", "basic-2", &vID, &sID, nil)
+		inst, err := instSvc.LaunchInstance(pCtx, ports.LaunchParams{
+			Name:         "test-server",
+			Image:        "ubuntu",
+			Ports:        "22:22",
+			InstanceType: "basic-2",
+			VpcID:        &vID,
+			SubnetID:     &sID,
+		})
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -93,7 +101,14 @@ func BenchmarkRealWorldLifecycleParallel(b *testing.B) {
 			vID := uuid.New()
 			sID := uuid.New()
 
-			inst, _ := instSvc.LaunchInstance(pCtx, "test-server", "ubuntu", "22:22", "basic-2", &vID, &sID, nil)
+			inst, _ := instSvc.LaunchInstance(pCtx, ports.LaunchParams{
+				Name:         "test-server",
+				Image:        "ubuntu",
+				Ports:        "22:22",
+				InstanceType: "basic-2",
+				VpcID:        &vID,
+				SubnetID:     &sID,
+			})
 			if inst != nil {
 				_, _ = instSvc.GetInstance(pCtx, inst.ID.String())
 				_ = instSvc.TerminateInstance(pCtx, inst.ID.String())

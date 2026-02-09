@@ -16,7 +16,7 @@ const (
 
 func TestQueueListJSONOutput(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Type", "application/json")
 		if r.URL.Path != "/queues" || r.Method != http.MethodGet {
 			w.WriteHeader(http.StatusNotFound)
 			return
@@ -61,7 +61,7 @@ func TestQueueListJSONOutput(t *testing.T) {
 
 func TestQueueCreateCmd(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Type", "application/json")
 		if r.URL.Path != "/queues" || r.Method != http.MethodPost {
 			w.WriteHeader(http.StatusNotFound)
 			return
@@ -99,7 +99,7 @@ func TestQueueCreateCmd(t *testing.T) {
 
 func TestQueueReceiveNoMessages(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Type", "application/json")
 		if r.URL.Path != "/queues/"+queueTestID+"/messages" || r.Method != http.MethodGet {
 			w.WriteHeader(http.StatusNotFound)
 			return
@@ -131,7 +131,7 @@ func TestQueueReceiveNoMessages(t *testing.T) {
 
 func TestQueueSendMessageCmd(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Type", "application/json")
 		if r.URL.Path != "/queues/"+queueTestID+"/messages" || r.Method != http.MethodPost {
 			w.WriteHeader(http.StatusNotFound)
 			return
@@ -168,7 +168,7 @@ func TestQueueSendMessageCmd(t *testing.T) {
 
 func TestQueueAckCmd(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Type", "application/json")
 		if r.URL.Path != "/queues/"+queueTestID+"/messages/handle-1" || r.Method != http.MethodDelete {
 			w.WriteHeader(http.StatusNotFound)
 			return
@@ -196,7 +196,7 @@ func TestQueueAckCmd(t *testing.T) {
 
 func TestQueuePurgeCmd(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Type", "application/json")
 		if r.URL.Path != "/queues/"+queueTestID+"/purge" || r.Method != http.MethodPost {
 			w.WriteHeader(http.StatusNotFound)
 			return

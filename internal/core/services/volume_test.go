@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/poyrazk/thecloud/internal/repositories/noop"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
@@ -158,11 +159,16 @@ func TestVolume_LaunchAttach_Conflict(t *testing.T) {
 	volsA := []domain.VolumeAttachment{
 		{VolumeIDOrName: vol.ID.String(), MountPath: "/dev/xvdb"},
 	}
-	instA, err := svc.LaunchInstance(ctx, nameA, image, "", "basic-2", nil, nil, volsA)
+	instA, err := svc.LaunchInstance(ctx, ports.LaunchParams{
+		Name:         nameA,
+		Image:        image,
+		InstanceType: "basic-2",
+		Volumes:      volsA,
+	})
 	require.NoError(t, err)
 
 	// Provision A to ensure volume becomes "IN_USE"
-	err = svc.Provision(ctx, instA.ID, volsA)
+	err = svc.Provision(ctx, domain.ProvisionJob{InstanceID: instA.ID, Volumes: volsA})
 	require.NoError(t, err)
 
 	// Verify Volume Status is InUse
@@ -173,14 +179,19 @@ func TestVolume_LaunchAttach_Conflict(t *testing.T) {
 	// 3. Launch Instance B with SAME Volume
 	// Should fail because volume is already attached
 	nameB := "inst-B-" + uuid.New().String()
-	instB, err := svc.LaunchInstance(ctx, nameB, image, "", "basic-2", nil, nil, volsA)
+	instB, err := svc.LaunchInstance(ctx, ports.LaunchParams{
+		Name:         nameB,
+		Image:        image,
+		InstanceType: "basic-2",
+		Volumes:      volsA,
+	})
 
 	// Expectation: LaunchInstance should check volume status and fail
 	// OR Provision should fail.
 	// LaunchInstance usually does validation.
 	if err == nil {
 		// If Launch succeeded (maybe only validation passed?), try Provision
-		err = svc.Provision(ctx, instB.ID, volsA)
+		err = svc.Provision(ctx, domain.ProvisionJob{InstanceID: instB.ID, Volumes: volsA})
 		assert.Error(t, err, "Provisioning second instance with same volume should fail")
 		if err == nil {
 			// Cleanup B

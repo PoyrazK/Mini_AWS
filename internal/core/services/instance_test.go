@@ -12,7 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
-	"github.com/poyrazk/thecloud/internal/core/ports"
+	coreports "github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/poyrazk/thecloud/internal/repositories/docker"
 	"github.com/poyrazk/thecloud/internal/repositories/noop"
@@ -21,9 +21,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	testInstanceType = "basic-2"
+	testImage        = "alpine"
+)
+
 // FaultyInstanceRepository wraps a real InstanceRepository to simulate failures.
 type FaultyInstanceRepository struct {
-	ports.InstanceRepository
+	coreports.InstanceRepository
 	ShouldFailCreate bool
 }
 
@@ -57,7 +62,7 @@ func (q *InMemoryTaskQueue) Dequeue(ctx context.Context, queueName string) (stri
 	return job, nil
 }
 
-func setupInstanceServiceTest(t *testing.T) (*pgxpool.Pool, *services.InstanceService, *docker.DockerAdapter, ports.InstanceRepository, ports.VpcRepository, ports.VolumeRepository, context.Context) {
+func setupInstanceServiceTest(t *testing.T) (*pgxpool.Pool, *services.InstanceService, *docker.DockerAdapter, coreports.InstanceRepository, coreports.VpcRepository, coreports.VolumeRepository, context.Context) {
 	db := setupDB(t)
 	cleanDB(t, db)
 	ctx := setupTestUser(t, db)
@@ -68,18 +73,24 @@ func setupInstanceServiceTest(t *testing.T) (*pgxpool.Pool, *services.InstanceSe
 	volumeRepo := postgres.NewVolumeRepository(db)
 	itRepo := postgres.NewInstanceTypeRepository(db)
 
-	compute, err := docker.NewDockerAdapter()
+	compute, err := docker.NewDockerAdapter(slog.Default())
 	require.NoError(t, err)
 
 	// In integration tests, we frequently rely on a shared Docker network named 'cloud-network'.
 	// We ensure it exists here so that Provisioning (which uses it as a fallback) succeeds.
 	if compute.Type() == "docker" {
 		_, _ = compute.CreateNetwork(ctx, "cloud-network")
+		// Pre-pull test image to prevent flakes in CI environments with slow registries or restrictive daemons
+		_, _ = compute.LaunchInstanceWithOptions(ctx, coreports.CreateInstanceOptions{
+			Name:      "pre-pull-image",
+			ImageName: testImage,
+		})
+		_ = compute.DeleteInstance(ctx, "pre-pull-image")
 	}
 
 	// Ensure default instance type exists
 	defaultType := &domain.InstanceType{
-		ID:       "basic-2",
+		ID:       testInstanceType,
 		Name:     "Basic 2",
 		VCPUs:    1,
 		MemoryMB: 128,
@@ -116,17 +127,22 @@ func setupInstanceServiceTest(t *testing.T) (*pgxpool.Pool, *services.InstanceSe
 func TestLaunchInstanceSuccess(t *testing.T) {
 	_, svc, compute, repo, _, _, ctx := setupInstanceServiceTest(t)
 	name := "test-inst-launch"
-	image := "alpine:latest"
-	ports := "8080:80"
+	image := testImage
+	portsStr := "8888:80"
 
 	// 1. Launch (Enqueue)
-	inst, err := svc.LaunchInstance(ctx, name, image, ports, "basic-2", nil, nil, nil)
+	inst, err := svc.LaunchInstance(ctx, coreports.LaunchParams{
+		Name:         name,
+		Image:        image,
+		Ports:        portsStr,
+		InstanceType: testInstanceType,
+	})
 	require.NoError(t, err)
 	assert.NotNil(t, inst)
 	assert.Equal(t, domain.StatusStarting, inst.Status)
 
 	// 2. Provision (Simulate Worker)
-	err = svc.Provision(ctx, inst.ID, nil)
+	err = svc.Provision(ctx, domain.ProvisionJob{InstanceID: inst.ID})
 	require.NoError(t, err)
 
 	// 3. Verify Running
@@ -147,12 +163,16 @@ func TestLaunchInstanceSuccess(t *testing.T) {
 func TestTerminateInstanceSuccess(t *testing.T) {
 	_, svc, compute, repo, _, _, ctx := setupInstanceServiceTest(t)
 	name := "test-inst-term"
-	image := "alpine:latest"
+	image := testImage
 
 	// Setup: Launch & Provision
-	inst, err := svc.LaunchInstance(ctx, name, image, "", "basic-2", nil, nil, nil)
+	inst, err := svc.LaunchInstance(ctx, coreports.LaunchParams{
+		Name:         name,
+		Image:        image,
+		InstanceType: testInstanceType,
+	})
 	require.NoError(t, err)
-	err = svc.Provision(ctx, inst.ID, nil)
+	err = svc.Provision(ctx, domain.ProvisionJob{InstanceID: inst.ID})
 	require.NoError(t, err)
 
 	updatedInst, _ := repo.GetByID(ctx, inst.ID)
@@ -171,7 +191,7 @@ func TestTerminateInstanceSuccess(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestInstanceService_Launch_DBFailure(t *testing.T) {
+func TestInstanceServiceLaunchDBFailure(t *testing.T) {
 	// Custom setup with Faulty Repo
 	db := setupDB(t)
 	cleanDB(t, db)
@@ -185,9 +205,9 @@ func TestInstanceService_Launch_DBFailure(t *testing.T) {
 	subnetRepo := postgres.NewSubnetRepository(db)
 	volumeRepo := postgres.NewVolumeRepository(db)
 	itRepo := postgres.NewInstanceTypeRepository(db)
-	compute, _ := docker.NewDockerAdapter()
+	compute, _ := docker.NewDockerAdapter(slog.Default())
 
-	defaultType := &domain.InstanceType{ID: "basic-2", Name: "Basic 2", VCPUs: 1, MemoryMB: 128, DiskGB: 1}
+	defaultType := &domain.InstanceType{ID: testInstanceType, Name: "Basic 2", VCPUs: 1, MemoryMB: 128, DiskGB: 1}
 	_, _ = itRepo.Create(ctx, defaultType)
 
 	eventSvc := services.NewEventService(postgres.NewEventRepository(db), nil, slog.Default())
@@ -208,7 +228,11 @@ func TestInstanceService_Launch_DBFailure(t *testing.T) {
 	})
 
 	// Attempt Launch
-	_, err := svc.LaunchInstance(ctx, "fail-inst", "alpine:latest", "", "basic-2", nil, nil, nil)
+	_, err := svc.LaunchInstance(ctx, coreports.LaunchParams{
+		Name:         "fail-inst",
+		Image:        testImage,
+		InstanceType: testInstanceType,
+	})
 
 	// Verify Failure
 	assert.Error(t, err)
@@ -243,10 +267,15 @@ func TestInstanceNetworking(t *testing.T) {
 	require.NoError(t, err)
 
 	// Use Launch with VPC
-	inst, err := svc.LaunchInstance(ctx, "test-vpc-inst", "alpine:latest", "", "basic-2", &vpcID, nil, nil)
+	inst, err := svc.LaunchInstance(ctx, coreports.LaunchParams{
+		Name:         "test-vpc-inst",
+		Image:        testImage,
+		InstanceType: testInstanceType,
+		VpcID:        &vpcID,
+	})
 	require.NoError(t, err)
 
-	err = svc.Provision(ctx, inst.ID, nil)
+	err = svc.Provision(ctx, domain.ProvisionJob{InstanceID: inst.ID})
 	require.NoError(t, err)
 
 	// Check if attached to network
@@ -261,7 +290,7 @@ func TestInstanceNetworking(t *testing.T) {
 	}
 }
 
-func TestInstanceService_Launch_Concurrency(t *testing.T) {
+func TestInstanceServiceLaunchConcurrency(t *testing.T) {
 	_, svc, compute, repo, _, _, ctx := setupInstanceServiceTest(t)
 	concurrency := 5
 	errChan := make(chan error, concurrency)
@@ -269,7 +298,11 @@ func TestInstanceService_Launch_Concurrency(t *testing.T) {
 	for i := 0; i < concurrency; i++ {
 		go func(idx int) {
 			name := fmt.Sprintf("conc-inst-%d", idx)
-			_, err := svc.LaunchInstance(ctx, name, "alpine:latest", "", "basic-2", nil, nil, nil)
+			_, err := svc.LaunchInstance(ctx, coreports.LaunchParams{
+				Name:         name,
+				Image:        testImage,
+				InstanceType: testInstanceType,
+			})
 			errChan <- err
 		}(i)
 	}
@@ -290,15 +323,19 @@ func TestInstanceService_Launch_Concurrency(t *testing.T) {
 	}
 }
 
-func TestInstanceService_GetStats_Real(t *testing.T) {
+func TestInstanceServiceGetStatsReal(t *testing.T) {
 	_, svc, _, _, _, _, ctx := setupInstanceServiceTest(t)
 	name := "stats-inst"
-	image := "alpine:latest"
+	image := testImage
 
 	// Launch and Provision
-	inst, err := svc.LaunchInstance(ctx, name, image, "", "basic-2", nil, nil, nil)
+	inst, err := svc.LaunchInstance(ctx, coreports.LaunchParams{
+		Name:         name,
+		Image:        image,
+		InstanceType: testInstanceType,
+	})
 	require.NoError(t, err)
-	err = svc.Provision(ctx, inst.ID, nil)
+	err = svc.Provision(ctx, domain.ProvisionJob{InstanceID: inst.ID})
 	require.NoError(t, err)
 
 	// Wait a bit for container to run and gather stats
@@ -323,7 +360,7 @@ func TestInstanceService_GetStats_Real(t *testing.T) {
 	// compute.DeleteInstance(ctx, ...) happens in Terminate
 }
 
-func TestNetworking_CIDRExhaustion(t *testing.T) {
+func TestNetworkingCIDRExhaustion(t *testing.T) {
 	db, svc, _, _, vpcRepo, _, ctx := setupInstanceServiceTest(t)
 	subnetRepo := postgres.NewSubnetRepository(db)
 	auditSvc := services.NewAuditService(postgres.NewAuditRepository(db))
@@ -347,19 +384,31 @@ func TestNetworking_CIDRExhaustion(t *testing.T) {
 	require.NoError(t, err)
 
 	// 2. Launch 1st instance (Should succeed in DB)
-	inst1, err := svc.LaunchInstance(ctx, "inst-1", "alpine", "", "basic-2", &vpc.ID, &subnet.ID, nil)
+	inst1, err := svc.LaunchInstance(ctx, coreports.LaunchParams{
+		Name:         "inst-1",
+		Image:        testImage,
+		InstanceType: testInstanceType,
+		VpcID:        &vpc.ID,
+		SubnetID:     &subnet.ID,
+	})
 	require.NoError(t, err)
 
 	// Manually provision to trigger network allocation
-	err = svc.Provision(ctx, inst1.ID, nil)
+	err = svc.Provision(ctx, domain.ProvisionJob{InstanceID: inst1.ID})
 	assert.NoError(t, err)
 
 	// 3. Launch 2nd instance (Should succeed in DB)
-	inst2, err := svc.LaunchInstance(ctx, "inst-2", "alpine", "", "basic-2", &vpc.ID, &subnet.ID, nil)
+	inst2, err := svc.LaunchInstance(ctx, coreports.LaunchParams{
+		Name:         "inst-2",
+		Image:        testImage,
+		InstanceType: testInstanceType,
+		VpcID:        &vpc.ID,
+		SubnetID:     &subnet.ID,
+	})
 	require.NoError(t, err)
 
 	// Provision 2nd instance (Should fail with CIDR exhaustion)
-	err = svc.Provision(ctx, inst2.ID, nil)
+	err = svc.Provision(ctx, domain.ProvisionJob{InstanceID: inst2.ID})
 	require.Error(t, err, "Expected error due to CIDR exhaustion")
 	t.Logf("Got expected error: %v", err)
 	assert.Contains(t, err.Error(), "allocate IP")

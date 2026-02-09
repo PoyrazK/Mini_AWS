@@ -80,22 +80,23 @@ func NewInstanceService(params InstanceServiceParams) *InstanceService {
 
 // LaunchInstance provisions a new instance, sets up its network (if VPC/Subnet provided),
 // and attaches any requested volumes.
-func (s *InstanceService) LaunchInstance(ctx context.Context, name, image, ports, instanceType string, vpcID, subnetID *uuid.UUID, volumes []domain.VolumeAttachment) (*domain.Instance, error) {
+func (s *InstanceService) LaunchInstance(ctx context.Context, params ports.LaunchParams) (*domain.Instance, error) {
 	ctx, span := otel.Tracer("instance-service").Start(ctx, "LaunchInstance")
 	defer span.End()
 
 	span.SetAttributes(
-		attribute.String("instance.name", name),
-		attribute.String("instance.image", image),
+		attribute.String("instance.name", params.Name),
+		attribute.String("instance.image", params.Image),
 	)
 
 	// 1. Validate ports if provided
-	_, err := s.parseAndValidatePorts(ports)
+	_, err := s.parseAndValidatePorts(params.Ports)
 	if err != nil {
 		return nil, err
 	}
 
 	// 2. Resolve Instance Type
+	instanceType := params.InstanceType
 	if instanceType == "" {
 		instanceType = "basic-2"
 	}
@@ -109,14 +110,20 @@ func (s *InstanceService) LaunchInstance(ctx context.Context, name, image, ports
 		ID:           uuid.New(),
 		UserID:       appcontext.UserIDFromContext(ctx),
 		TenantID:     appcontext.TenantIDFromContext(ctx),
-		Name:         name,
-		Image:        image,
+		Name:         params.Name,
+		Image:        params.Image,
 		Status:       domain.StatusStarting,
-		Ports:        ports,
-		VpcID:        vpcID,
-		SubnetID:     subnetID,
+		Ports:        params.Ports,
+		VpcID:        params.VpcID,
+		SubnetID:     params.SubnetID,
 		InstanceType: instanceType,
 		Version:      1,
+		VolumeBinds:  params.VolumeBinds,
+		Env:          params.Env,
+		Cmd:          params.Cmd,
+		CPULimit:     params.CPULimit,
+		MemoryLimit:  params.MemoryLimit,
+		DiskLimit:    params.DiskLimit,
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
 	}
@@ -127,10 +134,16 @@ func (s *InstanceService) LaunchInstance(ctx context.Context, name, image, ports
 
 	// 4. Enqueue provision task
 	job := domain.ProvisionJob{
-		InstanceID: inst.ID,
-		UserID:     inst.UserID,
-		TenantID:   inst.TenantID,
-		Volumes:    volumes,
+		InstanceID:  inst.ID,
+		UserID:      inst.UserID,
+		TenantID:    inst.TenantID,
+		Volumes:     params.Volumes,
+		VolumeBinds: params.VolumeBinds,
+		Env:         params.Env,
+		Cmd:         params.Cmd,
+		CPULimit:    params.CPULimit,
+		MemoryLimit: params.MemoryLimit,
+		DiskLimit:   params.DiskLimit,
 	}
 
 	s.logger.Info("enqueueing provision job", "instance_id", inst.ID, "queue", "provision_queue", "tenant_id", inst.TenantID)
@@ -144,8 +157,72 @@ func (s *InstanceService) LaunchInstance(ctx context.Context, name, image, ports
 	return inst, nil
 }
 
+// LaunchInstanceWithOptions provisions an instance using structured options.
+func (s *InstanceService) LaunchInstanceWithOptions(ctx context.Context, opts ports.CreateInstanceOptions) (*domain.Instance, error) {
+	ctx, span := otel.Tracer("instance-service").Start(ctx, "LaunchInstanceWithOptions")
+	defer span.End()
+
+	inst := &domain.Instance{
+		ID:           uuid.New(),
+		UserID:       appcontext.UserIDFromContext(ctx),
+		TenantID:     appcontext.TenantIDFromContext(ctx),
+		Name:         opts.Name,
+		Image:        opts.ImageName,
+		Status:       domain.StatusStarting,
+		Ports:        strings.Join(opts.Ports, ","),
+		VolumeBinds:  opts.VolumeBinds,
+		Env:          opts.Env,
+		Cmd:          opts.Cmd,
+		CPULimit:     opts.CPULimit,
+		MemoryLimit:  opts.MemoryLimit,
+		DiskLimit:    opts.DiskLimit,
+		InstanceType: "custom", // Marking as custom since we are passing raw constraints or defaults
+		Version:      1,
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
+	}
+
+	if opts.NetworkID != "" {
+		vpcID, err := uuid.Parse(opts.NetworkID)
+		if err != nil {
+			return nil, errors.New(errors.InvalidInput, "invalid network id format")
+		}
+		inst.VpcID = &vpcID
+	}
+
+	if err := s.repo.Create(ctx, inst); err != nil {
+		return nil, err
+	}
+
+	// 4. Enqueue provision task with full options
+	job := domain.ProvisionJob{
+		InstanceID:  inst.ID,
+		UserID:      inst.UserID,
+		TenantID:    inst.TenantID,
+		UserData:    opts.UserData,
+		Ports:       opts.Ports,
+		VolumeBinds: opts.VolumeBinds,
+		Env:         opts.Env,
+		Cmd:         opts.Cmd,
+		CPULimit:    opts.CPULimit,
+		MemoryLimit: opts.MemoryLimit,
+		DiskLimit:   opts.DiskLimit,
+	}
+
+	if err := s.taskQueue.Enqueue(ctx, "provision_queue", job); err != nil {
+		s.logger.Error("failed to enqueue provision job", "instance_id", inst.ID, "error", err)
+		return nil, errors.Wrap(errors.Internal, "failed to enqueue provisioning task", err)
+	}
+
+	return inst, nil
+}
+
 // Provision contains the heavy lifting of instance launch, called by background workers.
-func (s *InstanceService) Provision(ctx context.Context, instanceID uuid.UUID, volumes []domain.VolumeAttachment) error {
+func (s *InstanceService) Provision(ctx context.Context, job domain.ProvisionJob) error {
+	instanceID := job.InstanceID
+	userData := job.UserData
+	volumes := job.Volumes
+
 	inst, err := s.repo.GetByID(ctx, instanceID)
 	if err != nil {
 		return err
@@ -172,23 +249,34 @@ func (s *InstanceService) Provision(ctx context.Context, instanceID uuid.UUID, v
 		return errors.Wrap(errors.Internal, "failed to resolve instance type for provisioning", itErr)
 	}
 
+	// Use limits from instance type but override if custom values provided in inst/job
 	cpuLimit := int64(it.VCPUs)
+	if inst.CPULimit > 0 {
+		cpuLimit = inst.CPULimit
+	}
 	memLimit := int64(it.MemoryMB) * 1024 * 1024
+	if inst.MemoryLimit > 0 {
+		memLimit = inst.MemoryLimit
+	}
 	diskLimit := int64(it.DiskGB) * 1024 * 1024 * 1024
+	if inst.DiskLimit > 0 {
+		diskLimit = inst.DiskLimit
+	}
 
 	dockerName := s.formatContainerName(inst.ID)
 	portList, _ := s.parseAndValidatePorts(inst.Ports)
-	containerID, err := s.compute.CreateInstance(ctx, ports.CreateInstanceOptions{
+	containerID, err := s.compute.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{
 		Name:        dockerName,
 		ImageName:   inst.Image,
 		Ports:       portList,
 		NetworkID:   networkID,
 		VolumeBinds: volumeBinds,
-		Env:         nil,
-		Cmd:         nil,
+		Env:         inst.Env,
+		Cmd:         inst.Cmd,
 		CPULimit:    cpuLimit,
 		MemoryLimit: memLimit,
 		DiskLimit:   diskLimit,
+		UserData:    userData,
 	})
 	if err != nil {
 		platform.InstanceOperationsTotal.WithLabelValues("launch", "failure").Inc()
@@ -324,6 +412,50 @@ func parsePort(s string) (int, error) {
 		return 0, err
 	}
 	return port, nil
+}
+
+// StartInstance boots up a stopped instance.
+func (s *InstanceService) StartInstance(ctx context.Context, idOrName string) error {
+	// 1. Get from DB
+	inst, err := s.GetInstance(ctx, idOrName)
+	if err != nil {
+		return err
+	}
+
+	if inst.Status == domain.StatusRunning {
+		return nil // Already running
+	}
+
+	// 2. Call Compute backend
+	target := inst.ContainerID
+	if target == "" {
+		// Try to recover ID from name if missing
+		target = s.formatContainerName(inst.ID)
+	}
+
+	if err := s.compute.StartInstance(ctx, target); err != nil {
+		platform.InstanceOperationsTotal.WithLabelValues("start", "failure").Inc()
+		s.logger.Error("failed to start instance", "instance_id", inst.ID, "container_id", target, "error", err)
+		return errors.Wrap(errors.Internal, "failed to start instance", err)
+	}
+
+	// 3. Update Metrics & Status
+	platform.InstancesTotal.WithLabelValues("stopped", s.compute.Type()).Dec()
+	platform.InstancesTotal.WithLabelValues("running", s.compute.Type()).Inc()
+	platform.InstanceOperationsTotal.WithLabelValues("start", "success").Inc()
+
+	s.logger.Info("instance started", "instance_id", inst.ID)
+
+	inst.Status = domain.StatusRunning
+	if err := s.repo.Update(ctx, inst); err != nil {
+		return err
+	}
+
+	_ = s.auditSvc.Log(ctx, inst.UserID, "instance.start", "instance", inst.ID.String(), map[string]interface{}{
+		"name": inst.Name,
+	})
+
+	return nil
 }
 
 // StopInstance halts a running instance's associated compute resource (e.g., container).
