@@ -104,6 +104,10 @@ func setupInstanceServiceTest(t *testing.T) (*pgxpool.Pool, *services.InstanceSe
 	auditRepo := postgres.NewAuditRepository(db)
 	auditSvc := services.NewAuditService(auditRepo)
 
+	tenantRepo := postgres.NewTenantRepo(db)
+	userRepo := postgres.NewUserRepo(db)
+	tenantSvc := services.NewTenantService(tenantRepo, userRepo, slog.Default())
+
 	taskQueue := &InMemoryTaskQueue{}
 	network := noop.NewNoopNetworkAdapter(slog.Default())
 
@@ -119,6 +123,7 @@ func setupInstanceServiceTest(t *testing.T) (*pgxpool.Pool, *services.InstanceSe
 		AuditSvc:         auditSvc,
 		TaskQueue:        taskQueue,
 		Logger:           slog.Default(),
+		TenantSvc:        tenantSvc,
 	})
 
 	return db, svc, compute, repo, vpcRepo, volumeRepo, ctx
@@ -222,9 +227,10 @@ func TestInstanceServiceLaunchDBFailure(t *testing.T) {
 		InstanceTypeRepo: itRepo,
 		Compute:          compute,
 		EventSvc:         eventSvc,
-		AuditSvc:         auditSvc,
+		AuditSvc:         auditSvc, // Fixed field name
 		TaskQueue:        taskQueue,
 		Logger:           slog.Default(),
+		TenantSvc:        services.NewTenantService(postgres.NewTenantRepo(db), postgres.NewUserRepo(db), slog.Default()),
 	})
 
 	// Attempt Launch
