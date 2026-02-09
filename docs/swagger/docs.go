@@ -2380,7 +2380,7 @@ const docTemplate = `{
                         "APIKeyAuth": []
                     }
                 ],
-                "description": "Creates and starts a new compute instance with optional volumes and VPC",
+                "description": "Creates and starts a new compute instance with optional volumes, VPC, environment variables, commands, and resource limits",
                 "consumes": [
                     "application/json"
                 ],
@@ -5048,7 +5048,8 @@ const docTemplate = `{
                 "usage_by_type": {
                     "type": "object",
                     "additionalProperties": {
-                        "type": "number"
+                        "type": "number",
+                        "format": "float64"
                     }
                 },
                 "user_id": {
@@ -5568,12 +5569,30 @@ const docTemplate = `{
         "domain.Instance": {
             "type": "object",
             "properties": {
+                "cmd": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "container_id": {
                     "description": "Backend identifier",
                     "type": "string"
                 },
+                "cpu_limit": {
+                    "type": "integer"
+                },
                 "created_at": {
                     "type": "string"
+                },
+                "disk_limit": {
+                    "type": "integer"
+                },
+                "env": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "id": {
                     "type": "string"
@@ -5584,6 +5603,9 @@ const docTemplate = `{
                 },
                 "instance_type": {
                     "type": "string"
+                },
+                "memory_limit": {
+                    "type": "integer"
                 },
                 "name": {
                     "description": "Unique per tenant",
@@ -5620,6 +5642,12 @@ const docTemplate = `{
                 "version": {
                     "description": "Optimistic locking",
                     "type": "integer"
+                },
+                "volume_binds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "vpc_id": {
                     "description": "Optional VPC attachment",
@@ -7130,11 +7158,32 @@ const docTemplate = `{
                 "name"
             ],
             "properties": {
+                "cmd": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "cpu_limit": {
+                    "type": "integer"
+                },
+                "disk_limit": {
+                    "type": "integer"
+                },
+                "env": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "image": {
                     "type": "string"
                 },
                 "instance_type": {
                     "type": "string"
+                },
+                "memory_limit": {
+                    "type": "integer"
                 },
                 "name": {
                     "type": "string"
@@ -7144,6 +7193,12 @@ const docTemplate = `{
                 },
                 "subnet_id": {
                     "type": "string"
+                },
+                "volume_binds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "volumes": {
                     "type": "array",
