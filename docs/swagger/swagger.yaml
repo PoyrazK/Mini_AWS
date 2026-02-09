@@ -61,6 +61,7 @@ definitions:
         type: number
       usage_by_type:
         additionalProperties:
+          format: float64
           type: number
         type: object
       user_id:
@@ -422,11 +423,23 @@ definitions:
     - ImageStatusDeleting
   domain.Instance:
     properties:
+      cmd:
+        items:
+          type: string
+        type: array
       container_id:
         description: Backend identifier
         type: string
+      cpu_limit:
+        type: integer
       created_at:
         type: string
+      disk_limit:
+        type: integer
+      env:
+        items:
+          type: string
+        type: array
       id:
         type: string
       image:
@@ -434,6 +447,8 @@ definitions:
         type: string
       instance_type:
         type: string
+      memory_limit:
+        type: integer
       name:
         description: Unique per tenant
         type: string
@@ -460,6 +475,10 @@ definitions:
       version:
         description: Optimistic locking
         type: integer
+      volume_binds:
+        items:
+          type: string
+        type: array
       vpc_id:
         description: Optional VPC attachment
         type: string
@@ -1546,16 +1565,34 @@ definitions:
     type: object
   httphandlers.LaunchRequest:
     properties:
+      cmd:
+        items:
+          type: string
+        type: array
+      cpu_limit:
+        type: integer
+      disk_limit:
+        type: integer
+      env:
+        items:
+          type: string
+        type: array
       image:
         type: string
       instance_type:
         type: string
+      memory_limit:
+        type: integer
       name:
         type: string
       ports:
         type: string
       subnet_id:
         type: string
+      volume_binds:
+        items:
+          type: string
+        type: array
       volumes:
         items:
           $ref: '#/definitions/httphandlers.VolumeAttachmentRequest'
@@ -3215,8 +3252,8 @@ paths:
     post:
       consumes:
       - application/json
-      description: Creates and starts a new compute instance with optional volumes
-        and VPC
+      description: Creates and starts a new compute instance with optional volumes,
+        VPC, environment variables, commands, and resource limits
       parameters:
       - description: Launch request
         in: body
