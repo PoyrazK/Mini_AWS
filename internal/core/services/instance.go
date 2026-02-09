@@ -41,6 +41,7 @@ type InstanceService struct {
 	dnsSvc           ports.DNSService
 	taskQueue        ports.TaskQueue
 	tenantSvc        ports.TenantService
+	sshKeySvc        ports.SSHKeyService
 	logger           *slog.Logger
 }
 
@@ -59,6 +60,7 @@ type InstanceServiceParams struct {
 	DNSSvc           ports.DNSService
 	TaskQueue        ports.TaskQueue // Optional
 	TenantSvc        ports.TenantService
+	SSHKeySvc        ports.SSHKeyService
 	Logger           *slog.Logger
 }
 
@@ -77,6 +79,7 @@ func NewInstanceService(params InstanceServiceParams) *InstanceService {
 		dnsSvc:           params.DNSSvc,
 		taskQueue:        params.TaskQueue,
 		tenantSvc:        params.TenantSvc,
+		sshKeySvc:        params.SSHKeySvc,
 		logger:           params.Logger,
 	}
 }
@@ -110,6 +113,16 @@ func (s *InstanceService) LaunchInstance(ctx context.Context, params ports.Launc
 
 	// 3. Quota Check & Reservation
 	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	// Resolve SSH Key if provided
+	var userData string
+	if params.SSHKeyID != nil {
+		key, err := s.sshKeySvc.GetKey(ctx, *params.SSHKeyID)
+		if err != nil {
+			return nil, err
+		}
+		userData = fmt.Sprintf("#cloud-config\nssh_authorized_keys:\n  - %s\n", key.PublicKey)
+	}
 
 	// Check instances quota
 	if err := s.tenantSvc.CheckQuota(ctx, tenantID, "instances", 1); err != nil {
@@ -177,6 +190,7 @@ func (s *InstanceService) LaunchInstance(ctx context.Context, params ports.Launc
 		CPULimit:    params.CPULimit,
 		MemoryLimit: params.MemoryLimit,
 		DiskLimit:   params.DiskLimit,
+		UserData:    userData,
 	}
 
 	s.logger.Info("enqueueing provision job", "instance_id", inst.ID, "queue", "provision_queue", "tenant_id", inst.TenantID)
