@@ -78,7 +78,7 @@ func (w *ProvisionWorker) processJob(job domain.ProvisionJob) {
 	ctx = appcontext.WithTenantID(ctx, job.TenantID)
 
 	w.logger.Info("starting provision logic", "instance_id", job.InstanceID)
-	if err := w.instSvc.Provision(ctx, job.InstanceID, job.Volumes, job.UserData); err != nil {
+	if err := w.instSvc.Provision(ctx, job); err != nil {
 		w.logger.Error("failed to provision instance", "instance_id", job.InstanceID, "error", err)
 	} else {
 		w.logger.Info("successfully provisioned instance", "instance_id", job.InstanceID)
