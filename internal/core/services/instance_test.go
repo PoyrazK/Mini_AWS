@@ -207,7 +207,7 @@ func TestInstanceServiceLaunchDBFailure(t *testing.T) {
 	itRepo := postgres.NewInstanceTypeRepository(db)
 	compute, _ := docker.NewDockerAdapter(slog.Default())
 
-	defaultType := &domain.InstanceType{ID: "basic-2", Name: "Basic 2", VCPUs: 1, MemoryMB: 128, DiskGB: 1}
+	defaultType := &domain.InstanceType{ID: testInstanceType, Name: "Basic 2", VCPUs: 1, MemoryMB: 128, DiskGB: 1}
 	_, _ = itRepo.Create(ctx, defaultType)
 
 	eventSvc := services.NewEventService(postgres.NewEventRepository(db), nil, slog.Default())
