@@ -71,6 +71,12 @@ type Instance struct {
 	PrivateIP    string         `json:"private_ip,omitempty"` // VPC private IP
 	OvsPort      string         `json:"ovs_port,omitempty"`   // OVS port name
 	InstanceType string         `json:"instance_type,omitempty"`
+	VolumeBinds  []string       `json:"volume_binds,omitempty"`
+	Env          []string       `json:"env,omitempty"`
+	Cmd          []string       `json:"cmd,omitempty"`
+	CPULimit     int64          `json:"cpu_limit,omitempty"`
+	MemoryLimit  int64          `json:"memory_limit,omitempty"`
+	DiskLimit    int64          `json:"disk_limit,omitempty"`
 	Version      int            `json:"version"` // Optimistic locking
 	CreatedAt    time.Time      `json:"created_at"`
 	UpdatedAt    time.Time      `json:"updated_at"`
