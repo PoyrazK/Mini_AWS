@@ -11,12 +11,15 @@ import (
 
 type mockInstanceService struct{ mock.Mock }
 
-func (m *mockInstanceService) LaunchInstance(ctx context.Context, name, image, ports, instanceType string, vpcID, subnetID *uuid.UUID, volumes []domain.VolumeAttachment) (*domain.Instance, error) {
-	args := m.Called(ctx, name, image, ports, instanceType, vpcID, subnetID, volumes)
+func (m *mockInstanceService) LaunchInstance(ctx context.Context, params ports.LaunchParams) (*domain.Instance, error) {
+	args := m.Called(ctx, params)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*domain.Instance), args.Error(1)
+}
+func (m *mockInstanceService) Provision(ctx context.Context, job domain.ProvisionJob) error {
+	return m.Called(ctx, job).Error(0)
 }
 func (m *mockInstanceService) LaunchInstanceWithOptions(ctx context.Context, opts ports.CreateInstanceOptions) (*domain.Instance, error) {
 	args := m.Called(ctx, opts)
@@ -85,28 +88,3 @@ func (m *mockClusterRepo) GetNodes(ctx context.Context, clusterID uuid.UUID) ([]
 }
 func (m *mockClusterRepo) DeleteNode(ctx context.Context, nodeID uuid.UUID) error      { return nil }
 func (m *mockClusterRepo) UpdateNode(ctx context.Context, n *domain.ClusterNode) error { return nil }
-
-type MockSecretService struct{ mock.Mock }
-
-func (m *MockSecretService) CreateSecret(ctx context.Context, name, value, description string) (*domain.Secret, error) {
-	return nil, nil
-}
-func (m *MockSecretService) GetSecret(ctx context.Context, id uuid.UUID) (*domain.Secret, error) {
-	return nil, nil
-}
-func (m *MockSecretService) GetSecretByName(ctx context.Context, name string) (*domain.Secret, error) {
-	return nil, nil
-}
-func (m *MockSecretService) ListSecrets(ctx context.Context) ([]*domain.Secret, error) {
-	return nil, nil
-}
-func (m *MockSecretService) DeleteSecret(ctx context.Context, id uuid.UUID) error {
-	return nil
-}
-func (m *MockSecretService) Encrypt(ctx context.Context, userID uuid.UUID, plainText string) (string, error) {
-	return plainText, nil
-}
-func (m *MockSecretService) Decrypt(ctx context.Context, userID uuid.UUID, cipherText string) (string, error) {
-	args := m.Called(ctx, userID, cipherText)
-	return args.String(0), args.Error(1)
-}
