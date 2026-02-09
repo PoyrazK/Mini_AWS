@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -65,7 +66,9 @@ func TestAutoScalingWorkerEvaluateScaleOut(t *testing.T) {
 	mockRepo.On("GetAllPolicies", ctx, mock.Anything).Return(map[uuid.UUID][]*domain.ScalingPolicy{groupID: {}}, nil)
 
 	newInst := &domain.Instance{ID: uuid.New()}
-	mockInstSvc.On("LaunchInstance", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(newInst, nil)
+	mockInstSvc.On("LaunchInstance", mock.Anything, mock.MatchedBy(func(p ports.LaunchParams) bool {
+		return p.Image == "nginx" && p.Ports == "0:80"
+	})).Return(newInst, nil)
 	mockRepo.On("AddInstanceToGroup", mock.Anything, groupID, newInst.ID).Return(nil)
 	mockEventSvc.On("RecordEvent", mock.Anything, "AUTOSCALING_SCALE_OUT", groupID.String(), "SCALING_GROUP", mock.Anything).Return(nil)
 
@@ -287,7 +290,9 @@ func TestAutoScalingWorkerRecordFailure(t *testing.T) {
 	mockRepo.On("GetAllPolicies", ctx, []uuid.UUID{groupID}).Return(map[uuid.UUID][]*domain.ScalingPolicy{}, nil)
 
 	// Simulate a failure during scale out - use context matcher to handle UserID context
-	mockInstSvc.On("LaunchInstance", mock.Anything, mock.Anything, "nginx", "0:80", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, assert.AnError)
+	mockInstSvc.On("LaunchInstance", mock.Anything, mock.MatchedBy(func(p ports.LaunchParams) bool {
+		return p.Image == "nginx" && p.Ports == "0:80"
+	})).Return(nil, assert.AnError)
 
 	// Should record failure - use Any() matcher for context
 	mockRepo.On("UpdateGroup", mock.Anything, mock.Anything).Return(nil)
@@ -402,7 +407,9 @@ func TestAutoScalingWorkerResetFailures(t *testing.T) {
 
 	// Successful scale out should reset failures
 	newInstance := &domain.Instance{ID: uuid.New(), UserID: userID}
-	mockInstSvc.On("LaunchInstance", mock.Anything, mock.Anything, "nginx", "0:80", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(newInstance, nil)
+	mockInstSvc.On("LaunchInstance", mock.Anything, mock.MatchedBy(func(p ports.LaunchParams) bool {
+		return p.Image == "nginx" && p.Ports == "0:80"
+	})).Return(newInstance, nil)
 	mockRepo.On("AddInstanceToGroup", mock.Anything, groupID, newInstance.ID).Return(nil)
 	mockEventSvc.On("RecordEvent", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
