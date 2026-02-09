@@ -80,22 +80,23 @@ func NewInstanceService(params InstanceServiceParams) *InstanceService {
 
 // LaunchInstance provisions a new instance, sets up its network (if VPC/Subnet provided),
 // and attaches any requested volumes.
-func (s *InstanceService) LaunchInstance(ctx context.Context, name, image, ports, instanceType string, vpcID, subnetID *uuid.UUID, volumes []domain.VolumeAttachment) (*domain.Instance, error) {
+func (s *InstanceService) LaunchInstance(ctx context.Context, params ports.LaunchParams) (*domain.Instance, error) {
 	ctx, span := otel.Tracer("instance-service").Start(ctx, "LaunchInstance")
 	defer span.End()
 
 	span.SetAttributes(
-		attribute.String("instance.name", name),
-		attribute.String("instance.image", image),
+		attribute.String("instance.name", params.Name),
+		attribute.String("instance.image", params.Image),
 	)
 
 	// 1. Validate ports if provided
-	_, err := s.parseAndValidatePorts(ports)
+	_, err := s.parseAndValidatePorts(params.Ports)
 	if err != nil {
 		return nil, err
 	}
 
 	// 2. Resolve Instance Type
+	instanceType := params.InstanceType
 	if instanceType == "" {
 		instanceType = "basic-2"
 	}
@@ -109,14 +110,20 @@ func (s *InstanceService) LaunchInstance(ctx context.Context, name, image, ports
 		ID:           uuid.New(),
 		UserID:       appcontext.UserIDFromContext(ctx),
 		TenantID:     appcontext.TenantIDFromContext(ctx),
-		Name:         name,
-		Image:        image,
+		Name:         params.Name,
+		Image:        params.Image,
 		Status:       domain.StatusStarting,
-		Ports:        ports,
-		VpcID:        vpcID,
-		SubnetID:     subnetID,
+		Ports:        params.Ports,
+		VpcID:        params.VpcID,
+		SubnetID:     params.SubnetID,
 		InstanceType: instanceType,
 		Version:      1,
+		VolumeBinds:  params.VolumeBinds,
+		Env:          params.Env,
+		Cmd:          params.Cmd,
+		CPULimit:     params.CPULimit,
+		MemoryLimit:  params.MemoryLimit,
+		DiskLimit:    params.DiskLimit,
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
 	}
@@ -127,10 +134,16 @@ func (s *InstanceService) LaunchInstance(ctx context.Context, name, image, ports
 
 	// 4. Enqueue provision task
 	job := domain.ProvisionJob{
-		InstanceID: inst.ID,
-		UserID:     inst.UserID,
-		TenantID:   inst.TenantID,
-		Volumes:    volumes,
+		InstanceID:  inst.ID,
+		UserID:      inst.UserID,
+		TenantID:    inst.TenantID,
+		Volumes:     params.Volumes,
+		VolumeBinds: params.VolumeBinds,
+		Env:         params.Env,
+		Cmd:         params.Cmd,
+		CPULimit:    params.CPULimit,
+		MemoryLimit: params.MemoryLimit,
+		DiskLimit:   params.DiskLimit,
 	}
 
 	s.logger.Info("enqueueing provision job", "instance_id", inst.ID, "queue", "provision_queue", "tenant_id", inst.TenantID)
@@ -156,6 +169,13 @@ func (s *InstanceService) LaunchInstanceWithOptions(ctx context.Context, opts po
 		Name:         opts.Name,
 		Image:        opts.ImageName,
 		Status:       domain.StatusStarting,
+		Ports:        strings.Join(opts.Ports, ","),
+		VolumeBinds:  opts.VolumeBinds,
+		Env:          opts.Env,
+		Cmd:          opts.Cmd,
+		CPULimit:     opts.CPULimit,
+		MemoryLimit:  opts.MemoryLimit,
+		DiskLimit:    opts.DiskLimit,
 		InstanceType: "custom", // Marking as custom since we are passing raw constraints or defaults
 		Version:      1,
 		CreatedAt:    time.Now(),
@@ -164,21 +184,29 @@ func (s *InstanceService) LaunchInstanceWithOptions(ctx context.Context, opts po
 
 	if opts.NetworkID != "" {
 		vpcID, err := uuid.Parse(opts.NetworkID)
-		if err == nil {
-			inst.VpcID = &vpcID
+		if err != nil {
+			return nil, errors.New(errors.InvalidInput, "invalid network id format")
 		}
+		inst.VpcID = &vpcID
 	}
 
 	if err := s.repo.Create(ctx, inst); err != nil {
 		return nil, err
 	}
 
-	// 4. Enqueue provision task with UserData
+	// 4. Enqueue provision task with full options
 	job := domain.ProvisionJob{
-		InstanceID: inst.ID,
-		UserID:     inst.UserID,
-		TenantID:   inst.TenantID,
-		UserData:   opts.UserData,
+		InstanceID:  inst.ID,
+		UserID:      inst.UserID,
+		TenantID:    inst.TenantID,
+		UserData:    opts.UserData,
+		Ports:       opts.Ports,
+		VolumeBinds: opts.VolumeBinds,
+		Env:         opts.Env,
+		Cmd:         opts.Cmd,
+		CPULimit:    opts.CPULimit,
+		MemoryLimit: opts.MemoryLimit,
+		DiskLimit:   opts.DiskLimit,
 	}
 
 	if err := s.taskQueue.Enqueue(ctx, "provision_queue", job); err != nil {
@@ -190,7 +218,11 @@ func (s *InstanceService) LaunchInstanceWithOptions(ctx context.Context, opts po
 }
 
 // Provision contains the heavy lifting of instance launch, called by background workers.
-func (s *InstanceService) Provision(ctx context.Context, instanceID uuid.UUID, volumes []domain.VolumeAttachment, userData string) error {
+func (s *InstanceService) Provision(ctx context.Context, job domain.ProvisionJob) error {
+	instanceID := job.InstanceID
+	userData := job.UserData
+	volumes := job.Volumes
+
 	inst, err := s.repo.GetByID(ctx, instanceID)
 	if err != nil {
 		return err
@@ -217,9 +249,19 @@ func (s *InstanceService) Provision(ctx context.Context, instanceID uuid.UUID, v
 		return errors.Wrap(errors.Internal, "failed to resolve instance type for provisioning", itErr)
 	}
 
+	// Use limits from instance type but override if custom values provided in inst/job
 	cpuLimit := int64(it.VCPUs)
+	if inst.CPULimit > 0 {
+		cpuLimit = inst.CPULimit
+	}
 	memLimit := int64(it.MemoryMB) * 1024 * 1024
+	if inst.MemoryLimit > 0 {
+		memLimit = inst.MemoryLimit
+	}
 	diskLimit := int64(it.DiskGB) * 1024 * 1024 * 1024
+	if inst.DiskLimit > 0 {
+		diskLimit = inst.DiskLimit
+	}
 
 	dockerName := s.formatContainerName(inst.ID)
 	portList, _ := s.parseAndValidatePorts(inst.Ports)
@@ -229,8 +271,8 @@ func (s *InstanceService) Provision(ctx context.Context, instanceID uuid.UUID, v
 		Ports:       portList,
 		NetworkID:   networkID,
 		VolumeBinds: volumeBinds,
-		Env:         nil,
-		Cmd:         nil,
+		Env:         inst.Env,
+		Cmd:         inst.Cmd,
 		CPULimit:    cpuLimit,
 		MemoryLimit: memLimit,
 		DiskLimit:   diskLimit,
