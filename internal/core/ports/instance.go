@@ -28,10 +28,27 @@ type InstanceRepository interface {
 	Delete(ctx context.Context, id uuid.UUID) error
 }
 
+// LaunchParams encapsulates parameters for LaunchInstance.
+type LaunchParams struct {
+	Name         string
+	Image        string
+	Ports        string
+	InstanceType string
+	VpcID        *uuid.UUID
+	SubnetID     *uuid.UUID
+	Volumes      []domain.VolumeAttachment
+	VolumeBinds  []string
+	Env          []string
+	Cmd          []string
+	CPULimit     int64
+	MemoryLimit  int64
+	DiskLimit    int64
+}
+
 // InstanceService defines the business logic for managing the lifecycle of compute instances.
 type InstanceService interface {
 	// LaunchInstance provisions and starts a new compute resource with requested networking and storage.
-	LaunchInstance(ctx context.Context, name, image, ports, instanceType string, vpcID, subnetID *uuid.UUID, volumes []domain.VolumeAttachment) (*domain.Instance, error)
+	LaunchInstance(ctx context.Context, params LaunchParams) (*domain.Instance, error)
 	// LaunchInstanceWithOptions provisions an instance using structured options (useful for Cloud-Init).
 	LaunchInstanceWithOptions(ctx context.Context, opts CreateInstanceOptions) (*domain.Instance, error)
 	// StartInstance boots up a stopped instance.
