@@ -152,12 +152,10 @@ func (p *KubeadmProvisioner) provisionControlPlane(ctx context.Context, cluster 
 	}
 
 	encryptedKubeconfig, err := p.secretSvc.Encrypt(ctx, cluster.UserID, kubeconfig)
-	if err == nil {
-		cluster.KubeconfigEncrypted = encryptedKubeconfig
-	} else {
-		p.logger.Error("failed to encrypt kubeconfig", "error", err)
-		cluster.KubeconfigEncrypted = kubeconfig // Fallback
+	if err != nil {
+		return p.failCluster(ctx, cluster, "failed to encrypt kubeconfig", err)
 	}
+	cluster.KubeconfigEncrypted = encryptedKubeconfig
 
 	_ = p.repo.Update(ctx, cluster)
 	return nil
@@ -313,12 +311,13 @@ func (p *KubeadmProvisioner) getExecutor(ctx context.Context, cluster *domain.Cl
 	}
 
 	// 2. Fallback to SSH
-	decryptedKey := cluster.SSHPrivateKeyEncrypted // Fallback or if not encrypted
-	if p.secretSvc != nil && cluster.SSHPrivateKeyEncrypted != "" {
-		key, err := p.secretSvc.Decrypt(ctx, cluster.UserID, cluster.SSHPrivateKeyEncrypted)
-		if err == nil {
-			decryptedKey = key
-		}
+	if cluster.SSHPrivateKeyEncrypted == "" {
+		return nil, errors.New(errors.Internal, "no SSH key found for node access")
+	}
+
+	decryptedKey, err := p.secretSvc.Decrypt(ctx, cluster.UserID, cluster.SSHPrivateKeyEncrypted)
+	if err != nil {
+		return nil, errors.Wrap(errors.Internal, "failed to decrypt SSH key", err)
 	}
 
 	return NewSSHExecutor(ip, defaultUser, decryptedKey), nil
@@ -337,10 +336,17 @@ func (p *KubeadmProvisioner) Deprovision(ctx context.Context, cluster *domain.Cl
 		_ = p.repo.DeleteNode(ctx, node.ID)
 	}
 
-	if cluster.HAEnabled && cluster.APIServerLBAddress != nil {
-		p.logger.Info("cleaning up cluster load balancer", "cluster_id", cluster.ID, "address", *cluster.APIServerLBAddress)
-		// TODO: Implement explicit LB resource cleanup if needed.
-		// Currently LB is usually part of VPC or deleted separately.
+	if cluster.HAEnabled {
+		lbName := fmt.Sprintf("lb-k8s-%s", cluster.Name)
+		lbs, err := p.lbSvc.List(ctx)
+		if err == nil {
+			for _, lb := range lbs {
+				if lb.Name == lbName && lb.VpcID == cluster.VpcID {
+					p.logger.Info("cleaning up cluster load balancer", "cluster_id", cluster.ID, "lb_id", lb.ID)
+					_ = p.lbSvc.Delete(ctx, lb.ID)
+				}
+			}
+		}
 	}
 
 	return nil
@@ -506,9 +512,10 @@ func (p *KubeadmProvisioner) RotateSecrets(ctx context.Context, cluster *domain.
 	}
 
 	encryptedKubeconfig, err := p.secretSvc.Encrypt(ctx, cluster.UserID, kubeconfig)
-	if err == nil {
-		cluster.KubeconfigEncrypted = encryptedKubeconfig
+	if err != nil {
+		return errors.Wrap(errors.Internal, "failed to encrypt kubeconfig", err)
 	}
+	cluster.KubeconfigEncrypted = encryptedKubeconfig
 
 	return p.repo.Update(ctx, cluster)
 }
