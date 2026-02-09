@@ -63,6 +63,7 @@ type Handlers struct {
 	DNS           *httphandlers.DNSHandler
 	InstanceType  *httphandlers.InstanceTypeHandler
 	GlobalLB      *httphandlers.GlobalLBHandler
+	SSHKey        *httphandlers.SSHKeyHandler
 	Ws            *ws.Handler
 }
 
@@ -106,6 +107,7 @@ func InitHandlers(svcs *Services, cfg *platform.Config, logger *slog.Logger) *Ha
 		DNS:           httphandlers.NewDNSHandler(svcs.DNS),
 		InstanceType:  httphandlers.NewInstanceTypeHandler(svcs.InstanceType),
 		GlobalLB:      httphandlers.NewGlobalLBHandler(svcs.GlobalLB),
+		SSHKey:        httphandlers.NewSSHKeyHandler(svcs.SSHKey),
 		Ws:            ws.NewHandler(hub, svcs.Identity, logger),
 	}
 }
@@ -235,6 +237,15 @@ func registerComputeRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 		instanceGroup.GET("/:id/stats", httputil.Permission(svcs.RBAC, domain.PermissionInstanceRead), handlers.Instance.GetStats)
 		instanceGroup.GET("/:id/console", httputil.Permission(svcs.RBAC, domain.PermissionInstanceRead), handlers.Instance.GetConsole)
 		instanceGroup.DELETE("/:id", httputil.Permission(svcs.RBAC, domain.PermissionInstanceTerminate), handlers.Instance.Terminate)
+	}
+
+	sshKeyGroup := r.Group("/ssh-keys")
+	sshKeyGroup.Use(httputil.Auth(svcs.Identity, svcs.Tenant), httputil.RequireTenant())
+	{
+		sshKeyGroup.POST("", httputil.Permission(svcs.RBAC, domain.PermissionInstanceUpdate), handlers.SSHKey.Create)
+		sshKeyGroup.GET("", httputil.Permission(svcs.RBAC, domain.PermissionInstanceRead), handlers.SSHKey.List)
+		sshKeyGroup.GET("/:id", httputil.Permission(svcs.RBAC, domain.PermissionInstanceRead), handlers.SSHKey.Get)
+		sshKeyGroup.DELETE("/:id", httputil.Permission(svcs.RBAC, domain.PermissionInstanceUpdate), handlers.SSHKey.Delete)
 	}
 
 	typeGroup := r.Group("/instance-types")
