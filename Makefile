@@ -50,7 +50,7 @@ doccheck:
 	go run ./cmd/doccheck --root .
 
 swagger:
-	@$(HOME)/go/bin/swag init -d cmd/api,internal/handlers -g main.go -o docs/swagger --parseDependency --parseInternal
+	@/Users/poyrazk/go/bin/swag init -d ./ -g cmd/api/main.go -o docs/swagger --parseDependency --parseInternal
 
 build:
 	mkdir -p bin

@@ -23,7 +23,7 @@ import (
 
 const (
 	testInstanceType = "basic-2"
-	testImage        = "alpine:latest"
+	testImage        = "alpine"
 )
 
 // FaultyInstanceRepository wraps a real InstanceRepository to simulate failures.
@@ -80,6 +80,12 @@ func setupInstanceServiceTest(t *testing.T) (*pgxpool.Pool, *services.InstanceSe
 	// We ensure it exists here so that Provisioning (which uses it as a fallback) succeeds.
 	if compute.Type() == "docker" {
 		_, _ = compute.CreateNetwork(ctx, "cloud-network")
+		// Pre-pull test image to prevent flakes in CI environments with slow registries or restrictive daemons
+		_, _ = compute.LaunchInstanceWithOptions(ctx, coreports.CreateInstanceOptions{
+			Name:      "pre-pull-image",
+			ImageName: testImage,
+		})
+		_ = compute.DeleteInstance(ctx, "pre-pull-image")
 	}
 
 	// Ensure default instance type exists
