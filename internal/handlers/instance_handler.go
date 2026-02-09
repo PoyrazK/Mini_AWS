@@ -51,6 +51,7 @@ type LaunchRequest struct {
 	CPULimit     int64                     `json:"cpu_limit"`
 	MemoryLimit  int64                     `json:"memory_limit"`
 	DiskLimit    int64                     `json:"disk_limit"`
+	SSHKeyID     string                    `json:"ssh_key_id,omitempty"`
 }
 
 // validateLaunchRequest performs custom validation beyond struct tags
@@ -130,6 +131,15 @@ func (h *InstanceHandler) Launch(c *gin.Context) {
 		httputil.Error(c, errors.New(errors.InvalidInput, err.Error()))
 		return
 	}
+	var sshKeyID *uuid.UUID
+	if req.SSHKeyID != "" {
+		id, err := uuid.Parse(req.SSHKeyID)
+		if err != nil {
+			httputil.Error(c, errors.New(errors.InvalidInput, "invalid ssh_key_id format"))
+			return
+		}
+		sshKeyID = &id
+	}
 
 	inst, err := h.svc.LaunchInstance(c.Request.Context(), ports.LaunchParams{
 		Name:         req.Name,
@@ -144,7 +154,9 @@ func (h *InstanceHandler) Launch(c *gin.Context) {
 		Cmd:          req.Cmd,
 		CPULimit:     req.CPULimit,
 		MemoryLimit:  req.MemoryLimit,
-		DiskLimit:    req.DiskLimit,
+
+		DiskLimit: req.DiskLimit,
+		SSHKeyID:  sshKeyID,
 	})
 	if err != nil {
 		httputil.Error(c, err)
