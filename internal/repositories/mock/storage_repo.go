@@ -1,1 +1,3 @@
-//DONT REMOVE THIS FILE
+package mock
+
+//DONT REMOVE THIS FILE.
