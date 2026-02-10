@@ -46,7 +46,8 @@ type LibvirtAdapter struct {
 	logger *slog.Logger
 	uri    string
 
-	mu           sync.RWMutex
+	isSession bool
+	mu        sync.RWMutex
 	portMappings map[string]map[string]int // instanceID -> internalPort -> hostPort
 
 	// Network pool configuration
@@ -72,11 +73,7 @@ func NewLibvirtAdapter(logger *slog.Logger, uri string) (*LibvirtAdapter, error)
 
 	//nolint:staticcheck // libvirt.New is deprecated but NewWithDialer doesn't work with our setup
 	l := libvirt.New(c)
-	if err := l.Connect(); err != nil {
-		return nil, fmt.Errorf("failed to connect to libvirt: %w", err)
-	}
-
-	return &LibvirtAdapter{
+	adapter := &LibvirtAdapter{
 		client:         &RealLibvirtClient{conn: l},
 		logger:         logger,
 		uri:            uri,
@@ -87,7 +84,24 @@ func NewLibvirtAdapter(logger *slog.Logger, uri string) (*LibvirtAdapter, error)
 		poolEnd:          net.ParseIP("192.168.200.255"),
 		ipWaitInterval:   5 * time.Second,
 		taskWaitInterval: 2 * time.Second,
-	}, nil
+	}
+
+	// On macOS/Session sockets, we must specify the URI.
+	// The default Connect() often defaults to /system which fails on session sockets.
+	// We use a longer timeout for the initial connection.
+	fmt.Println("CRITICAL: NewLibvirtAdapter calling ConnectToURI with qemu:///session")
+	connectCtx, connectCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer connectCancel()
+
+	uriToUse := "qemu:///session"
+	if err := adapter.client.ConnectToURI(connectCtx, uriToUse); err != nil {
+		logger.Warn("failed to connect to explicit session URI, trying generic session", "uri", uriToUse, "error", err)
+		if err2 := adapter.client.ConnectToURI(connectCtx, "qemu:///session"); err2 != nil {
+			return nil, fmt.Errorf("failed to connect to libvirt (explicit: %v, generic: %v)", err, err2)
+		}
+	}
+
+	return adapter, nil
 }
 
 // Close gracefully disconnects from libvirt
