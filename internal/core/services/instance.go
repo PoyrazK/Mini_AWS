@@ -121,7 +121,7 @@ func (s *InstanceService) LaunchInstance(ctx context.Context, params ports.Launc
 		if err != nil {
 			return nil, err
 		}
-		userData = fmt.Sprintf("#cloud-config\nssh_authorized_keys:\n  - %s\n", key.PublicKey)
+		userData = fmt.Sprintf("#cloud-config\nssh_authorized_keys:\n  - %s\npassword: password\nchpasswd: { expire: False }\nssh_pwauth: True\n", key.PublicKey)
 	}
 
 	// Check instances quota
@@ -658,6 +658,7 @@ func (s *InstanceService) finalizeTermination(ctx context.Context, inst *domain.
 	// In a perfect world we'd store exact resource allocation on the instance record to release it.
 	it, err := s.instanceTypeRepo.GetByID(ctx, inst.InstanceType)
 	if err == nil {
+		_ = s.tenantSvc.DecrementUsage(ctx, inst.TenantID, "instances", 1)
 		_ = s.tenantSvc.DecrementUsage(ctx, inst.TenantID, "vcpus", it.VCPUs)
 		_ = s.tenantSvc.DecrementUsage(ctx, inst.TenantID, "memory", it.MemoryMB/1024)
 	} else {

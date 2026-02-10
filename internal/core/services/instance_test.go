@@ -419,3 +419,53 @@ func TestNetworkingCIDRExhaustion(t *testing.T) {
 	t.Logf("Got expected error: %v", err)
 	assert.Contains(t, err.Error(), "allocate IP")
 }
+
+func TestInstanceMetadataAndLabels(t *testing.T) {
+	_, svc, _, repo, _, _, ctx := setupInstanceServiceTest(t)
+
+	t.Run("Launch with Metadata", func(t *testing.T) {
+		name := "meta-launch"
+		metadata := map[string]string{"env": "prod", "version": "1.0"}
+		labels := map[string]string{"tier": "frontend"}
+
+		inst, err := svc.LaunchInstance(ctx, coreports.LaunchParams{
+			Name:         name,
+			Image:        testImage,
+			InstanceType: testInstanceType,
+			Metadata:     metadata,
+			Labels:       labels,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, metadata, inst.Metadata)
+		assert.Equal(t, labels, inst.Labels)
+
+		// Verify in DB
+		dbInst, err := repo.GetByID(ctx, inst.ID)
+		require.NoError(t, err)
+		assert.Equal(t, metadata, dbInst.Metadata)
+		assert.Equal(t, labels, dbInst.Labels)
+	})
+
+	t.Run("Update Metadata", func(t *testing.T) {
+		inst, _ := svc.LaunchInstance(ctx, coreports.LaunchParams{
+			Name:         "meta-update",
+			Image:        testImage,
+			InstanceType: testInstanceType,
+			Metadata:     map[string]string{"key1": "val1"},
+		})
+
+		// 1. Add and Update
+		err := svc.UpdateInstanceMetadata(ctx, inst.ID, map[string]string{"key1": "newval", "key2": "val2"}, nil)
+		require.NoError(t, err)
+
+		// 2. Delete (empty value)
+		err = svc.UpdateInstanceMetadata(ctx, inst.ID, map[string]string{"key1": ""}, map[string]string{"l1": "v1"})
+		require.NoError(t, err)
+
+		dbInst, _ := repo.GetByID(ctx, inst.ID)
+		assert.Equal(t, "val2", dbInst.Metadata["key2"])
+		_, ok := dbInst.Metadata["key1"]
+		assert.False(t, ok)
+		assert.Equal(t, "v1", dbInst.Labels["l1"])
+	})
+}
