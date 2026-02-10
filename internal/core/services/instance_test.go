@@ -111,6 +111,9 @@ func setupInstanceServiceTest(t *testing.T) (*pgxpool.Pool, *services.InstanceSe
 	taskQueue := &InMemoryTaskQueue{}
 	network := noop.NewNoopNetworkAdapter(slog.Default())
 
+	sshKeyRepo := postgres.NewSSHKeyRepo(db)
+	sshKeySvc := services.NewSSHKeyService(sshKeyRepo)
+
 	svc := services.NewInstanceService(services.InstanceServiceParams{
 		Repo:             repo,
 		VpcRepo:          vpcRepo,
@@ -124,6 +127,7 @@ func setupInstanceServiceTest(t *testing.T) (*pgxpool.Pool, *services.InstanceSe
 		TaskQueue:        taskQueue,
 		Logger:           slog.Default(),
 		TenantSvc:        tenantSvc,
+		SSHKeySvc:        sshKeySvc,
 	})
 
 	return db, svc, compute, repo, vpcRepo, volumeRepo, ctx
@@ -133,7 +137,7 @@ func TestLaunchInstanceSuccess(t *testing.T) {
 	_, svc, compute, repo, _, _, ctx := setupInstanceServiceTest(t)
 	name := "test-inst-launch"
 	image := testImage
-	portsStr := "8888:80"
+	portsStr := "0:80"
 
 	// 1. Launch (Enqueue)
 	inst, err := svc.LaunchInstance(ctx, coreports.LaunchParams{
@@ -227,10 +231,11 @@ func TestInstanceServiceLaunchDBFailure(t *testing.T) {
 		InstanceTypeRepo: itRepo,
 		Compute:          compute,
 		EventSvc:         eventSvc,
-		AuditSvc:         auditSvc, // Fixed field name
+		AuditSvc:         auditSvc,
 		TaskQueue:        taskQueue,
 		Logger:           slog.Default(),
 		TenantSvc:        services.NewTenantService(postgres.NewTenantRepo(db), postgres.NewUserRepo(db), slog.Default()),
+		SSHKeySvc:        services.NewSSHKeyService(postgres.NewSSHKeyRepo(db)),
 	})
 
 	// Attempt Launch
@@ -468,4 +473,31 @@ func TestInstanceMetadataAndLabels(t *testing.T) {
 		assert.False(t, ok)
 		assert.Equal(t, "v1", dbInst.Labels["l1"])
 	})
+}
+
+func TestSSHKeyInjection(t *testing.T) {
+	db, svc, _, _, _, _, ctx := setupInstanceServiceTest(t)
+	sshKeyRepo := postgres.NewSSHKeyRepo(db)
+
+	// 1. Create SSH Key
+	key := &domain.SSHKey{
+		ID:        uuid.New(),
+		UserID:    appcontext.UserIDFromContext(ctx),
+		TenantID:  appcontext.TenantIDFromContext(ctx),
+		Name:      "test-injection-key",
+		PublicKey: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC...",
+	}
+	err := sshKeyRepo.Create(ctx, key)
+	require.NoError(t, err)
+
+	// 2. Launch with SSH Key
+	inst, err := svc.LaunchInstance(ctx, coreports.LaunchParams{
+		Name:         "ssh-inst",
+		Image:        testImage,
+		InstanceType: testInstanceType,
+		SSHKeyID:     &key.ID,
+	})
+	require.NoError(t, err)
+
+	assert.Equal(t, &key.ID, inst.SSHKeyID)
 }
