@@ -245,7 +245,9 @@ func (a *LibvirtAdapter) cleanupPortMappings(id string) {
 	defer a.mu.Unlock()
 	if mappings, ok := a.portMappings[id]; ok {
 		for _, hPort := range mappings {
-			_ = execCommand("sudo", "iptables", "-t", "nat", "-D", "PREROUTING", "-p", "tcp", "--dport", fmt.Sprintf("%d", hPort), "-j", "DNAT").Run()
+			hPortStr := fmt.Sprintf("%d", hPort)
+			_ = execCommand("sudo", "iptables", "-t", "nat", "-D", "PREROUTING", "-p", "tcp", "--dport", hPortStr, "-j", "DNAT").Run()
+			_ = execCommand("sudo", "iptables", "-t", "nat", "-D", "OUTPUT", "-o", "lo", "-p", "tcp", "--dport", hPortStr, "-j", "DNAT").Run()
 		}
 		delete(a.portMappings, id)
 	}
@@ -781,14 +783,18 @@ func (a *LibvirtAdapter) writeCloudInitFiles(tmpDir, name string, env, cmd []str
 }
 
 func (a *LibvirtAdapter) generateUserData(env, cmd []string, userDataRaw string) []byte {
+	var userData bytes.Buffer
 	if userDataRaw != "" {
-		return []byte(userDataRaw)
+		userData.WriteString(userDataRaw)
+		if !strings.HasSuffix(userDataRaw, "\n") {
+			userData.WriteString("\n")
+		}
+	} else {
+		userData.WriteString("#cloud-config\n")
 	}
 
-	var userData bytes.Buffer
-	userData.WriteString("#cloud-config\n")
-
 	if len(env) > 0 {
+		// If userDataRaw already has write_files, we might have issues, but for POC we append
 		userData.WriteString("write_files:\n")
 		userData.WriteString("  - path: /etc/profile.d/cloud-env.sh\n")
 		userData.WriteString("    content: |\n")
@@ -798,6 +804,7 @@ func (a *LibvirtAdapter) generateUserData(env, cmd []string, userDataRaw string)
 	}
 
 	if len(cmd) > 0 {
+		// If userDataRaw already has runcmd, we might have issues, but for POC we append
 		userData.WriteString("runcmd:\n")
 		for _, c := range cmd {
 			userData.WriteString(fmt.Sprintf("  - [ sh, -c, %q ]\n", c))
@@ -917,7 +924,12 @@ func (a *LibvirtAdapter) configureIptables(name, ip, containerPort string, hPort
 		cPortStr := strconv.Itoa(cP)
 		cmd := execCommand("sudo", "iptables", "-t", "nat", "-A", "PREROUTING", "-p", "tcp", "--dport", hPortStr, "-j", "DNAT", "--to", ip+":"+cPortStr)
 		if err := cmd.Run(); err != nil {
-			a.logger.Error("failed to set up iptables rule", "command", cmd.String(), "error", err)
+			a.logger.Error("failed to set up iptables PREROUTING rule", "command", cmd.String(), "error", err)
+		}
+		// Also add OUTPUT rule for localhost access
+		cmdOutput := execCommand("sudo", "iptables", "-t", "nat", "-A", "OUTPUT", "-o", "lo", "-p", "tcp", "--dport", hPortStr, "-j", "DNAT", "--to", ip+":"+cPortStr)
+		if err := cmdOutput.Run(); err != nil {
+			a.logger.Error("failed to set up iptables OUTPUT rule (localhost)", "command", cmdOutput.String(), "error", err)
 		}
 	}
 }
