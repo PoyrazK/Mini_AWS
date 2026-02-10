@@ -51,7 +51,7 @@ type VolumeAttachmentInput struct {
 }
 
 // LaunchInstance provisions a new instance with optional metadata, labels, and volume attachments.
-func (c *Client) LaunchInstance(name, image, ports, instanceType string, vpcID, subnetID string, volumes []VolumeAttachmentInput, metadata, labels map[string]string, sshKeyID string) (*Instance, error) {
+func (c *Client) LaunchInstance(name, image, ports, instanceType string, vpcID, subnetID string, volumes []VolumeAttachmentInput, metadata, labels map[string]string, sshKeyID string, cmd []string) (*Instance, error) {
 	body := map[string]interface{}{
 		"name":          name,
 		"image":         image,
@@ -63,6 +63,7 @@ func (c *Client) LaunchInstance(name, image, ports, instanceType string, vpcID, 
 		"metadata":      metadata,
 		"labels":        labels,
 		"ssh_key_id":    sshKeyID,
+		"cmd":           cmd,
 	}
 	var res Response[Instance]
 	if err := c.post("/instances", body, &res); err != nil {
