@@ -240,11 +240,12 @@ func (a *DockerAdapter) handleUserData(ctx context.Context, containerID string, 
 }
 
 type cloudConfig struct {
-	PackageUpdate  bool              `yaml:"package_update"`
-	PackageUpgrade bool              `yaml:"package_upgrade"`
-	Packages       []string          `yaml:"packages"`
-	WriteFiles     []cloudConfigFile `yaml:"write_files"`
-	RunCmd         []interface{}     `yaml:"runcmd"` // Can be string or list
+	PackageUpdate     bool              `yaml:"package_update"`
+	PackageUpgrade    bool              `yaml:"package_upgrade"`
+	Packages          []string          `yaml:"packages"`
+	WriteFiles        []cloudConfigFile `yaml:"write_files"`
+	SSHAuthorizedKeys []string          `yaml:"ssh_authorized_keys"`
+	RunCmd            []interface{}     `yaml:"runcmd"` // Can be string or list
 }
 
 type cloudConfigFile struct {
@@ -284,6 +285,17 @@ func (a *DockerAdapter) processCloudConfig(ctx context.Context, containerID stri
 		if f.Permissions != "" {
 			scriptBuilder.WriteString(fmt.Sprintf("chmod %s %s\n", f.Permissions, f.Path))
 		}
+	}
+
+	// 2.5 SSH Keys
+	if len(cfg.SSHAuthorizedKeys) > 0 {
+		scriptBuilder.WriteString("mkdir -p /root/.ssh\n")
+		scriptBuilder.WriteString("chmod 700 /root/.ssh\n")
+		for _, key := range cfg.SSHAuthorizedKeys {
+			encodedKey := base64.StdEncoding.EncodeToString([]byte(key + "\n"))
+			scriptBuilder.WriteString(fmt.Sprintf("echo %s | base64 -d >> /root/.ssh/authorized_keys\n", encodedKey))
+		}
+		scriptBuilder.WriteString("chmod 600 /root/.ssh/authorized_keys\n")
 	}
 
 	// 3. RunCmd
