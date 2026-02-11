@@ -60,6 +60,7 @@ type Repositories struct {
 	DNS           ports.DNSRepository
 	InstanceType  ports.InstanceTypeRepository
 	GlobalLB      ports.GlobalLBRepository
+	ElasticIP     ports.ElasticIPRepository
 }
 
 // InitRepositories constructs repositories using the provided database clients.
@@ -99,6 +100,7 @@ func InitRepositories(db postgres.DB, rdb *redisv9.Client) *Repositories {
 		DNS:           postgres.NewDNSRepository(db),
 		InstanceType:  postgres.NewInstanceTypeRepository(db),
 		GlobalLB:      postgres.NewGlobalLBRepository(db),
+		ElasticIP:     postgres.NewElasticIPRepository(db),
 	}
 }
 
@@ -140,6 +142,7 @@ type Services struct {
 	DNS           ports.DNSService
 	InstanceType  ports.InstanceTypeService
 	GlobalLB      ports.GlobalLBService
+	ElasticIP     ports.ElasticIPService
 }
 
 // Workers struct to return background workers
@@ -270,6 +273,7 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 		InstanceType: services.NewInstanceTypeService(c.Repos.InstanceType),
 		GlobalLB:     glbSvc,
 		DNS:          dnsSvc,
+		ElasticIP:    services.NewElasticIPService(c.Repos.ElasticIP, c.Repos.Instance, auditSvc, c.Logger),
 	}
 
 	// 7. High Availability & Monitoring
