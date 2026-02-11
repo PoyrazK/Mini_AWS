@@ -87,7 +87,7 @@ func (s *elasticIPService) ReleaseIP(ctx context.Context, id uuid.UUID) error {
 func (s *elasticIPService) AssociateIP(ctx context.Context, id uuid.UUID, instanceID uuid.UUID) (*domain.ElasticIP, error) {
 	eip, err := s.repo.GetByID(ctx, id)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// 1. Check if instance exists and is not terminated
@@ -126,7 +126,7 @@ func (s *elasticIPService) AssociateIP(ctx context.Context, id uuid.UUID, instan
 func (s *elasticIPService) DisassociateIP(ctx context.Context, id uuid.UUID) (*domain.ElasticIP, error) {
 	eip, err := s.repo.GetByID(ctx, id)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if eip.Status != domain.EIPStatusAssociated {
