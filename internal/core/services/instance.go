@@ -316,7 +316,7 @@ func (s *InstanceService) Provision(ctx context.Context, job domain.ProvisionJob
 
 	dockerName := s.formatContainerName(inst.ID)
 	portList, _ := s.parseAndValidatePorts(inst.Ports)
-	containerID, err := s.compute.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{
+	containerID, allocatedPorts, err := s.compute.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{
 		Name:        dockerName,
 		ImageName:   inst.Image,
 		Ports:       portList,
@@ -333,6 +333,11 @@ func (s *InstanceService) Provision(ctx context.Context, job domain.ProvisionJob
 		platform.InstanceOperationsTotal.WithLabelValues("launch", "failure").Inc()
 		s.updateStatus(ctx, inst, domain.StatusError)
 		return errors.Wrap(errors.Internal, "failed to launch container", err)
+	}
+
+	// Update ports with actually allocated ones if any
+	if len(allocatedPorts) > 0 {
+		inst.Ports = strings.Join(allocatedPorts, ",")
 	}
 
 	// 4. Finalize

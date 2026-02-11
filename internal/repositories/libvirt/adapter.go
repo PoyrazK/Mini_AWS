@@ -118,12 +118,12 @@ func (a *LibvirtAdapter) Type() string {
 	return "libvirt"
 }
 
-func (a *LibvirtAdapter) LaunchInstanceWithOptions(ctx context.Context, opts ports.CreateInstanceOptions) (string, error) {
+func (a *LibvirtAdapter) LaunchInstanceWithOptions(ctx context.Context, opts ports.CreateInstanceOptions) (string, []string, error) {
 	name := a.sanitizeDomainName(opts.Name)
 
 	diskPath, vol, err := a.prepareRootVolume(ctx, name, opts.ImageName)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 
 	isoPath := a.prepareCloudInit(ctx, name, opts.Env, opts.Cmd, opts.UserData)
@@ -134,24 +134,70 @@ func (a *LibvirtAdapter) LaunchInstanceWithOptions(ctx context.Context, opts por
 		networkID = "default"
 	}
 
-	domainXML := generateDomainXML(name, diskPath, networkID, isoPath, 512, 1, additionalDisks)
+	// 1.5 Allocate ports if needed
+	allocatedPorts := make([]string, 0, len(opts.Ports))
+	for _, p := range opts.Ports {
+		parts := strings.Split(p, ":")
+		if len(parts) == 2 {
+			hPort := parts[0]
+			cPort := parts[1]
+			if hPort == "0" {
+				freePort, err := findFreePort()
+				if err != nil {
+					a.logger.Warn("failed to auto-allocate port", "container_port", cPort, "error", err)
+					continue
+				}
+				hPort = strconv.Itoa(freePort)
+			}
+			allocatedPorts = append(allocatedPorts, fmt.Sprintf("%s:%s", hPort, cPort))
+
+			// Save to mappings for GetInstancePort
+			a.mu.Lock()
+			if a.portMappings[name] == nil {
+				a.portMappings[name] = make(map[string]int)
+			}
+			hp, _ := strconv.Atoi(hPort)
+			a.portMappings[name][cPort] = hp
+			a.mu.Unlock()
+		} else if len(parts) == 1 {
+			// Single port provided, treat as container port and auto-allocate host port
+			cPort := parts[0]
+			freePort, err := findFreePort()
+			if err != nil {
+				a.logger.Warn("failed to auto-allocate port", "container_port", cPort, "error", err)
+				continue
+			}
+			hPort := strconv.Itoa(freePort)
+			allocatedPorts = append(allocatedPorts, fmt.Sprintf("%s:%s", hPort, cPort))
+
+			a.mu.Lock()
+			if a.portMappings[name] == nil {
+				a.portMappings[name] = make(map[string]int)
+			}
+			a.portMappings[name][cPort] = freePort
+			a.mu.Unlock()
+		}
+	}
+	opts.Ports = allocatedPorts
+
+	domainXML := generateDomainXML(name, diskPath, networkID, isoPath, 512, 1, additionalDisks, allocatedPorts)
 	dom, err := a.client.DomainDefineXML(ctx, domainXML)
 	if err != nil {
 		a.cleanupCreateFailure(ctx, vol, isoPath)
-		return "", fmt.Errorf("failed to define domain: %w", err)
+		return "", nil, fmt.Errorf("failed to define domain: %w", err)
 	}
 
 	if err := a.client.DomainCreate(ctx, dom); err != nil {
 		_ = a.client.DomainUndefine(ctx, dom)
 		_ = a.client.StorageVolDelete(ctx, vol, 0)
-		return "", fmt.Errorf("failed to start domain: %w", err)
+		return "", nil, fmt.Errorf("failed to start domain: %w", err)
 	}
 
 	if len(opts.Ports) > 0 {
 		go a.setupPortForwarding(name, opts.Ports)
 	}
 
-	return name, nil
+	return name, allocatedPorts, nil
 }
 
 func (a *LibvirtAdapter) sanitizeDomainName(name string) string {
@@ -482,43 +528,43 @@ func (a *LibvirtAdapter) Exec(ctx context.Context, id string, cmd []string) (str
 	return "", fmt.Errorf("exec not supported in libvirt adapter")
 }
 
-func (a *LibvirtAdapter) RunTask(ctx context.Context, opts ports.RunTaskOptions) (string, error) {
+func (a *LibvirtAdapter) RunTask(ctx context.Context, opts ports.RunTaskOptions) (string, []string, error) {
 	name := "task-" + uuid.New().String()[:8]
 
 	pool, err := a.client.StoragePoolLookupByName(ctx, defaultPoolName)
 	if err != nil {
-		return "", fmt.Errorf("failed to find default pool: %w", err)
+		return "", nil, fmt.Errorf("failed to find default pool: %w", err)
 	}
 
 	volXML := generateVolumeXML(name+"-root", 1, "")
 	vol, err := a.client.StorageVolCreateXML(ctx, pool, volXML, 0)
 	if err != nil {
-		return "", fmt.Errorf("failed to create root volume: %w", err)
+		return "", nil, fmt.Errorf("failed to create root volume: %w", err)
 	}
 
 	diskPath, err := a.client.StorageVolGetPath(ctx, vol)
 	if err != nil {
 		_ = a.client.StorageVolDelete(ctx, vol, 0)
-		return "", fmt.Errorf(errGetVolumePath, err)
+		return "", nil, fmt.Errorf(errGetVolumePath, err)
 	}
 
 	isoPath := a.prepareCloudInit(ctx, name, nil, opts.Command, "")
 	additionalDisks := a.resolveBinds(ctx, opts.Binds)
-	domainXML := generateDomainXML(name, diskPath, "default", isoPath, int(opts.MemoryMB), 1, additionalDisks)
+	domainXML := generateDomainXML(name, diskPath, "default", isoPath, int(opts.MemoryMB), 1, additionalDisks, nil)
 
 	dom, err := a.client.DomainDefineXML(ctx, domainXML)
 	if err != nil {
 		a.cleanupCreateFailure(ctx, vol, isoPath)
-		return "", fmt.Errorf("failed to define domain: %w", err)
+		return "", nil, fmt.Errorf("failed to define domain: %w", err)
 	}
 
 	if err := a.client.DomainCreate(ctx, dom); err != nil {
 		_ = a.client.DomainUndefine(ctx, dom)
 		_ = a.client.StorageVolDelete(ctx, vol, 0)
-		return "", fmt.Errorf("failed to start domain: %w", err)
+		return "", nil, fmt.Errorf("failed to start domain: %w", err)
 	}
 
-	return name, nil
+	return name, nil, nil
 }
 
 func (a *LibvirtAdapter) WaitTask(ctx context.Context, id string) (int64, error) {
@@ -755,6 +801,7 @@ func (a *LibvirtAdapter) RestoreVolumeSnapshot(ctx context.Context, volumeID str
 
 	return nil
 }
+
 func (a *LibvirtAdapter) generateCloudInitISO(_ context.Context, name string, env []string, cmd []string, userData string) (string, error) {
 	safeName := a.sanitizeDomainName(name)
 
@@ -1026,4 +1073,18 @@ func (a *LibvirtAdapter) resolveVolumePath(ctx context.Context, volName string, 
 		}
 	}
 	return ""
+}
+
+func findFreePort() (int, error) {
+	addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
+	if err != nil {
+		return 0, err
+	}
+
+	l, err := net.ListenTCP("tcp", addr)
+	if err != nil {
+		return 0, err
+	}
+	defer l.Close()
+	return l.Addr().(*net.TCPAddr).Port, nil
 }
