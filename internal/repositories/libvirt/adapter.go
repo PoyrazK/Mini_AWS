@@ -238,22 +238,6 @@ func (a *LibvirtAdapter) cleanupCreateFailure(ctx context.Context, vol libvirt.S
 	}
 }
 
-func (a *LibvirtAdapter) waitInitialIP(ctx context.Context, id string) (string, error) {
-	ticker := time.NewTicker(a.ipWaitInterval)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return "", ctx.Err()
-		case <-ticker.C:
-			ip, err := a.GetInstanceIP(ctx, id)
-			if err == nil && ip != "" {
-				return ip, nil
-			}
-		}
-	}
-}
-
 func (a *LibvirtAdapter) StartInstance(ctx context.Context, id string) error {
 	dom, err := a.client.DomainLookupByName(ctx, id)
 	if err != nil {
@@ -881,75 +865,6 @@ func validateID(id string) error {
 		return fmt.Errorf("invalid id: contains path traversal characters")
 	}
 	return nil
-}
-
-func (a *LibvirtAdapter) setupPortForwarding(name string, ports []string) {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-	defer cancel()
-
-	ip, err := a.waitInitialIP(ctx, name)
-	if err != nil {
-		a.logger.Error("failed to get ip for port forwarding", "instance", name, "error", err)
-		return
-	}
-
-	for _, p := range ports {
-		hP, cP, err := a.parseAndValidatePort(p)
-		if err != nil {
-			a.logger.Warn("skipping invalid port forwarding configuration", "port", p, "error", err)
-			continue
-		}
-
-		if net.ParseIP(ip) == nil {
-			a.logger.Error("invalid vm ip for port forwarding", "ip", ip)
-			return
-		}
-
-		if hP > 0 {
-			a.configureIptables(name, ip, strconv.Itoa(cP), hP, cP)
-		}
-	}
-}
-
-func (a *LibvirtAdapter) configureIptables(name, ip, containerPort string, hPort, cP int) {
-	a.mu.Lock()
-	if a.portMappings[name] == nil {
-		a.portMappings[name] = make(map[string]int)
-	}
-	a.portMappings[name][containerPort] = hPort
-	a.mu.Unlock()
-
-	a.logger.Info("setting up port forwarding", "host", hPort, "vm", containerPort, "ip", ip)
-}
-
-func (a *LibvirtAdapter) parseAndValidatePort(p string) (int, int, error) {
-	parts := strings.Split(p, ":")
-	var hostPort, containerPort string
-	if len(parts) == 2 {
-		hostPort = parts[0]
-		containerPort = parts[1]
-	} else if len(parts) == 1 {
-		hostPort = "0"
-		containerPort = parts[0]
-	} else {
-		return 0, 0, fmt.Errorf("invalid port format: too many colons")
-	}
-
-	var hP, cP int
-	_, errH := fmt.Sscanf(hostPort, "%d", &hP)
-	_, errC := fmt.Sscanf(containerPort, "%d", &cP)
-	if (hostPort != "0" && errH != nil) || errC != nil {
-		return 0, 0, fmt.Errorf("invalid port format")
-	}
-
-	hPort := 0
-	if hostPort == "0" {
-		hPort = 30000 + int(uuid.New().ID()%10000)
-	} else {
-		_, _ = fmt.Sscanf(hostPort, "%d", &hPort)
-	}
-
-	return hPort, cP, nil
 }
 
 func (a *LibvirtAdapter) resolveBinds(ctx context.Context, volumeBinds []string) []string {
