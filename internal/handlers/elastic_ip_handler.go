@@ -121,7 +121,12 @@ func (h *ElasticIPHandler) Associate(c *gin.Context) {
 		return
 	}
 
-	instID := uuid.MustParse(req.InstanceID)
+	instID, err := uuid.Parse(req.InstanceID)
+	if err != nil {
+		httputil.Error(c, errors.New(errors.InvalidInput, "invalid instance_id format"))
+		return
+	}
+
 	eip, err := h.svc.AssociateIP(c.Request.Context(), id, instID)
 	if err != nil {
 		httputil.Error(c, err)
