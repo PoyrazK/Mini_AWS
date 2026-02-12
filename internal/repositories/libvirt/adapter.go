@@ -25,6 +25,7 @@ import (
 )
 
 var execCommand = exec.Command
+var execCommandContext = exec.CommandContext
 var lookPath = exec.LookPath
 var osOpen = os.Open
 
