@@ -148,5 +148,8 @@ func (r *ElasticIPRepository) scanElasticIPs(rows pgx.Rows) ([]*domain.ElasticIP
 		}
 		eips = append(eips, eip)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, errors.Wrap(errors.Internal, "failed to list elastic ips", err)
+	}
 	return eips, nil
 }
