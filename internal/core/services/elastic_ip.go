@@ -56,9 +56,11 @@ func (s *elasticIPService) AllocateIP(ctx context.Context) (*domain.ElasticIP, e
 		return nil, err
 	}
 
-	_ = s.auditSvc.Log(ctx, userID, "eip.allocate", "eip", id.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, userID, "eip.allocate", "eip", id.String(), map[string]interface{}{
 		"public_ip": publicIP,
-	})
+	}); err != nil {
+		s.logger.Warn("audit log failed for eip.allocate", "error", err)
+	}
 
 	return eip, nil
 }
@@ -77,9 +79,11 @@ func (s *elasticIPService) ReleaseIP(ctx context.Context, id uuid.UUID) error {
 		return err
 	}
 
-	_ = s.auditSvc.Log(ctx, eip.UserID, "eip.release", "eip", id.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, eip.UserID, "eip.release", "eip", id.String(), map[string]interface{}{
 		"public_ip": eip.PublicIP,
-	})
+	}); err != nil {
+		s.logger.Warn("audit log failed for eip.release", "error", err)
+	}
 
 	return nil
 }
@@ -100,9 +104,21 @@ func (s *elasticIPService) AssociateIP(ctx context.Context, id uuid.UUID, instan
 	}
 
 	// 2. Check if instance already has an EIP
-	existing, _ := s.repo.GetByInstanceID(ctx, instanceID)
+	existing, err := s.repo.GetByInstanceID(ctx, instanceID)
+	if err != nil && !errors.Is(err, errors.NotFound) {
+		return nil, err
+	}
 	if existing != nil && existing.ID != id {
 		return nil, errors.New(errors.Conflict, "instance already has an associated elastic ip")
+	}
+
+	// 2.1 Verify EIP status
+	if eip.Status != domain.EIPStatusAllocated {
+		// If re-associating same instance, idempotent success
+		if eip.InstanceID != nil && *eip.InstanceID == instanceID {
+			return eip, nil
+		}
+		return nil, errors.New(errors.Conflict, "elastic ip is already associated with another instance")
 	}
 
 	// 3. Update EIP mapping
@@ -115,10 +131,12 @@ func (s *elasticIPService) AssociateIP(ctx context.Context, id uuid.UUID, instan
 		return nil, err
 	}
 
-	_ = s.auditSvc.Log(ctx, eip.UserID, "eip.associate", "eip", id.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, eip.UserID, "eip.associate", "eip", id.String(), map[string]interface{}{
 		"instance_id": instanceID,
 		"public_ip":   eip.PublicIP,
-	})
+	}); err != nil {
+		s.logger.Warn("audit log failed for eip.associate", "error", err)
+	}
 
 	return eip, nil
 }
@@ -144,10 +162,12 @@ func (s *elasticIPService) DisassociateIP(ctx context.Context, id uuid.UUID) (*d
 		return nil, err
 	}
 
-	_ = s.auditSvc.Log(ctx, eip.UserID, "eip.disassociate", "eip", id.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, eip.UserID, "eip.disassociate", "eip", id.String(), map[string]interface{}{
 		"instance_id": oldInstanceID,
 		"public_ip":   eip.PublicIP,
-	})
+	}); err != nil {
+		s.logger.Warn("audit log failed for eip.disassociate", "error", err)
+	}
 
 	return eip, nil
 }
