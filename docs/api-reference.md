@@ -328,12 +328,10 @@ Allocate a new elastic IP. No body required.
 **Response:**
 ```json
 {
-  "data": {
-    "id": "uuid",
-    "public_ip": "100.64.x.y",
-    "status": "allocated",
-    "arn": "arn:thecloud:vpc:local:tenant:eip/uuid"
-  }
+  "id": "uuid",
+  "public_ip": "100.64.x.y",
+  "status": "allocated",
+  "arn": "arn:thecloud:vpc:local:tenant:eip/uuid"
 }
 ```
 
@@ -341,7 +339,7 @@ Allocate a new elastic IP. No body required.
 Get details of a specific elastic IP.
 
 ### DELETE /elastic-ips/:id
-Release an elastic IP back to the pool. Failed if still associated.
+Release an elastic IP back to the pool. Fails if still associated.
 
 ### POST /elastic-ips/:id/associate
 Associate an elastic IP with a compute instance.

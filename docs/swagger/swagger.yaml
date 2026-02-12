@@ -2888,6 +2888,18 @@ paths:
             items:
               $ref: '#/definitions/domain.ElasticIP'
             type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
       security:
       - APIKeyAuth: []
       summary: List Elastic IPs
@@ -2901,6 +2913,18 @@ paths:
           description: Created
           schema:
             $ref: '#/definitions/domain.ElasticIP'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
       security:
       - APIKeyAuth: []
       summary: Allocate an Elastic IP
@@ -2917,6 +2941,18 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
           schema:
             $ref: '#/definitions/httputil.Response'
       security:
@@ -2938,6 +2974,18 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/domain.ElasticIP'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
       security:
       - APIKeyAuth: []
       summary: Get Elastic IP
@@ -2945,6 +2993,8 @@ paths:
       - elastic-ips
   /elastic-ips/{id}/associate:
     post:
+      consumes:
+      - application/json
       parameters:
       - description: EIP ID
         in: path
@@ -2959,6 +3009,8 @@ paths:
           properties:
             instance_id:
               type: string
+          required:
+          - instance_id
           type: object
       produces:
       - application/json
@@ -2967,6 +3019,18 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/domain.ElasticIP'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
       security:
       - APIKeyAuth: []
       summary: Associate Elastic IP
@@ -2987,6 +3051,18 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/domain.ElasticIP'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
       security:
       - APIKeyAuth: []
       summary: Disassociate Elastic IP
