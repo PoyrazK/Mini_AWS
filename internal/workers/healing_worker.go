@@ -12,6 +12,12 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
 
+const (
+	defaultHealingTickInterval = 1 * time.Minute
+	defaultHealingDelay        = 5 * time.Second
+	maxConcurrentHeals         = 10
+)
+
 // HealingWorker periodically checks for instances in ERROR state and attempts to recover them.
 type HealingWorker struct {
 	instSvc ports.InstanceService
@@ -21,6 +27,10 @@ type HealingWorker struct {
 	// Testing hooks
 	reconcileWG  *sync.WaitGroup
 	healingDelay time.Duration
+	tickInterval time.Duration
+
+	// Concurrency control
+	semaphore chan struct{}
 }
 
 // NewHealingWorker constructs a HealingWorker.
@@ -30,15 +40,17 @@ func NewHealingWorker(instSvc ports.InstanceService, repo ports.InstanceReposito
 		repo:         repo,
 		logger:       logger,
 		reconcileWG:  &sync.WaitGroup{},
-		healingDelay: 5 * time.Second,
+		healingDelay: defaultHealingDelay,
+		tickInterval: defaultHealingTickInterval,
+		semaphore:    make(chan struct{}, maxConcurrentHeals),
 	}
 }
 
 // Run starts the healing loop.
 func (w *HealingWorker) Run(ctx context.Context, wg *sync.WaitGroup) {
 	defer wg.Done()
-	w.logger.Info("starting healing worker")
-	ticker := time.NewTicker(1 * time.Minute)
+	w.logger.Info("starting healing worker", "interval", w.tickInterval, "concurrency_limit", maxConcurrentHeals)
+	ticker := time.NewTicker(w.tickInterval)
 	defer ticker.Stop()
 
 	for {
@@ -71,6 +83,13 @@ func (w *HealingWorker) healERRORInstances(ctx context.Context) {
 
 		w.logger.Info("attempting to heal instance", "instance_id", inst.ID, "name", inst.Name)
 
+		// Acquire semaphore token
+		select {
+		case w.semaphore <- struct{}{}:
+		case <-ctx.Done():
+			return
+		}
+
 		// Inject context for the instance owner
 		hCtx := appcontext.WithUserID(ctx, inst.UserID)
 		hCtx = appcontext.WithTenantID(hCtx, inst.TenantID)
@@ -79,12 +98,13 @@ func (w *HealingWorker) healERRORInstances(ctx context.Context) {
 		// Self-healing: Stop then Start
 		go func(id string) {
 			defer w.reconcileWG.Done()
+			defer func() { <-w.semaphore }() // Release semaphore token
 
 			// Wait a bit to avoid race conditions with recent failures
 			select {
 			case <-ctx.Done():
 				return
-			case <-time.After(5 * time.Second):
+			case <-time.After(w.healingDelay):
 			}
 
 			w.logger.Info("initiating healing restart", "instance_id", id)
