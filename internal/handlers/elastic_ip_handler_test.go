@@ -13,11 +13,14 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 type mockElasticIPService struct {
 	mock.Mock
 }
+
+const eipRoute = "/elastic-ips"
 
 func (m *mockElasticIPService) AllocateIP(ctx context.Context) (*domain.ElasticIP, error) {
 	args := m.Called(ctx)
@@ -84,7 +87,7 @@ func TestElasticIPHandler(t *testing.T) {
 		{
 			name:   "Allocate",
 			method: "POST",
-			url:    "/elastic-ips",
+			url:    eipRoute,
 			setupMock: func(svc *mockElasticIPService, eipID, instID uuid.UUID) {
 				svc.On("AllocateIP", mock.Anything).Return(&domain.ElasticIP{ID: eipID, PublicIP: "1.2.3.4"}, nil).Once()
 			},
@@ -93,7 +96,7 @@ func TestElasticIPHandler(t *testing.T) {
 		{
 			name:   "List",
 			method: "GET",
-			url:    "/elastic-ips",
+			url:    eipRoute,
 			setupMock: func(svc *mockElasticIPService, eipID, instID uuid.UUID) {
 				svc.On("ListElasticIPs", mock.Anything).Return([]*domain.ElasticIP{}, nil).Once()
 			},
@@ -114,8 +117,8 @@ func TestElasticIPHandler(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			svc, handler, r := setupElasticIPHandlerTest()
-			r.POST("/elastic-ips", handler.Allocate)
-			r.GET("/elastic-ips", handler.List)
+			r.POST(eipRoute, handler.Allocate)
+			r.GET(eipRoute, handler.List)
 			r.POST("/elastic-ips/:id/associate", handler.Associate)
 
 			eipID := uuid.New()
@@ -133,7 +136,8 @@ func TestElasticIPHandler(t *testing.T) {
 			}
 
 			w := httptest.NewRecorder()
-			req, _ := http.NewRequest(tt.method, url, bytes.NewBuffer(body))
+			req, err := http.NewRequest(tt.method, url, bytes.NewBuffer(body))
+			require.NoError(t, err)
 			r.ServeHTTP(w, req)
 
 			assert.Equal(t, tt.expectedStatus, w.Code)

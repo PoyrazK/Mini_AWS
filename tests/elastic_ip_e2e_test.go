@@ -21,6 +21,7 @@ const (
 	eipInstanceIDSliceLen   = 8
 	eipInstanceReadyTimeout = 30 * time.Second
 	eipInstancePollInterval = 1 * time.Second
+	eipBaseURL              = "/elastic-ips"
 )
 
 func closeResponse(t *testing.T, resp *http.Response) {
@@ -30,6 +31,28 @@ func closeResponse(t *testing.T, resp *http.Response) {
 	if err := resp.Body.Close(); err != nil {
 		t.Errorf("failed to close response body: %v", err)
 	}
+}
+
+func waitForInstanceReady(t *testing.T, client *http.Client, token, instanceID string) bool {
+	deadline := time.Now().Add(eipInstanceReadyTimeout)
+	for time.Now().Before(deadline) {
+		checkResp := getRequest(t, client, testutil.TestBaseURL+testutil.TestRouteInstances+"/"+instanceID, token)
+		var statusRes struct {
+			Data struct {
+				Status domain.InstanceStatus `json:"status"`
+			} `json:"data"`
+		}
+		if err := json.NewDecoder(checkResp.Body).Decode(&statusRes); err != nil {
+			t.Logf("Failed to decode instance status response: %v (Status: %d)", err, checkResp.StatusCode)
+		}
+		closeResponse(t, checkResp)
+
+		if statusRes.Data.Status == domain.StatusRunning {
+			return true
+		}
+		time.Sleep(eipInstancePollInterval)
+	}
+	return false
 }
 
 func TestElasticIPE2E(t *testing.T) {
@@ -46,7 +69,7 @@ func TestElasticIPE2E(t *testing.T) {
 
 	// 1. Allocate Elastic IP
 	t.Run("AllocateIP", func(t *testing.T) {
-		resp := postRequest(t, client, testutil.TestBaseURL+"/elastic-ips", token, nil)
+		resp := postRequest(t, client, testutil.TestBaseURL+eipBaseURL, token, nil)
 		defer closeResponse(t, resp)
 
 		require.Equal(t, http.StatusCreated, resp.StatusCode)
@@ -64,7 +87,7 @@ func TestElasticIPE2E(t *testing.T) {
 
 	// 2. List Elastic IPs
 	t.Run("ListIPs", func(t *testing.T) {
-		resp := getRequest(t, client, testutil.TestBaseURL+"/elastic-ips", token)
+		resp := getRequest(t, client, testutil.TestBaseURL+eipBaseURL, token)
 		defer closeResponse(t, resp)
 
 		require.Equal(t, http.StatusOK, resp.StatusCode)
@@ -86,7 +109,7 @@ func TestElasticIPE2E(t *testing.T) {
 
 	// 3. Get Elastic IP
 	t.Run("GetIP", func(t *testing.T) {
-		resp := getRequest(t, client, testutil.TestBaseURL+"/elastic-ips/"+eipID, token)
+		resp := getRequest(t, client, testutil.TestBaseURL+eipBaseURL+"/"+eipID, token)
 		defer closeResponse(t, resp)
 
 		require.Equal(t, http.StatusOK, resp.StatusCode)
@@ -123,26 +146,7 @@ func TestElasticIPE2E(t *testing.T) {
 		instanceID := instRes.Data.ID
 
 		// Poll for instance readiness
-		deadline := time.Now().Add(eipInstanceReadyTimeout)
-		ready := false
-		for time.Now().Before(deadline) {
-			checkResp := getRequest(t, client, testutil.TestBaseURL+testutil.TestRouteInstances+"/"+instanceID, token)
-			var statusRes struct {
-				Data struct {
-					Status domain.InstanceStatus `json:"status"`
-				} `json:"data"`
-			}
-			_ = json.NewDecoder(checkResp.Body).Decode(&statusRes)
-			closeResponse(t, checkResp)
-
-			if statusRes.Data.Status == domain.StatusRunning {
-				ready = true
-				break
-			}
-			time.Sleep(eipInstancePollInterval)
-		}
-
-		if !ready {
+		if !waitForInstanceReady(t, client, token, instanceID) {
 			t.Logf("Instance %s did not become ready in time, skipping association test", instanceID)
 			// Still try to cleanup
 			termResp := deleteRequest(t, client, testutil.TestBaseURL+testutil.TestRouteInstances+"/"+instanceID, token)
@@ -155,7 +159,7 @@ func TestElasticIPE2E(t *testing.T) {
 			"instance_id": instanceID,
 		}
 		// Create new response variable to avoid double-closing deferred 'resp'
-		assocResp := postRequest(t, client, testutil.TestBaseURL+"/elastic-ips/"+eipID+"/associate", token, assocPayload)
+		assocResp := postRequest(t, client, testutil.TestBaseURL+eipBaseURL+"/"+eipID+"/associate", token, assocPayload)
 		defer closeResponse(t, assocResp)
 
 		require.Equal(t, http.StatusOK, assocResp.StatusCode)
@@ -171,7 +175,7 @@ func TestElasticIPE2E(t *testing.T) {
 		}
 
 		// Disassociate
-		disassocResp := postRequest(t, client, testutil.TestBaseURL+"/elastic-ips/"+eipID+"/disassociate", token, nil)
+		disassocResp := postRequest(t, client, testutil.TestBaseURL+eipBaseURL+"/"+eipID+"/disassociate", token, nil)
 		defer closeResponse(t, disassocResp)
 		require.Equal(t, http.StatusOK, disassocResp.StatusCode)
 
@@ -182,13 +186,13 @@ func TestElasticIPE2E(t *testing.T) {
 
 	// 5. Release Elastic IP
 	t.Run("ReleaseIP", func(t *testing.T) {
-		resp := deleteRequest(t, client, testutil.TestBaseURL+"/elastic-ips/"+eipID, token)
+		resp := deleteRequest(t, client, testutil.TestBaseURL+eipBaseURL+"/"+eipID, token)
 		defer closeResponse(t, resp)
 
 		require.Equal(t, http.StatusOK, resp.StatusCode)
 
 		// Verify deleted
-		checkResp := getRequest(t, client, testutil.TestBaseURL+"/elastic-ips/"+eipID, token)
+		checkResp := getRequest(t, client, testutil.TestBaseURL+eipBaseURL+"/"+eipID, token)
 		defer closeResponse(t, checkResp)
 		assert.Equal(t, http.StatusNotFound, checkResp.StatusCode)
 	})
