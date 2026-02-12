@@ -11,9 +11,16 @@ import (
 	"github.com/poyrazk/thecloud/pkg/httputil"
 )
 
+const errInvalidEIPID = "invalid elastic ip id"
+
 // ElasticIPHandler handles HTTP requests for Elastic IPs.
 type ElasticIPHandler struct {
 	svc ports.ElasticIPService
+}
+
+// AssociateIPRequest represents the body for associating an EIP.
+type AssociateIPRequest struct {
+	InstanceID string `json:"instance_id" validate:"required" binding:"required,uuid"`
 }
 
 // NewElasticIPHandler creates a new ElasticIPHandler.
@@ -27,6 +34,9 @@ func NewElasticIPHandler(svc ports.ElasticIPService) *ElasticIPHandler {
 // @Security APIKeyAuth
 // @Produce json
 // @Success 201 {object} domain.ElasticIP
+// @Failure 400 {object} httputil.Response
+// @Failure 404 {object} httputil.Response
+// @Failure 500 {object} httputil.Response
 // @Router /elastic-ips [post]
 func (h *ElasticIPHandler) Allocate(c *gin.Context) {
 	eip, err := h.svc.AllocateIP(c.Request.Context())
@@ -43,6 +53,9 @@ func (h *ElasticIPHandler) Allocate(c *gin.Context) {
 // @Security APIKeyAuth
 // @Produce json
 // @Success 200 {array} domain.ElasticIP
+// @Failure 400 {object} httputil.Response
+// @Failure 404 {object} httputil.Response
+// @Failure 500 {object} httputil.Response
 // @Router /elastic-ips [get]
 func (h *ElasticIPHandler) List(c *gin.Context) {
 	eips, err := h.svc.ListElasticIPs(c.Request.Context())
@@ -60,11 +73,14 @@ func (h *ElasticIPHandler) List(c *gin.Context) {
 // @Param id path string true "EIP ID"
 // @Produce json
 // @Success 200 {object} domain.ElasticIP
+// @Failure 400 {object} httputil.Response
+// @Failure 404 {object} httputil.Response
+// @Failure 500 {object} httputil.Response
 // @Router /elastic-ips/{id} [get]
 func (h *ElasticIPHandler) Get(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		httputil.Error(c, errors.New(errors.InvalidInput, "invalid elastic ip id"))
+		httputil.Error(c, errors.New(errors.InvalidInput, errInvalidEIPID))
 		return
 	}
 
@@ -82,11 +98,14 @@ func (h *ElasticIPHandler) Get(c *gin.Context) {
 // @Security APIKeyAuth
 // @Param id path string true "EIP ID"
 // @Success 200 {object} httputil.Response
+// @Failure 400 {object} httputil.Response
+// @Failure 404 {object} httputil.Response
+// @Failure 500 {object} httputil.Response
 // @Router /elastic-ips/{id} [delete]
 func (h *ElasticIPHandler) Release(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		httputil.Error(c, errors.New(errors.InvalidInput, "invalid elastic ip id"))
+		httputil.Error(c, errors.New(errors.InvalidInput, errInvalidEIPID))
 		return
 	}
 
@@ -102,20 +121,22 @@ func (h *ElasticIPHandler) Release(c *gin.Context) {
 // @Tags elastic-ips
 // @Security APIKeyAuth
 // @Param id path string true "EIP ID"
-// @Param request body object{instance_id=string} true "Association Request"
+// @Param request body AssociateIPRequest true "Association Request"
+// @Accept json
 // @Produce json
 // @Success 200 {object} domain.ElasticIP
+// @Failure 400 {object} httputil.Response
+// @Failure 404 {object} httputil.Response
+// @Failure 500 {object} httputil.Response
 // @Router /elastic-ips/{id}/associate [post]
 func (h *ElasticIPHandler) Associate(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		httputil.Error(c, errors.New(errors.InvalidInput, "invalid elastic ip id"))
+		httputil.Error(c, errors.New(errors.InvalidInput, errInvalidEIPID))
 		return
 	}
 
-	var req struct {
-		InstanceID string `json:"instance_id" binding:"required,uuid"`
-	}
+	var req AssociateIPRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		httputil.Error(c, errors.New(errors.InvalidInput, "invalid instance_id"))
 		return
@@ -142,11 +163,14 @@ func (h *ElasticIPHandler) Associate(c *gin.Context) {
 // @Param id path string true "EIP ID"
 // @Produce json
 // @Success 200 {object} domain.ElasticIP
+// @Failure 400 {object} httputil.Response
+// @Failure 404 {object} httputil.Response
+// @Failure 500 {object} httputil.Response
 // @Router /elastic-ips/{id}/disassociate [post]
 func (h *ElasticIPHandler) Disassociate(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		httputil.Error(c, errors.New(errors.InvalidInput, "invalid elastic ip id"))
+		httputil.Error(c, errors.New(errors.InvalidInput, errInvalidEIPID))
 		return
 	}
 

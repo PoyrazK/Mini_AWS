@@ -1739,6 +1739,24 @@
                                 "$ref": "#/definitions/domain.ElasticIP"
                             }
                         }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
                     }
                 }
             },
@@ -1760,6 +1778,24 @@
                         "description": "Created",
                         "schema": {
                             "$ref": "#/definitions/domain.ElasticIP"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
                         }
                     }
                 }
@@ -1794,6 +1830,24 @@
                         "schema": {
                             "$ref": "#/definitions/domain.ElasticIP"
                         }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
                     }
                 }
             },
@@ -1822,6 +1876,24 @@
                         "schema": {
                             "$ref": "#/definitions/httputil.Response"
                         }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
                     }
                 }
             }
@@ -1832,6 +1904,9 @@
                     {
                         "APIKeyAuth": []
                     }
+                ],
+                "consumes": [
+                    "application/json"
                 ],
                 "produces": [
                     "application/json"
@@ -1854,12 +1929,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "type": "object",
-                            "properties": {
-                                "instance_id": {
-                                    "type": "string"
-                                }
-                            }
+                            "$ref": "#/definitions/httphandlers.AssociateIPRequest"
                         }
                     }
                 ],
@@ -1868,6 +1938,24 @@
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/domain.ElasticIP"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
                         }
                     }
                 }
@@ -1901,6 +1989,24 @@
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/domain.ElasticIP"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
                         }
                     }
                 }
@@ -7016,6 +7122,17 @@
                 },
                 "weight": {
                     "type": "integer"
+                }
+            }
+        },
+        "httphandlers.AssociateIPRequest": {
+            "type": "object",
+            "required": [
+                "instance_id"
+            ],
+            "properties": {
+                "instance_id": {
+                    "type": "string"
                 }
             }
         },

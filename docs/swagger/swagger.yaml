@@ -1354,6 +1354,13 @@ definitions:
     - instance_id
     - port
     type: object
+  httphandlers.AssociateIPRequest:
+    properties:
+      instance_id:
+        type: string
+    required:
+    - instance_id
+    type: object
   httphandlers.AttachDetachSGRequest:
     properties:
       group_id:
@@ -3006,12 +3013,7 @@ paths:
         name: request
         required: true
         schema:
-          properties:
-            instance_id:
-              type: string
-          required:
-          - instance_id
-          type: object
+          $ref: '#/definitions/httphandlers.AssociateIPRequest'
       produces:
       - application/json
       responses:
