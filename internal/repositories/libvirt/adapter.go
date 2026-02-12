@@ -6,6 +6,7 @@ package libvirt
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -24,11 +25,6 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
 
-var execCommand = exec.Command
-var execCommandContext = exec.CommandContext
-var lookPath = exec.LookPath
-var osOpen = os.Open
-
 const (
 	defaultPoolName   = "default"
 	userDataFileName  = "user-data"
@@ -37,6 +33,14 @@ const (
 	errDomainNotFound = "domain not found: %w"
 	errPoolNotFound   = "storage pool not found: %w"
 	prefixCloudInit   = "cloud-init-"
+
+	// Domain states
+	domainStateRunning = 1
+	domainStateShutoff = 5
+
+	// Memory stat tags
+	memStatTagActual = 5
+	memStatTagRSS    = 6
 )
 
 // LibvirtAdapter implements compute backend operations using libvirt/KVM.
@@ -55,6 +59,28 @@ type LibvirtAdapter struct {
 	poolEnd          net.IP
 	ipWaitInterval   time.Duration
 	taskWaitInterval time.Duration
+
+	// OS dependencies for testability
+	execCommand        func(name string, arg ...string) *exec.Cmd
+	execCommandContext func(ctx context.Context, name string, arg ...string) *exec.Cmd
+	lookPath           func(file string) (string, error)
+	osOpen             func(name string) (*os.File, error)
+}
+
+func (a *LibvirtAdapter) recordPortMapping(name string, hPortStr string, cPort string) error {
+	hp, err := strconv.Atoi(hPortStr)
+	if err != nil {
+		return fmt.Errorf("invalid host port %q: %w", hPortStr, err)
+	}
+
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	if a.portMappings[name] == nil {
+		a.portMappings[name] = make(map[string]int)
+	}
+	a.portMappings[name][cPort] = hp
+	return nil
 }
 
 // NewLibvirtAdapter creates a LibvirtAdapter connected to the provided URI.
@@ -86,15 +112,19 @@ func NewLibvirtAdapter(logger *slog.Logger, uri string) (*LibvirtAdapter, error)
 	//nolint:staticcheck 
 	l := libvirt.New(c)
 	adapter := &LibvirtAdapter{
-		client:           &RealLibvirtClient{conn: l},
-		logger:           logger,
-		uri:              uri,
-		portMappings:     make(map[string]map[string]int),
-		networkCounter:   0,
-		poolStart:        net.ParseIP("192.168.100.0"),
-		poolEnd:          net.ParseIP("192.168.200.255"),
-		ipWaitInterval:   5 * time.Second,
-		taskWaitInterval: 2 * time.Second,
+		client:             &RealLibvirtClient{conn: l},
+		logger:             logger,
+		uri:                uri,
+		portMappings:       make(map[string]map[string]int),
+		networkCounter:     0,
+		poolStart:          net.ParseIP("192.168.100.0"),
+		poolEnd:            net.ParseIP("192.168.200.255"),
+		ipWaitInterval:     5 * time.Second,
+		taskWaitInterval:   2 * time.Second,
+		execCommand:        exec.Command,
+		execCommandContext: exec.CommandContext,
+		lookPath:           exec.LookPath,
+		osOpen:             os.Open,
 	}
 
 	connectCtx, connectCancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -111,7 +141,7 @@ func NewLibvirtAdapter(logger *slog.Logger, uri string) (*LibvirtAdapter, error)
 	if err := adapter.client.ConnectToURI(connectCtx, hypervisorUri); err != nil {
 		logger.Warn("failed to connect to hypervisor URI, trying session fallback", "uri", hypervisorUri, "error", err)
 		if err2 := adapter.client.ConnectToURI(connectCtx, "qemu:///session"); err2 != nil {
-			return nil, fmt.Errorf("failed to connect to libvirt hypervisor: %v", err2)
+			return nil, fmt.Errorf("failed to connect to libvirt hypervisor: %w", err2)
 		}
 		adapter.isSession = true
 	}
@@ -163,15 +193,11 @@ func (a *LibvirtAdapter) LaunchInstanceWithOptions(ctx context.Context, opts por
 				}
 				hPort = strconv.Itoa(freePort)
 			}
-			allocatedPorts = append(allocatedPorts, fmt.Sprintf("%s:%s", hPort, cPort))
-
-			a.mu.Lock()
-			if a.portMappings[name] == nil {
-				a.portMappings[name] = make(map[string]int)
+			if err := a.recordPortMapping(name, hPort, cPort); err != nil {
+				a.logger.Warn("failed to record port mapping", "port", p, "error", err)
+				continue
 			}
-			hp, _ := strconv.Atoi(hPort)
-			a.portMappings[name][cPort] = hp
-			a.mu.Unlock()
+			allocatedPorts = append(allocatedPorts, fmt.Sprintf("%s:%s", hPort, cPort))
 		} else if len(parts) == 1 {
 			cPort := parts[0]
 			freePort, err := findFreePort()
@@ -180,19 +206,26 @@ func (a *LibvirtAdapter) LaunchInstanceWithOptions(ctx context.Context, opts por
 				continue
 			}
 			hPort := strconv.Itoa(freePort)
-			allocatedPorts = append(allocatedPorts, fmt.Sprintf("%s:%s", hPort, cPort))
-
-			a.mu.Lock()
-			if a.portMappings[name] == nil {
-				a.portMappings[name] = make(map[string]int)
+			if err := a.recordPortMapping(name, hPort, cPort); err != nil {
+				a.logger.Warn("failed to record port mapping", "port", p, "error", err)
+				continue
 			}
-			a.portMappings[name][cPort] = freePort
-			a.mu.Unlock()
+			allocatedPorts = append(allocatedPorts, fmt.Sprintf("%s:%s", hPort, cPort))
 		}
 	}
 	opts.Ports = allocatedPorts
 
-	domainXML := generateDomainXML(name, diskPath, networkID, isoPath, 512, 1, additionalDisks, allocatedPorts)
+	// Use user-specified limits or defaults
+	memMB := 512
+	if opts.MemoryLimit > 0 {
+		memMB = int(opts.MemoryLimit / 1024 / 1024)
+	}
+	vcpu := 1
+	if opts.CPULimit > 0 {
+		vcpu = int(opts.CPULimit)
+	}
+
+	domainXML := generateDomainXML(name, diskPath, networkID, isoPath, memMB, vcpu, additionalDisks, allocatedPorts, "")
 	dom, err := a.client.DomainDefineXML(ctx, domainXML)
 	if err != nil {
 		a.cleanupCreateFailure(ctx, vol, isoPath)
@@ -306,7 +339,7 @@ func (a *LibvirtAdapter) DeleteInstance(ctx context.Context, id string) error {
 
 func (a *LibvirtAdapter) stopDomainIfRunning(ctx context.Context, dom libvirt.Domain) {
 	state, _, err := a.client.DomainGetState(ctx, dom, 0)
-	if err == nil && state == 1 { // Running
+	if err == nil && state == domainStateRunning {
 		_ = a.client.DomainDestroy(ctx, dom)
 	}
 }
@@ -352,7 +385,7 @@ func (a *LibvirtAdapter) GetInstanceLogs(ctx context.Context, id string) (io.Rea
 	var f *os.File
 	var err error
 	for _, logPath := range logPaths {
-		f, err = osOpen(logPath)
+		f, err = a.osOpen(logPath)
 		if err == nil {
 			return f, nil
 		}
@@ -374,16 +407,21 @@ func (a *LibvirtAdapter) GetInstanceStats(ctx context.Context, id string) (io.Re
 
 	var usage, limit uint64
 	for _, stat := range memStats {
-		if stat.Tag == 6 { // rss
+		if stat.Tag == memStatTagRSS {
 			usage = stat.Val * 1024 // KB to Bytes
 		}
-		if stat.Tag == 5 { // actual
+		if stat.Tag == memStatTagActual {
 			limit = stat.Val * 1024
 		}
 	}
 
-	json := fmt.Sprintf(`{"memory_stats":{"usage":%d,"limit":%d}}`, usage, limit)
-	return io.NopCloser(strings.NewReader(json)), nil
+	statJSON, _ := json.Marshal(map[string]interface{}{
+		"memory_stats": map[string]uint64{
+			"usage": usage,
+			"limit": limit,
+		},
+	})
+	return io.NopCloser(bytes.NewReader(statJSON)), nil
 }
 
 func (a *LibvirtAdapter) GetInstancePort(ctx context.Context, id string, internalPort string) (int, error) {
@@ -540,7 +578,7 @@ func (a *LibvirtAdapter) RunTask(ctx context.Context, opts ports.RunTaskOptions)
 
 	isoPath := a.prepareCloudInit(ctx, name, nil, opts.Command, "")
 	additionalDisks := a.resolveBinds(ctx, opts.Binds)
-	domainXML := generateDomainXML(name, diskPath, "default", isoPath, int(opts.MemoryMB), 1, additionalDisks, nil)
+	domainXML := generateDomainXML(name, diskPath, "default", isoPath, int(opts.MemoryMB), 1, additionalDisks, nil, "")
 
 	dom, err := a.client.DomainDefineXML(ctx, domainXML)
 	if err != nil {
@@ -580,7 +618,7 @@ func (a *LibvirtAdapter) WaitTask(ctx context.Context, id string) (int64, error)
 				continue
 			}
 
-			if state == 5 {
+			if state == domainStateShutoff {
 				return 0, nil
 			}
 		}
@@ -706,7 +744,7 @@ func (a *LibvirtAdapter) CreateVolumeSnapshot(ctx context.Context, volumeID stri
 	}
 
 	tmpQcow2 := destinationPath + ".qcow2"
-	cmd := execCommand("qemu-img", "convert", "-O", "qcow2", volPath, tmpQcow2)
+	cmd := a.execCommand("qemu-img", "convert", "-O", "qcow2", volPath, tmpQcow2)
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("qemu-img convert failed: %w", err)
 	}
@@ -716,7 +754,7 @@ func (a *LibvirtAdapter) CreateVolumeSnapshot(ctx context.Context, volumeID stri
 		}
 	}()
 
-	tarCmd := execCommand("tar", "czf", destinationPath, "-C", filepath.Dir(tmpQcow2), filepath.Base(tmpQcow2))
+	tarCmd := a.execCommand("tar", "czf", destinationPath, "-C", filepath.Dir(tmpQcow2), filepath.Base(tmpQcow2))
 	if err := tarCmd.Run(); err != nil {
 		return fmt.Errorf("tar archive failed: %w", err)
 	}
@@ -750,7 +788,7 @@ func (a *LibvirtAdapter) RestoreVolumeSnapshot(ctx context.Context, volumeID str
 		}
 	}()
 
-	untarCmd := execCommand("tar", "xzf", sourcePath, "-C", tmpDir)
+	untarCmd := a.execCommand("tar", "xzf", sourcePath, "-C", tmpDir)
 	if err := untarCmd.Run(); err != nil {
 		return fmt.Errorf("untar failed: %w", err)
 	}
@@ -761,7 +799,7 @@ func (a *LibvirtAdapter) RestoreVolumeSnapshot(ctx context.Context, volumeID str
 	}
 	tmpQcow2 := filepath.Join(tmpDir, files[0].Name())
 
-	cmd := execCommand("qemu-img", "convert", "-O", "qcow2", tmpQcow2, volPath)
+	cmd := a.execCommand("qemu-img", "convert", "-O", "qcow2", tmpQcow2, volPath)
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("qemu-img restore failed: %w", err)
 	}
@@ -797,8 +835,16 @@ func (a *LibvirtAdapter) cleanupTempDir(tmpDir string) {
 }
 
 func (a *LibvirtAdapter) writeCloudInitFiles(tmpDir, name string, env, cmd []string, userDataRaw string) error {
-	metaData := fmt.Sprintf("{\n  \"instance-id\": \"%s\",\n  \"local-hostname\": \"%s\"\n}\n", name, name)
-	if err := os.WriteFile(filepath.Join(tmpDir, metaDataFileName), []byte(metaData), 0644); err != nil {
+	metaData := map[string]string{
+		"instance-id":    name,
+		"local-hostname": name,
+	}
+	metaDataBytes, err := json.Marshal(metaData)
+	if err != nil {
+		return fmt.Errorf("failed to marshal metadata: %w", err)
+	}
+
+	if err := os.WriteFile(filepath.Join(tmpDir, metaDataFileName), metaDataBytes, 0644); err != nil {
 		return err
 	}
 
@@ -837,15 +883,15 @@ func (a *LibvirtAdapter) generateUserData(env, cmd []string, userDataRaw string)
 
 func (a *LibvirtAdapter) runIsoCommand(isoPath, tmpDir string) error {
 	var tool string
-	if p, err := lookPath("mkisofs"); err == nil {
+	if p, err := a.lookPath("mkisofs"); err == nil {
 		tool = p
-	} else if p, err := lookPath("genisoimage"); err == nil {
+	} else if p, err := a.lookPath("genisoimage"); err == nil {
 		tool = p
 	} else {
 		return fmt.Errorf("neither mkisofs nor genisoimage found in PATH")
 	}
 
-	genCmd := execCommand(tool, "-output", isoPath, "-volid", "cidata", "-l", "-R", "-J", tmpDir)
+	genCmd := a.execCommand(tool, "-output", isoPath, "-volid", "cidata", "-l", "-R", "-J", tmpDir)
 	if output, err := genCmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("failed to generate iso using %s: %w (output: %s)", tool, err, string(output))
 	}
@@ -948,7 +994,11 @@ func (a *LibvirtAdapter) parseAndValidatePort(p string) (int, int, error) {
 
 	hPort := 0
 	if hostPort == "0" {
-		hPort, _ = findFreePort()
+		freePort, err := findFreePort()
+		if err != nil {
+			return 0, 0, fmt.Errorf("failed to find free port: %w", err)
+		}
+		hPort = freePort
 	} else {
 		hPort = hP
 	}
