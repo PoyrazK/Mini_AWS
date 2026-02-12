@@ -60,6 +60,7 @@ type Repositories struct {
 	DNS           ports.DNSRepository
 	InstanceType  ports.InstanceTypeRepository
 	GlobalLB      ports.GlobalLBRepository
+	ElasticIP     ports.ElasticIPRepository
 }
 
 // InitRepositories constructs repositories using the provided database clients.
@@ -99,6 +100,7 @@ func InitRepositories(db postgres.DB, rdb *redisv9.Client) *Repositories {
 		DNS:           postgres.NewDNSRepository(db),
 		InstanceType:  postgres.NewInstanceTypeRepository(db),
 		GlobalLB:      postgres.NewGlobalLBRepository(db),
+		ElasticIP:     postgres.NewElasticIPRepository(db),
 	}
 }
 
@@ -140,6 +142,7 @@ type Services struct {
 	DNS           ports.DNSService
 	InstanceType  ports.InstanceTypeService
 	GlobalLB      ports.GlobalLBService
+	ElasticIP     ports.ElasticIPService
 }
 
 // Workers struct to return background workers
@@ -202,7 +205,9 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 	instSvcConcrete := services.NewInstanceService(services.InstanceServiceParams{
 		Repo: c.Repos.Instance, VpcRepo: c.Repos.Vpc, SubnetRepo: c.Repos.Subnet, VolumeRepo: c.Repos.Volume,
 		InstanceTypeRepo: c.Repos.InstanceType,
-		Compute:          c.Compute, Network: c.Network, EventSvc: eventSvc, AuditSvc: auditSvc, DNSSvc: dnsSvc, TaskQueue: c.Repos.TaskQueue, Logger: c.Logger,
+		Compute:          c.Compute, Network: c.Network, EventSvc: eventSvc, AuditSvc: auditSvc, DNSSvc: dnsSvc, TaskQueue: c.Repos.TaskQueue,
+		DockerNetwork: c.Config.DockerDefaultNetwork,
+		Logger:        c.Logger,
 	})
 	sgSvc := services.NewSecurityGroupService(c.Repos.SecurityGroup, c.Repos.Vpc, c.Network, auditSvc, c.Logger)
 
@@ -270,6 +275,12 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 		InstanceType: services.NewInstanceTypeService(c.Repos.InstanceType),
 		GlobalLB:     glbSvc,
 		DNS:          dnsSvc,
+		ElasticIP: services.NewElasticIPService(services.ElasticIPServiceParams{
+			Repo:         c.Repos.ElasticIP,
+			InstanceRepo: c.Repos.Instance,
+			AuditSvc:     auditSvc,
+			Logger:       c.Logger,
+		}),
 	}
 
 	// 7. High Availability & Monitoring

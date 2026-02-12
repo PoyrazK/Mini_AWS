@@ -63,6 +63,7 @@ type Handlers struct {
 	DNS           *httphandlers.DNSHandler
 	InstanceType  *httphandlers.InstanceTypeHandler
 	GlobalLB      *httphandlers.GlobalLBHandler
+	ElasticIP     *httphandlers.ElasticIPHandler
 	Ws            *ws.Handler
 }
 
@@ -106,6 +107,7 @@ func InitHandlers(svcs *Services, cfg *platform.Config, logger *slog.Logger) *Ha
 		DNS:           httphandlers.NewDNSHandler(svcs.DNS),
 		InstanceType:  httphandlers.NewInstanceTypeHandler(svcs.InstanceType),
 		GlobalLB:      httphandlers.NewGlobalLBHandler(svcs.GlobalLB),
+		ElasticIP:     httphandlers.NewElasticIPHandler(svcs.ElasticIP),
 		Ws:            ws.NewHandler(hub, svcs.Identity, logger),
 	}
 }
@@ -324,6 +326,17 @@ func registerNetworkRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 		lbGroup.POST("/:id/targets", httputil.Permission(svcs.RBAC, domain.PermissionLbUpdate), handlers.LB.AddTarget)
 		lbGroup.GET("/:id/targets", httputil.Permission(svcs.RBAC, domain.PermissionLbRead), handlers.LB.ListTargets)
 		lbGroup.DELETE("/:id/targets/:instanceId", httputil.Permission(svcs.RBAC, domain.PermissionLbUpdate), handlers.LB.RemoveTarget)
+	}
+
+	eipGroup := r.Group("/elastic-ips")
+	eipGroup.Use(httputil.Auth(svcs.Identity, svcs.Tenant), httputil.RequireTenant(), httputil.TenantMember(svcs.Tenant))
+	{
+		eipGroup.POST("", httputil.Permission(svcs.RBAC, domain.PermissionEipAllocate), handlers.ElasticIP.Allocate)
+		eipGroup.GET("", httputil.Permission(svcs.RBAC, domain.PermissionEipRead), handlers.ElasticIP.List)
+		eipGroup.GET("/:id", httputil.Permission(svcs.RBAC, domain.PermissionEipRead), handlers.ElasticIP.Get)
+		eipGroup.DELETE("/:id", httputil.Permission(svcs.RBAC, domain.PermissionEipRelease), handlers.ElasticIP.Release)
+		eipGroup.POST("/:id/associate", httputil.Permission(svcs.RBAC, domain.PermissionEipAssociate), handlers.ElasticIP.Associate)
+		eipGroup.POST("/:id/disassociate", httputil.Permission(svcs.RBAC, domain.PermissionEipAssociate), handlers.ElasticIP.Disassociate)
 	}
 }
 
