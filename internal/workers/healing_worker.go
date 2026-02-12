@@ -17,14 +17,20 @@ type HealingWorker struct {
 	instSvc ports.InstanceService
 	repo    ports.InstanceRepository
 	logger  *slog.Logger
+
+	// Testing hooks
+	reconcileWG  *sync.WaitGroup
+	healingDelay time.Duration
 }
 
 // NewHealingWorker constructs a HealingWorker.
 func NewHealingWorker(instSvc ports.InstanceService, repo ports.InstanceRepository, logger *slog.Logger) *HealingWorker {
 	return &HealingWorker{
-		instSvc: instSvc,
-		repo:    repo,
-		logger:  logger,
+		instSvc:      instSvc,
+		repo:         repo,
+		logger:       logger,
+		reconcileWG:  &sync.WaitGroup{},
+		healingDelay: 5 * time.Second,
 	}
 }
 
@@ -38,7 +44,8 @@ func (w *HealingWorker) Run(ctx context.Context, wg *sync.WaitGroup) {
 	for {
 		select {
 		case <-ctx.Done():
-			w.logger.Info("stopping healing worker")
+			w.logger.Info("stopping healing worker, waiting for active healing tasks...")
+			w.reconcileWG.Wait()
 			return
 		case <-ticker.C:
 			w.healERRORInstances(ctx)
@@ -65,13 +72,20 @@ func (w *HealingWorker) healERRORInstances(ctx context.Context) {
 		w.logger.Info("attempting to heal instance", "instance_id", inst.ID, "name", inst.Name)
 
 		// Inject context for the instance owner
-		hCtx := appcontext.WithUserID(context.Background(), inst.UserID)
+		hCtx := appcontext.WithUserID(ctx, inst.UserID)
 		hCtx = appcontext.WithTenantID(hCtx, inst.TenantID)
 
+		w.reconcileWG.Add(1)
 		// Self-healing: Stop then Start
 		go func(id string) {
+			defer w.reconcileWG.Done()
+
 			// Wait a bit to avoid race conditions with recent failures
-			time.Sleep(5 * time.Second)
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(5 * time.Second):
+			}
 
 			w.logger.Info("initiating healing restart", "instance_id", id)
 			if err := w.instSvc.StopInstance(hCtx, id); err != nil {

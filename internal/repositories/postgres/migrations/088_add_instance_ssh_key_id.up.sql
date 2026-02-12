@@ -1,1 +1,1 @@
-ALTER TABLE instances ADD COLUMN ssh_key_id UUID REFERENCES ssh_keys(id);
+ALTER TABLE instances ADD COLUMN ssh_key_id UUID REFERENCES ssh_keys(id) ON DELETE SET NULL;

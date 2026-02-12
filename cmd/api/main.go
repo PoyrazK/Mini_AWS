@@ -31,6 +31,10 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
+const (
+	dbInitTimeout = 120 * time.Second
+)
+
 // ErrMigrationDone signals that migrations have already completed.
 var ErrMigrationDone = errors.New("migrations done")
 

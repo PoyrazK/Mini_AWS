@@ -77,6 +77,11 @@ func (r *SSHKeyRepo) List(ctx context.Context, tenantID uuid.UUID) ([]*domain.SS
 		}
 		keys = append(keys, key)
 	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating ssh keys: %w", err)
+	}
+
 	return keys, nil
 }
 

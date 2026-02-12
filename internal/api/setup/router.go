@@ -241,7 +241,7 @@ func registerComputeRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 	}
 
 	sshKeyGroup := r.Group("/ssh-keys")
-	sshKeyGroup.Use(httputil.Auth(svcs.Identity, svcs.Tenant), httputil.RequireTenant())
+	sshKeyGroup.Use(httputil.Auth(svcs.Identity, svcs.Tenant), httputil.RequireTenant(), httputil.TenantMember(svcs.Tenant))
 	{
 		sshKeyGroup.POST("", httputil.Permission(svcs.RBAC, domain.PermissionInstanceUpdate), handlers.SSHKey.Create)
 		sshKeyGroup.GET("", httputil.Permission(svcs.RBAC, domain.PermissionInstanceRead), handlers.SSHKey.List)

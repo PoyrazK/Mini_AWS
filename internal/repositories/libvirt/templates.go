@@ -3,10 +3,14 @@ package libvirt
 
 import (
 	"fmt"
+	"html"
 	"strings"
 )
 
 func generateVolumeXML(name string, sizeGB int, backingStorePath string) string {
+	name = html.EscapeString(name)
+	backingStorePath = html.EscapeString(backingStorePath)
+
 	backingXML := ""
 	if backingStorePath != "" {
 		backingXML = fmt.Sprintf(`
@@ -27,6 +31,11 @@ func generateVolumeXML(name string, sizeGB int, backingStorePath string) string 
 }
 
 func generateDomainXML(name, diskPath, networkID, isoPath string, memoryMB, vcpu int, additionalDisks []string, ports []string) string {
+	name = html.EscapeString(name)
+	diskPath = html.EscapeString(diskPath)
+	networkID = html.EscapeString(networkID)
+	isoPath = html.EscapeString(isoPath)
+
 	if networkID == "" {
 		networkID = "default"
 	}
@@ -45,6 +54,7 @@ func generateDomainXML(name, diskPath, networkID, isoPath string, memoryMB, vcpu
 
 	additionalDisksXML := ""
 	for i, dPath := range additionalDisks {
+		dPath = html.EscapeString(dPath)
 		dev := fmt.Sprintf("vd%c", 'b'+i)
 		diskType := "file"
 		driverType := "qcow2"
@@ -66,21 +76,26 @@ func generateDomainXML(name, diskPath, networkID, isoPath string, memoryMB, vcpu
 
 	qemuArgsXML := ""
 	hasNetworkMapping := false
+	var hostfwds []string
+
 	for _, p := range ports {
 		parts := strings.Split(p, ":")
 		if len(parts) == 2 {
-			hPort := parts[0]
-			cPort := parts[1]
-			qemuArgsXML += fmt.Sprintf(`
-    <qemu:arg value='-netdev'/>
-    <qemu:arg value='user,id=net0,hostfwd=tcp::%s-:%s'/>
-    <qemu:arg value='-device'/>
-    <qemu:arg value='virtio-net-pci,netdev=net0,bus=pci.0,addr=0x8'/>`, hPort, cPort)
+			hPort := html.EscapeString(parts[0])
+			cPort := html.EscapeString(parts[1])
+			hostfwds = append(hostfwds, fmt.Sprintf("hostfwd=tcp::%s-:%s", hPort, cPort))
 			hasNetworkMapping = true
-			break 
 		}
 	}
-	
+
+	if hasNetworkMapping {
+		qemuArgsXML += fmt.Sprintf(`
+    <qemu:arg value='-netdev'/>
+    <qemu:arg value='user,id=net0,%s'/>
+    <qemu:arg value='-device'/>
+    <qemu:arg value='virtio-net-pci,netdev=net0,bus=pci.0,addr=0x8'/>`, strings.Join(hostfwds, ","))
+	}
+
 	qemuArgsXML += fmt.Sprintf(`
     <qemu:arg value='-serial'/>
     <qemu:arg value='file:/tmp/%s-console.log'/>`, name)
@@ -133,6 +148,12 @@ func generateDomainXML(name, diskPath, networkID, isoPath string, memoryMB, vcpu
 }
 
 func generateNetworkXML(name, bridgeName, gatewayIP, rangeStart, rangeEnd string) string {
+	name = html.EscapeString(name)
+	bridgeName = html.EscapeString(bridgeName)
+	gatewayIP = html.EscapeString(gatewayIP)
+	rangeStart = html.EscapeString(rangeStart)
+	rangeEnd = html.EscapeString(rangeEnd)
+
 	return fmt.Sprintf(`
 <network>
   <name>%s</name>

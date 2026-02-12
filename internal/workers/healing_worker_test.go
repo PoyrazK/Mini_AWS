@@ -82,6 +82,7 @@ func TestHealingWorker(t *testing.T) {
 	logger := slog.Default()
 
 	worker := NewHealingWorker(svc, repo, logger)
+	worker.healingDelay = 1 * time.Millisecond
 
 	t.Run("Heal Error Instances", func(t *testing.T) {
 		inst1 := &domain.Instance{ID: uuid.New(), Status: domain.StatusRunning}
@@ -93,8 +94,8 @@ func TestHealingWorker(t *testing.T) {
 
 		worker.healERRORInstances(context.Background())
 
-		// healing_worker has a 5s sleep before starting logic
-		time.Sleep(6 * time.Second)
+		// Wait for async healing tasks to complete
+		worker.reconcileWG.Wait()
 
 		repo.AssertExpectations(t)
 		svc.AssertExpectations(t)

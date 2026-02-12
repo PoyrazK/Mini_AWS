@@ -82,16 +82,22 @@ func (s *CacheService) CreateCache(ctx context.Context, name, version string, me
 	containerID, allocatedPorts, err := s.launchCacheContainer(ctx, cache, networkID)
 	if err != nil {
 		cache.Status = domain.CacheStatusFailed
-		_ = s.repo.Delete(ctx, cache.ID)
+		if delErr := s.repo.Delete(ctx, cache.ID); delErr != nil {
+			s.logger.Error("failed to delete failed cache record", "id", cache.ID, "error", delErr)
+		}
 		return nil, errors.Wrap(errors.Internal, "failed to launch cache container", err)
 	}
 
-	port := s.parseAllocatedPort(allocatedPorts, "6379")
-	if port == 0 {
+	port, err := s.parseAllocatedPort(allocatedPorts, "6379")
+	if err != nil || port == 0 {
 		var portErr error
 		port, portErr = s.compute.GetInstancePort(ctx, containerID, "6379")
 		if portErr != nil {
-			s.logger.Error("failed to get cache port", "error", portErr)
+			s.logger.Error("failed to resolve cache port", "container_id", containerID, "error", portErr)
+			_ = s.compute.DeleteInstance(ctx, containerID)
+			cache.Status = domain.CacheStatusFailed
+			_ = s.repo.Update(ctx, cache)
+			return nil, errors.Wrap(errors.Internal, "failed to resolve cache port", portErr)
 		}
 	}
 
@@ -108,15 +114,22 @@ func (s *CacheService) CreateCache(ctx context.Context, name, version string, me
 	return cache, nil
 }
 
-func (s *CacheService) parseAllocatedPort(allocatedPorts []string, targetPort string) int {
+func (s *CacheService) parseAllocatedPort(allocatedPorts []string, targetPort string) (int, error) {
 	for _, p := range allocatedPorts {
 		parts := strings.Split(p, ":")
-		if len(parts) == 2 && parts[1] == targetPort {
-			hp, _ := strconv.Atoi(parts[0])
-			return hp
+		if len(parts) >= 2 && parts[len(parts)-1] == targetPort {
+			portStr := parts[0]
+			if len(parts) == 3 {
+				portStr = parts[1]
+			}
+			hp, err := strconv.Atoi(portStr)
+			if err != nil {
+				return 0, err
+			}
+			return hp, nil
 		}
 	}
-	return 0
+	return 0, nil
 }
 
 func (s *CacheService) resolveNetworkID(ctx context.Context, vpcID *uuid.UUID) (string, error) {

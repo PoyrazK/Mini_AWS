@@ -85,9 +85,14 @@ func (s *DatabaseService) CreateDatabase(ctx context.Context, name, engine, vers
 		return nil, errors.Wrap(errors.Internal, "failed to launch database container", err)
 	}
 
-	hostPort := s.parseAllocatedPort(allocatedPorts, defaultPort)
-	if hostPort == 0 {
-		hostPort, _ = s.compute.GetInstancePort(ctx, containerID, defaultPort)
+	hostPort, err := s.parseAllocatedPort(allocatedPorts, defaultPort)
+	if err != nil || hostPort == 0 {
+		hostPort, err = s.compute.GetInstancePort(ctx, containerID, defaultPort)
+		if err != nil {
+			s.logger.Error("failed to resolve database port", "container_id", containerID, "error", err)
+			_ = s.compute.DeleteInstance(ctx, containerID)
+			return nil, errors.Wrap(errors.Internal, "failed to resolve database port", err)
+		}
 	}
 
 	db.ContainerID = containerID
@@ -103,15 +108,23 @@ func (s *DatabaseService) CreateDatabase(ctx context.Context, name, engine, vers
 	return db, nil
 }
 
-func (s *DatabaseService) parseAllocatedPort(allocatedPorts []string, targetPort string) int {
+func (s *DatabaseService) parseAllocatedPort(allocatedPorts []string, targetPort string) (int, error) {
 	for _, p := range allocatedPorts {
 		parts := strings.Split(p, ":")
-		if len(parts) == 2 && parts[1] == targetPort {
-			hp, _ := strconv.Atoi(parts[0])
-			return hp
+		// handle host:port or host:containerPort:hostPort or containerPort:hostPort
+		if len(parts) >= 2 && parts[len(parts)-1] == targetPort {
+			portStr := parts[0]
+			if len(parts) == 3 {
+				portStr = parts[1]
+			}
+			hp, err := strconv.Atoi(portStr)
+			if err != nil {
+				return 0, err
+			}
+			return hp, nil
 		}
 	}
-	return 0
+	return 0, nil
 }
 
 func (s *DatabaseService) isValidEngine(engine domain.DatabaseEngine) bool {
