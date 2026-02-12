@@ -15,6 +15,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	composeFile = "../docker-compose.yml"
+	projectName = "cloud"
+)
+
 func TestChaos(t *testing.T) {
 	// t.Parallel() // Removed: This test restarts containers and cannot run in parallel
 	if err := waitForServer(); err != nil {
@@ -32,14 +37,15 @@ func TestChaos(t *testing.T) {
 
 		// 2. Kill Redis
 		t.Log("Killing Redis container...")
-		cmd := exec.Command("docker", "compose", "stop", "redis")
+		cmd := exec.Command("docker", "compose", "-f", composeFile, "-p", projectName, "stop", "redis")
 		err := cmd.Run()
 		require.NoError(t, err, "Failed to stop Redis container")
 
 		// Ensure Redis is stopped
 		defer func() {
 			t.Log("Restarting Redis container...")
-			_ = exec.Command("docker", "compose", "start", "redis").Run()
+			err := exec.Command("docker", "compose", "-f", composeFile, "-p", projectName, "start", "redis").Run()
+			require.NoError(t, err, "Failed to start Redis container")
 			// Wait for Redis to be ready again
 			time.Sleep(2 * time.Second)
 		}()
@@ -85,7 +91,7 @@ func TestChaos(t *testing.T) {
 
 		// 2. Sudden Restart
 		t.Log("Restarting API container mid-operation...")
-		cmd := exec.Command("docker", "compose", "restart", "api")
+		cmd := exec.Command("docker", "compose", "-f", composeFile, "-p", projectName, "restart", "api")
 		err := cmd.Run()
 		require.NoError(t, err, "Failed to restart API container")
 
