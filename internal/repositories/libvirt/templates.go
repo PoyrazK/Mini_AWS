@@ -119,6 +119,15 @@ func generateDomainXML(name, diskPath, networkID, isoPath string, memoryMB, vcpu
 		machine = "virt"
 	}
 
+	interfaceXML := ""
+	if !hasNetworkMapping {
+		interfaceXML = fmt.Sprintf(`
+    <interface type='network'>
+      <source network='%s'/>
+      <model type='virtio'/>
+    </interface>`, escapedNetworkID)
+	}
+
 	return fmt.Sprintf(`
 <domain type='qemu' xmlns:qemu='http://libvirt.org/schemas/domain/qemu/1.0'>
   <name>%s</name>

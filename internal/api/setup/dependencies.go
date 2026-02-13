@@ -241,7 +241,14 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 		return nil, nil, err
 	}
 
-	databaseSvc := services.NewDatabaseService(c.Repos.Database, c.Compute, c.Repos.Vpc, eventSvc, auditSvc, c.Logger)
+	databaseSvc := services.NewDatabaseService(services.DatabaseServiceParams{
+		Repo:     c.Repos.Database,
+		Compute:  c.Compute,
+		VpcRepo:  c.Repos.Vpc,
+		EventSvc: eventSvc,
+		AuditSvc: auditSvc,
+		Logger:   c.Logger,
+	})
 	secretSvc := services.NewSecretService(c.Repos.Secret, eventSvc, auditSvc, c.Logger, c.Config.SecretsEncryptionKey, c.Config.Environment)
 	fnSvc := services.NewFunctionService(c.Repos.Function, c.Compute, fileStore, auditSvc, c.Logger)
 	cacheSvc := services.NewCacheService(c.Repos.Cache, c.Compute, c.Repos.Vpc, eventSvc, auditSvc, c.Logger)
@@ -360,7 +367,7 @@ func initStorageServices(c ServiceConfig, audit ports.AuditService, encryption p
 func initClusterServices(c ServiceConfig, vpcSvc ports.VpcService, instSvc ports.InstanceService, secretSvc ports.SecretService, storageSvc ports.StorageService, lbSvc ports.LBService, sgSvc ports.SecurityGroupService) (ports.ClusterService, ports.ClusterProvisioner, error) {
 	clusterProvisioner := k8s.NewKubeadmProvisioner(instSvc, c.Repos.Cluster, secretSvc, sgSvc, storageSvc, lbSvc, c.Logger)
 	clusterSvc, err := services.NewClusterService(services.ClusterServiceParams{
-		Repo: c.Repos.Cluster, Provisioner: clusterProvisioner, vpcSvc: vpcSvc, InstanceSvc: instSvc, SecretSvc: secretSvc, TaskQueue: c.Repos.TaskQueue, Logger: c.Logger,
+		Repo: c.Repos.Cluster, Provisioner: clusterProvisioner, VpcSvc: vpcSvc, InstanceSvc: instSvc, SecretSvc: secretSvc, TaskQueue: c.Repos.TaskQueue, Logger: c.Logger,
 	})
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to init cluster service: %w", err)

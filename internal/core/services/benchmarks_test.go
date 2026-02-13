@@ -233,7 +233,14 @@ func BenchmarkDatabaseServiceList(b *testing.B) {
 	auditSvc := &noop.NoopAuditService{}
 	logger := slog.Default()
 
-	svc := services.NewDatabaseService(repo, compute, vpcRepo, eventSvc, auditSvc, logger)
+	svc := services.NewDatabaseService(services.DatabaseServiceParams{
+		Repo:     repo,
+		Compute:  compute,
+		VpcRepo:  vpcRepo,
+		EventSvc: eventSvc,
+		AuditSvc: auditSvc,
+		Logger:   logger,
+	})
 
 	ctx := context.Background()
 
@@ -262,7 +269,14 @@ func BenchmarkDatabaseContentionParallel(b *testing.B) {
 	auditSvc := &noop.NoopAuditService{}
 	logger := slog.Default()
 
-	svc := services.NewDatabaseService(repo, compute, vpcRepo, eventSvc, auditSvc, logger)
+	svc := services.NewDatabaseService(services.DatabaseServiceParams{
+		Repo:     repo,
+		Compute:  compute,
+		VpcRepo:  vpcRepo,
+		EventSvc: eventSvc,
+		AuditSvc: auditSvc,
+		Logger:   logger,
+	})
 	ctx := context.Background()
 	id := uuid.New()
 
