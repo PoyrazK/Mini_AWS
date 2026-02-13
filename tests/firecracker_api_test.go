@@ -38,8 +38,12 @@ func TestFirecrackerAPI_E2E(t *testing.T) {
 			"instance_type": "basic-2", // Matches defaults in setup_test.go
 		}
 		
-		body, _ := json.Marshal(payload)
-		req, _ := http.NewRequest("POST", testutil.TestBaseURL+"/instances", bytes.NewBuffer(body))
+		body, err := json.Marshal(payload)
+		require.NoError(t, err, "failed to marshal payload")
+
+		req, err := http.NewRequest("POST", testutil.TestBaseURL+"/instances", bytes.NewBuffer(body))
+		require.NoError(t, err, "failed to create request")
+
 		req.Header.Set("Content-Type", testutil.TestContentTypeAppJSON)
 		req.Header.Set(testutil.TestHeaderAPIKey, token)
 		applyTenantHeader(t, req, token)
@@ -50,8 +54,7 @@ func TestFirecrackerAPI_E2E(t *testing.T) {
 
 		// status 202 is expected for async provisioning
 		if resp.StatusCode != http.StatusAccepted {
-			t.Logf("Launch failed with status %d (expected 202)", resp.StatusCode)
-			return
+			t.Fatalf("Launch failed with status %d (expected 202)", resp.StatusCode)
 		}
 
 		var res struct {
@@ -70,7 +73,9 @@ func TestFirecrackerAPI_E2E(t *testing.T) {
 	}
 
 	t.Run("Get Firecracker Instance", func(t *testing.T) {
-		req, _ := http.NewRequest("GET", testutil.TestBaseURL+"/instances/"+instanceID, nil)
+		req, err := http.NewRequest("GET", testutil.TestBaseURL+"/instances/"+instanceID, nil)
+		require.NoError(t, err, "failed to create request")
+
 		req.Header.Set(testutil.TestHeaderAPIKey, token)
 		applyTenantHeader(t, req, token)
 
@@ -89,7 +94,9 @@ func TestFirecrackerAPI_E2E(t *testing.T) {
 	})
 
 	t.Run("Terminate Firecracker Instance", func(t *testing.T) {
-		req, _ := http.NewRequest("DELETE", testutil.TestBaseURL+"/instances/"+instanceID, nil)
+		req, err := http.NewRequest("DELETE", testutil.TestBaseURL+"/instances/"+instanceID, nil)
+		require.NoError(t, err, "failed to create request")
+
 		req.Header.Set(testutil.TestHeaderAPIKey, token)
 		applyTenantHeader(t, req, token)
 

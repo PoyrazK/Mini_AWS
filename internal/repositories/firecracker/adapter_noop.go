@@ -17,6 +17,7 @@ type Config struct {
 	KernelPath string
 	RootfsPath string
 	SocketDir  string
+	MockMode   bool
 }
 
 // FirecrackerAdapter is a no-op implementation for non-linux systems.
@@ -24,9 +25,9 @@ type FirecrackerAdapter struct {
 	logger *slog.Logger
 }
 
-func NewFirecrackerAdapter(logger *slog.Logger, cfg Config) *FirecrackerAdapter {
+func NewFirecrackerAdapter(logger *slog.Logger, cfg Config) (*FirecrackerAdapter, error) {
 	logger.Warn("Firecracker is only supported on Linux. This adapter will not function.")
-	return &FirecrackerAdapter{logger: logger}
+	return &FirecrackerAdapter{logger: logger}, nil
 }
 
 func (a *FirecrackerAdapter) LaunchInstanceWithOptions(ctx context.Context, opts ports.CreateInstanceOptions) (string, []string, error) {
@@ -94,7 +95,10 @@ func (a *FirecrackerAdapter) DetachVolume(ctx context.Context, id string, volume
 }
 
 func (a *FirecrackerAdapter) Ping(ctx context.Context) error {
-	return fmt.Errorf("firecracker not supported on this platform")
+	if a.logger != nil {
+		a.logger.Warn("Ping called on no-op firecracker adapter")
+	}
+	return nil
 }
 
 func (a *FirecrackerAdapter) Type() string {

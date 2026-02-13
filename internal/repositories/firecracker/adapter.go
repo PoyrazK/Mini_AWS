@@ -8,12 +8,22 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"path/filepath"
+	"regexp"
 	"sync"
 
 	"github.com/firecracker-microvm/firecracker-go-sdk"
 	"github.com/firecracker-microvm/firecracker-go-sdk/client/models"
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/ports"
+)
+
+const (
+	defaultSocketDir = "/tmp/firecracker"
+)
+
+var (
+	idRegex = regexp.MustCompile(`^[a-zA-Z0-9\-_]+$`)
 )
 
 // Config holds Firecracker specific configuration.
@@ -34,22 +44,24 @@ type FirecrackerAdapter struct {
 }
 
 // NewFirecrackerAdapter creates a new FirecrackerAdapter.
-func NewFirecrackerAdapter(logger *slog.Logger, cfg Config) *FirecrackerAdapter {
+func NewFirecrackerAdapter(logger *slog.Logger, cfg Config) (*FirecrackerAdapter, error) {
 	if cfg.SocketDir == "" {
-		cfg.SocketDir = "/tmp/firecracker"
+		cfg.SocketDir = defaultSocketDir
 	}
-	_ = os.MkdirAll(cfg.SocketDir, 0755)
+	if err := os.MkdirAll(cfg.SocketDir, 0755); err != nil {
+		return nil, fmt.Errorf("failed to create socket directory %s: %w", cfg.SocketDir, err)
+	}
 
 	return &FirecrackerAdapter{
 		cfg:      cfg,
 		logger:   logger,
 		machines: make(map[string]*firecracker.Machine),
-	}
+	}, nil
 }
 
 func (a *FirecrackerAdapter) LaunchInstanceWithOptions(ctx context.Context, opts ports.CreateInstanceOptions) (string, []string, error) {
 	id := uuid.New().String()
-	socketPath := fmt.Sprintf("%s/%s.socket", a.cfg.SocketDir, id)
+	socketPath := filepath.Join(a.cfg.SocketDir, id+".socket")
 
 	vcpus := int64(1)
 	if opts.CPULimit > 0 {
@@ -138,19 +150,29 @@ func (a *FirecrackerAdapter) StopInstance(ctx context.Context, id string) error 
 }
 
 func (a *FirecrackerAdapter) DeleteInstance(ctx context.Context, id string) error {
-	a.mu.Lock()
-	defer a.mu.Unlock()
+	if !idRegex.MatchString(id) {
+		return fmt.Errorf("invalid instance ID format: %s", id)
+	}
 
+	a.mu.Lock()
 	m, ok := a.machines[id]
 	if !ok {
+		a.mu.Unlock()
 		return nil // Already gone
 	}
+	delete(a.machines, id)
+	a.mu.Unlock()
 
 	if !a.cfg.MockMode {
-		_ = m.StopVMM()
+		if err := m.StopVMM(); err != nil {
+			a.logger.Warn("failed to stop VMM during deletion", "instance_id", id, "error", err)
+		}
 	}
-	delete(a.machines, id)
-	_ = os.Remove(fmt.Sprintf("%s/%s.socket", a.cfg.SocketDir, id))
+
+	socketPath := filepath.Join(a.cfg.SocketDir, id+".socket")
+	if err := os.Remove(socketPath); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("failed to remove socket file %s: %w", socketPath, err)
+	}
 
 	return nil
 }
@@ -204,7 +226,7 @@ func (a *FirecrackerAdapter) WaitTask(ctx context.Context, id string) (int64, er
 
 	err := m.Wait(ctx)
 	if err != nil {
-		return 1, nil
+		return 1, err
 	}
 	return 0, nil
 }

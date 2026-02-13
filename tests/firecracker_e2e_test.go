@@ -3,6 +3,7 @@ package tests
 import (
 	"context"
 	"log/slog"
+	"os"
 	"testing"
 
 	"github.com/poyrazk/thecloud/internal/core/ports"
@@ -18,17 +19,26 @@ func TestFirecrackerBackend_E2E(t *testing.T) {
 		t.Skip("skipping firecracker e2e test in short mode")
 	}
 
-	logger := slog.Default()
-	cfg := firecracker.Config{
-		BinaryPath: "/usr/local/bin/firecracker",
-		KernelPath: "/var/lib/thecloud/vmlinux",
-		RootfsPath: "/var/lib/thecloud/rootfs.ext4",
+	getEnv := func(key, fallback string) string {
+		if val := os.Getenv(key); val != "" {
+			return val
+		}
+		return fallback
 	}
 
-	adapter := firecracker.NewFirecrackerAdapter(logger, cfg)
+	logger := slog.Default()
+	cfg := firecracker.Config{
+		BinaryPath: getEnv("FIRECRACKER_BINARY", "/usr/local/bin/firecracker"),
+		KernelPath: getEnv("FIRECRACKER_KERNEL", "/var/lib/thecloud/vmlinux"),
+		RootfsPath: getEnv("FIRECRACKER_ROOTFS", "/var/lib/thecloud/rootfs.ext4"),
+		MockMode:   os.Getenv("FIRECRACKER_MOCK_MODE") == "true",
+	}
+
+	adapter, err := firecracker.NewFirecrackerAdapter(logger, cfg)
+	require.NoError(t, err, "failed to create adapter")
 	
 	// If we are on non-linux, this will return the firecracker-noop type
-	if adapter.Type() != "firecracker" {
+	if adapter.Type() != "firecracker" && adapter.Type() != "firecracker-mock" {
 		t.Skipf("Skipping real firecracker test on %s platform", adapter.Type())
 	}
 
@@ -45,8 +55,7 @@ func TestFirecrackerBackend_E2E(t *testing.T) {
 		// We expect an error if the kernel/rootfs are missing, 
 		// but we want to see HOW it fails in CI.
 		if err != nil {
-			t.Logf("Launch failed as expected (likely missing artifacts): %v", err)
-			return 
+			t.Skipf("Launch failed, skipping test (likely missing artifacts or KVM access): %v", err)
 		}
 
 		require.NotEmpty(t, id)

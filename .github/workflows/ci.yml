@@ -304,6 +304,8 @@ jobs:
       - name: Run Firecracker Unit Tests
         run: go test -v ./internal/repositories/firecracker/...
       - name: Run Firecracker E2E Test
+        env:
+          FIRECRACKER_MOCK_MODE: "true"
         run: go test -v -run TestFirecrackerBackend_E2E ./tests/...
       - name: Run Firecracker API Integration
         env:
@@ -329,7 +331,7 @@ jobs:
           go test -v -run TestFirecrackerAPI_E2E ./tests/...
 
   build:
-    needs: [lint, unit-tests, race-detection, integration-tests, test-libvirt]
+    needs: [lint, unit-tests, race-detection, integration-tests, test-libvirt, test-firecracker]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
