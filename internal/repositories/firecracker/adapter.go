@@ -80,7 +80,7 @@ func (a *FirecrackerAdapter) LaunchInstanceWithOptions(ctx context.Context, opts
 	// In this MVP, we don't handle complex networking/TAP allocation yet.
 	// We just start the VM process.
 
-	m, err := firecracker.NewMachine(ctx, fcCfg, firecracker.WithProcessRunner(firecracker.NewProcessRunner(a.cfg.BinaryPath, a.logger)))
+	m, err := firecracker.NewMachine(ctx, fcCfg, firecracker.WithProcessRunner(firecracker.NewStaticProcessRunner(a.cfg.BinaryPath)))
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to create machine: %w", err)
 	}
@@ -165,11 +165,11 @@ func (a *FirecrackerAdapter) Exec(ctx context.Context, id string, cmd []string) 
 func (a *FirecrackerAdapter) RunTask(ctx context.Context, opts ports.RunTaskOptions) (string, []string, error) {
 	return a.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{
 		Name:        opts.Name,
-		ImageName:   opts.ImageName,
+		ImageName:   opts.Image,
 		Env:         opts.Env,
-		Cmd:         opts.Cmd,
-		CPULimit:    opts.CPULimit,
-		MemoryLimit: opts.MemoryLimit,
+		Cmd:         opts.Command,
+		CPULimit:    int64(opts.CPUs),
+		MemoryLimit: opts.MemoryMB * 1024 * 1024,
 	})
 }
 
