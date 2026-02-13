@@ -22,7 +22,18 @@ const (
 	errMultipartNotFound = "multipart upload not found"
 	partPathFormat       = ".uploads/%s/part-%d"
 	versionQueryFormat   = "%s?versionId=%s"
+	versionEpochBit      = 1 << 62
 )
+
+// generateVersionID generates a timestamp-based version ID (reverse chronological).
+func generateVersionID() string {
+	return fmt.Sprintf("%d", versionEpochBit-time.Now().UnixNano())
+}
+
+// versionedStoreKey returns the store key with version ID suffix.
+func versionedStoreKey(key, versionID string) string {
+	return fmt.Sprintf(versionQueryFormat, key, versionID)
+}
 
 // StorageService manages object storage metadata and files.
 type StorageService struct {
@@ -53,16 +64,14 @@ func (s *StorageService) Upload(ctx context.Context, bucketName, key string, r i
 
 	versionID := "null" // Default version ID when versioning is disabled
 	if bucket.VersioningEnabled {
-		// Generate a timestamp-based version ID (reverse chronological)
-		// 1<<62 is large enough to keep the result positive for a long time
-		versionID = fmt.Sprintf("%d", (1<<62)-time.Now().UnixNano())
+		versionID = generateVersionID()
 	}
 
 	// 2. Write file to store
 	// In the store, we'll prefix versions with versionID to avoid overwrites
 	storeKey := key
 	if bucket.VersioningEnabled {
-		storeKey = fmt.Sprintf(versionQueryFormat, key, versionID)
+		storeKey = versionedStoreKey(key, versionID)
 	}
 
 	// Encryption
@@ -178,7 +187,7 @@ func (s *StorageService) DownloadVersion(ctx context.Context, bucket, key, versi
 	// 2. Open file
 	storeKey := key
 	if obj.VersionID != "null" {
-		storeKey = fmt.Sprintf(versionQueryFormat, key, obj.VersionID)
+		storeKey = versionedStoreKey(key, obj.VersionID)
 	}
 
 	reader, err := s.store.Read(ctx, bucket, storeKey)
@@ -202,7 +211,7 @@ func (s *StorageService) DeleteVersion(ctx context.Context, bucket, key, version
 	// 2. Delete from store
 	storeKey := key
 	if versionID != "null" {
-		storeKey = fmt.Sprintf(versionQueryFormat, key, versionID)
+		storeKey = versionedStoreKey(key, versionID)
 	}
 
 	if err := s.store.Delete(ctx, bucket, storeKey); err != nil {
@@ -376,13 +385,13 @@ func (s *StorageService) CompleteMultipartUpload(ctx context.Context, uploadID u
 
 	versionID := "null"
 	if bucket.VersioningEnabled {
-		versionID = fmt.Sprintf("%d", (1<<62)-time.Now().UnixNano())
+		versionID = generateVersionID()
 	}
 
 	// 4. Assemble in store
 	storeKey := upload.Key
 	if bucket.VersioningEnabled {
-		storeKey = fmt.Sprintf(versionQueryFormat, upload.Key, versionID)
+		storeKey = versionedStoreKey(upload.Key, versionID)
 	}
 
 	actualSize, err := s.store.Assemble(ctx, upload.Bucket, storeKey, partKeys)

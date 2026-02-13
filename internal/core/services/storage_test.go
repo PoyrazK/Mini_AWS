@@ -130,7 +130,9 @@ func setupStorageServiceIntegrationTest(t *testing.T) (ports.StorageService, por
 	// Setup encryption service
 	masterKeyHex := "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
 	encRepo := postgres.NewEncryptionRepository(db)
-	realEncSvc, _ := services.NewEncryptionService(encRepo, masterKeyHex)
+	realEncSvc, err := services.NewEncryptionService(encRepo, masterKeyHex)
+	require.NoError(t, err)
+	require.NotNil(t, realEncSvc)
 	encSvc := &FailingEncryptionService{EncryptionService: realEncSvc}
 
 	svc := services.NewStorageService(repo, store, auditSvc, encSvc, cfg)
@@ -377,7 +379,9 @@ func TestStorageService_Integration(t *testing.T) {
 		// Download store read error
 		// 1. Create a fresh object
 		_, err = svc.Upload(ctx, "obj-bucket", "fail-store", strings.NewReader("data"))
-		assert.NoError(t, err)
+		if err != nil {
+			t.Fatalf("Upload failed: %v", err)
+		}
 		// 2. Force store failure
 		store.failNext = true
 		_, _, err = svc.Download(ctx, "obj-bucket", "fail-store")
