@@ -230,5 +230,8 @@ func (a *FirecrackerAdapter) Ping(ctx context.Context) error {
 }
 
 func (a *FirecrackerAdapter) Type() string {
+	if a.cfg.MockMode {
+		return "firecracker-mock"
+	}
 	return "firecracker"
 }
