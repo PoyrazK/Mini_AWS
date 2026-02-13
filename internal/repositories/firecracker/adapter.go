@@ -1,0 +1,214 @@
+//go:build linux
+
+package firecracker
+
+import (
+	"context"
+	"fmt"
+	"io"
+	"log/slog"
+	"os"
+	"sync"
+
+	"github.com/firecracker-microvm/firecracker-go-sdk"
+	"github.com/firecracker-microvm/firecracker-go-sdk/client/models"
+	"github.com/google/uuid"
+	"github.com/poyrazk/thecloud/internal/core/ports"
+)
+
+// Config holds Firecracker specific configuration.
+type Config struct {
+	BinaryPath string
+	KernelPath string
+	RootfsPath string
+	SocketDir  string
+}
+
+// FirecrackerAdapter implements ports.ComputeBackend using Firecracker.
+type FirecrackerAdapter struct {
+	cfg      Config
+	logger   *slog.Logger
+	machines map[string]*firecracker.Machine
+	mu       sync.RWMutex
+}
+
+// NewFirecrackerAdapter creates a new FirecrackerAdapter.
+func NewFirecrackerAdapter(logger *slog.Logger, cfg Config) *FirecrackerAdapter {
+	if cfg.SocketDir == "" {
+		cfg.SocketDir = "/tmp/firecracker"
+	}
+	_ = os.MkdirAll(cfg.SocketDir, 0755)
+
+	return &FirecrackerAdapter{
+		cfg:      cfg,
+		logger:   logger,
+		machines: make(map[string]*firecracker.Machine),
+	}
+}
+
+func (a *FirecrackerAdapter) LaunchInstanceWithOptions(ctx context.Context, opts ports.CreateInstanceOptions) (string, []string, error) {
+	id := uuid.New().String()
+	socketPath := fmt.Sprintf("%s/%s.socket", a.cfg.SocketDir, id)
+
+	vcpus := int64(1)
+	if opts.CPULimit > 0 {
+		vcpus = opts.CPULimit
+	}
+
+	mem := int64(512)
+	if opts.MemoryLimit > 0 {
+		mem = opts.MemoryLimit / 1024 / 1024 // Convert to MB
+	}
+
+	fcCfg := firecracker.Config{
+		SocketPath:      socketPath,
+		KernelImagePath: a.cfg.KernelPath,
+		Drives: []models.Drive{
+			{
+				DriveID:      firecracker.String("1"),
+				IsRootDevice: firecracker.Bool(true),
+				IsReadOnly:   firecracker.Bool(false),
+				PathOnHost:   firecracker.String(a.cfg.RootfsPath), // In a real cloud, we'd clone a template
+			},
+		},
+		MachineCfg: models.MachineConfiguration{
+			VcpuCount:  firecracker.Int64(vcpus),
+			MemSizeMib: firecracker.Int64(mem),
+		},
+	}
+
+	// In this MVP, we don't handle complex networking/TAP allocation yet.
+	// We just start the VM process.
+
+	m, err := firecracker.NewMachine(ctx, fcCfg, firecracker.WithProcessRunner(firecracker.NewProcessRunner(a.cfg.BinaryPath, a.logger)))
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to create machine: %w", err)
+	}
+
+	if err := m.Start(ctx); err != nil {
+		return "", nil, fmt.Errorf("failed to start machine: %w", err)
+	}
+
+	a.mu.Lock()
+	a.machines[id] = m
+	a.mu.Unlock()
+
+	return id, nil, nil
+}
+
+func (a *FirecrackerAdapter) StartInstance(ctx context.Context, id string) error {
+	a.mu.RLock()
+	m, ok := a.machines[id]
+	a.mu.RUnlock()
+
+	if !ok {
+		return fmt.Errorf("instance %s not found", id)
+	}
+
+	return m.Start(ctx)
+}
+
+func (a *FirecrackerAdapter) StopInstance(ctx context.Context, id string) error {
+	a.mu.RLock()
+	m, ok := a.machines[id]
+	a.mu.RUnlock()
+
+	if !ok {
+		return fmt.Errorf("instance %s not found", id)
+	}
+
+	return m.Shutdown(ctx)
+}
+
+func (a *FirecrackerAdapter) DeleteInstance(ctx context.Context, id string) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	m, ok := a.machines[id]
+	if !ok {
+		return nil // Already gone
+	}
+
+	_ = m.StopVMM()
+	delete(a.machines, id)
+	_ = os.Remove(fmt.Sprintf("%s/%s.socket", a.cfg.SocketDir, id))
+
+	return nil
+}
+
+func (a *FirecrackerAdapter) GetInstanceLogs(ctx context.Context, id string) (io.ReadCloser, error) {
+	// Firecracker doesn't provide logs like Docker. 
+	// We'd need to pipe serial console to a file.
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (a *FirecrackerAdapter) GetInstanceStats(ctx context.Context, id string) (io.ReadCloser, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (a *FirecrackerAdapter) GetInstancePort(ctx context.Context, id string, internalPort string) (int, error) {
+	return 0, fmt.Errorf("firecracker adapter does not support port mapping yet")
+}
+
+func (a *FirecrackerAdapter) GetInstanceIP(ctx context.Context, id string) (string, error) {
+	return "0.0.0.0", nil // Placeholder
+}
+
+func (a *FirecrackerAdapter) GetConsoleURL(ctx context.Context, id string) (string, error) {
+	return "", fmt.Errorf("console not implemented for firecracker")
+}
+
+func (a *FirecrackerAdapter) Exec(ctx context.Context, id string, cmd []string) (string, error) {
+	return "", fmt.Errorf("exec not implemented for firecracker")
+}
+
+func (a *FirecrackerAdapter) RunTask(ctx context.Context, opts ports.RunTaskOptions) (string, []string, error) {
+	return a.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{
+		Name:        opts.Name,
+		ImageName:   opts.ImageName,
+		Env:         opts.Env,
+		Cmd:         opts.Cmd,
+		CPULimit:    opts.CPULimit,
+		MemoryLimit: opts.MemoryLimit,
+	})
+}
+
+func (a *FirecrackerAdapter) WaitTask(ctx context.Context, id string) (int64, error) {
+	a.mu.RLock()
+	m, ok := a.machines[id]
+	a.mu.RUnlock()
+
+	if !ok {
+		return -1, fmt.Errorf("task %s not found", id)
+	}
+
+	err := m.Wait(ctx)
+	if err != nil {
+		return 1, nil // Failed
+	}
+	return 0, nil // Success
+}
+
+func (a *FirecrackerAdapter) CreateNetwork(ctx context.Context, name string) (string, error) {
+	return uuid.New().String(), nil
+}
+
+func (a *FirecrackerAdapter) DeleteNetwork(ctx context.Context, id string) error {
+	return nil
+}
+
+func (a *FirecrackerAdapter) AttachVolume(ctx context.Context, id string, volumePath string) error {
+	return fmt.Errorf("attach volume not implemented for firecracker")
+}
+
+func (a *FirecrackerAdapter) DetachVolume(ctx context.Context, id string, volumePath string) error {
+	return fmt.Errorf("detach volume not implemented for firecracker")
+}
+
+func (a *FirecrackerAdapter) Ping(ctx context.Context) error {
+	return nil
+}
+
+func (a *FirecrackerAdapter) Type() string {
+	return "firecracker"
+}
