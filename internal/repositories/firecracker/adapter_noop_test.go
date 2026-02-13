@@ -9,6 +9,7 @@ import (
 
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestFirecrackerAdapter_InterfaceCompliance(t *testing.T) {
@@ -19,7 +20,8 @@ func TestNewFirecrackerAdapter(t *testing.T) {
 	logger := slog.Default()
 	cfg := Config{}
 
-	adapter := NewFirecrackerAdapter(logger, cfg)
+	adapter, err := NewFirecrackerAdapter(logger, cfg)
+	require.NoError(t, err)
 
 	assert.NotNil(t, adapter)
 	assert.Equal(t, "firecracker-noop", adapter.Type())
@@ -27,7 +29,8 @@ func TestNewFirecrackerAdapter(t *testing.T) {
 
 func TestFirecrackerAdapter_NoopMethods(t *testing.T) {
 	logger := slog.Default()
-	adapter := NewFirecrackerAdapter(logger, Config{})
+	adapter, err := NewFirecrackerAdapter(logger, Config{})
+	require.NoError(t, err)
 	ctx := context.Background()
 
 	t.Run("LaunchInstanceWithOptions", func(t *testing.T) {
@@ -64,7 +67,7 @@ func TestFirecrackerAdapter_NoopMethods(t *testing.T) {
 
 	t.Run("Ping", func(t *testing.T) {
 		err := adapter.Ping(ctx)
-		assert.Error(t, err)
+		assert.NoError(t, err)
 	})
 
 	t.Run("AttachVolume", func(t *testing.T) {
