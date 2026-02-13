@@ -371,7 +371,8 @@ func TestStorageService_Integration(t *testing.T) {
 
 		// Download store read error
 		// 1. Create a fresh object
-		svc.Upload(ctx, "obj-bucket", "fail-store", strings.NewReader("data"))
+		_, err = svc.Upload(ctx, "obj-bucket", "fail-store", strings.NewReader("data"))
+		assert.NoError(t, err)
 		// 2. Force store failure
 		store.failNext = true
 		_, _, err = svc.Download(ctx, "obj-bucket", "fail-store")
