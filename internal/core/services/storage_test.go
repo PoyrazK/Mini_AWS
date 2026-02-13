@@ -8,7 +8,9 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
+	"github.com/google/uuid"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
@@ -261,7 +263,6 @@ func TestStorageService_Integration(t *testing.T) {
 		require.NoError(t, err)
 
 		// Enable encryption manually in DB for testing
-		db := setupDB(t)
 		_, err = db.Exec(ctx, "UPDATE buckets SET encryption_enabled = TRUE WHERE name = $1", bucketName)
 		require.NoError(t, err)
 
@@ -340,8 +341,14 @@ func TestStorageService_Integration(t *testing.T) {
 	})
 
 	t.Run("ErrorPaths", func(t *testing.T) {
-		// Invalid bucket name
+		// Invalid bucket names
 		_, err := svc.CreateBucket(ctx, "INVALID NAME", false)
+		assert.Error(t, err)
+		_, err = svc.CreateBucket(ctx, "", false)
+		assert.Error(t, err)
+		_, err = svc.CreateBucket(ctx, strings.Repeat("a", 65), false)
+		assert.Error(t, err)
+		_, err = svc.CreateBucket(ctx, "-invalid", false)
 		assert.Error(t, err)
 
 		// Bucket not found
@@ -406,6 +413,22 @@ func TestStorageService_Integration(t *testing.T) {
 		up4, _ := svc.CreateMultipartUpload(ctx, "obj-bucket", "fail-part")
 		store.failNext = true
 		_, err = svc.UploadPart(ctx, up4.ID, 1, strings.NewReader("data"))
+		assert.Error(t, err)
+
+		// Upload Reader error (with encryption)
+		encReadBucket := "fail-read-enc"
+		_, _ = svc.CreateBucket(ctx, encReadBucket, false)
+		_, _ = db.Exec(ctx, "UPDATE buckets SET encryption_enabled = TRUE WHERE name = $1", encReadBucket)
+		tempEncSvc2, _ := services.NewEncryptionService(encRepo, masterKeyHex)
+		_, _ = tempEncSvc2.CreateKey(ctx, encReadBucket)
+
+		_, err = svc.Upload(ctx, encReadBucket, "fail", &FailingReader{})
+		assert.Error(t, err)
+
+		// GeneratePresignedURL secret missing
+		badCfg := &platform.Config{SecretsEncryptionKey: "", Port: "8080"}
+		badSvc := services.NewStorageService(postgres.NewStorageRepository(db), store, services.NewAuditService(postgres.NewAuditRepository(db)), encSvc, badCfg)
+		_, err = badSvc.GeneratePresignedURL(ctx, "obj-bucket", "f.txt", "GET", 0)
 		assert.Error(t, err)
 	})
 
