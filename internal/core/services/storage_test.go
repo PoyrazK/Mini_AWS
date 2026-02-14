@@ -459,6 +459,9 @@ func TestStorageService_Integration(t *testing.T) {
 		bucketName := "cleanup-bucket"
 		_, _ = svc.CreateBucket(ctx, bucketName, false)
 
+		// 0. Clear any existing deleted objects from previous subtests
+		_, _ = svc.CleanupDeleted(ctx, 100)
+
 		// 1. Upload and soft delete
 		key := "to-be-cleaned.txt"
 		_, _ = svc.Upload(ctx, bucketName, key, strings.NewReader("data"))
