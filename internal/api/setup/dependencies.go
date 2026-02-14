@@ -161,6 +161,7 @@ type Workers struct {
 	ReplicaMonitor    *workers.ReplicaMonitor
 	ClusterReconciler *workers.ClusterReconciler
 	Healing           *workers.HealingWorker
+	DatabaseFailover  *workers.DatabaseFailoverWorker
 }
 
 // ServiceConfig holds the dependencies required to initialize services
@@ -311,6 +312,7 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 		ReplicaMonitor:    replicaMonitor,
 		ClusterReconciler: workers.NewClusterReconciler(c.Repos.Cluster, clusterProvisioner, c.Logger),
 		Healing:           healingWorker,
+		DatabaseFailover:  workers.NewDatabaseFailoverWorker(databaseSvc, c.Repos.Database, c.Logger),
 	}
 
 	return svcs, workersCollection, nil
