@@ -276,7 +276,7 @@ func (m *MockInstanceTypeRepo) Update(ctx context.Context, it *domain.InstanceTy
 	}
 	return args.Get(0).(*domain.InstanceType), args.Error(1)
 }
-func (m *MockInstanceTypeRepo) Delete(ctx context.Context, id uuid.UUID) error {
+func (m *MockInstanceTypeRepo) Delete(ctx context.Context, id string) error {
 	return m.Called(ctx, id).Error(0)
 }
 
@@ -1064,6 +1064,9 @@ func (m *MockComputeBackend) LaunchInstanceWithOptions(ctx context.Context, opts
 func (m *MockComputeBackend) StopInstance(ctx context.Context, id string) error {
 	return m.Called(ctx, id).Error(0)
 }
+func (m *MockComputeBackend) StartInstance(ctx context.Context, id string) error {
+	return m.Called(ctx, id).Error(0)
+}
 func (m *MockComputeBackend) DeleteInstance(ctx context.Context, id string) error {
 	return m.Called(ctx, id).Error(0)
 }
@@ -1101,9 +1104,9 @@ func (m *MockComputeBackend) DetachVolume(ctx context.Context, id string, volume
 	args := m.Called(ctx, id, volumePath)
 	return args.Error(0)
 }
-func (m *MockComputeBackend) RunTask(ctx context.Context, opts ports.RunTaskOptions) (string, error) {
+func (m *MockComputeBackend) RunTask(ctx context.Context, opts ports.RunTaskOptions) (string, []string, error) {
 	args := m.Called(ctx, opts)
-	return args.String(0), args.Error(1)
+	return args.String(0), args.Get(1).([]string), args.Error(2)
 }
 func (m *MockComputeBackend) WaitTask(ctx context.Context, id string) (int64, error) {
 	args := m.Called(ctx, id)

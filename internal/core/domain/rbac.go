@@ -55,6 +55,7 @@ const (
 	PermissionDBCreate Permission = "db:create"
 	PermissionDBDelete Permission = "db:delete"
 	PermissionDBRead   Permission = "db:read"
+	PermissionDBUpdate Permission = "db:update"
 
 	// Secret Permissions
 	PermissionSecretCreate Permission = "secret:create"

@@ -90,3 +90,68 @@ func TestDatabaseRepository_List(t *testing.T) {
 	assert.Len(t, databases, 1)
 	assert.Equal(t, domain.EnginePostgres, databases[0].Engine)
 }
+
+func TestDatabaseRepository_ListReplicas(t *testing.T) {
+	t.Parallel()
+	mock, err := pgxmock.NewPool()
+	assert.NoError(t, err)
+	defer mock.Close()
+
+	repo := NewDatabaseRepository(mock)
+	primaryID := uuid.New()
+	now := time.Now()
+
+	mock.ExpectQuery("SELECT id, user_id, name, engine, version, status, role, primary_id, vpc_id, COALESCE\\(container_id, ''\\), port, username, password, created_at, updated_at FROM databases WHERE primary_id = \\$1").
+		WithArgs(primaryID).
+		WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "name", "engine", "version", "status", "role", "primary_id", "vpc_id", "container_id", "port", "username", "password", "created_at", "updated_at"}).
+			AddRow(uuid.New(), uuid.New(), "replica-1", string(domain.EnginePostgres), "16", string(domain.DatabaseStatusRunning), string(domain.RoleReplica), &primaryID, nil, "cid-2", 5432, "admin", "password", now, now))
+
+	replicas, err := repo.ListReplicas(context.Background(), primaryID)
+	assert.NoError(t, err)
+	assert.Len(t, replicas, 1)
+	assert.Equal(t, domain.RoleReplica, replicas[0].Role)
+}
+
+func TestDatabaseRepository_Update(t *testing.T) {
+	t.Parallel()
+	mock, err := pgxmock.NewPool()
+	assert.NoError(t, err)
+	defer mock.Close()
+
+	repo := NewDatabaseRepository(mock)
+	db := &domain.Database{
+		ID:          uuid.New(),
+		UserID:      uuid.New(),
+		Name:        "updated-name",
+		Status:      domain.DatabaseStatusRunning,
+		Role:        domain.RolePrimary,
+		ContainerID: "cid-1",
+		Port:        5432,
+	}
+
+	mock.ExpectExec("UPDATE databases").
+		WithArgs(db.Name, db.Status, db.Role, db.PrimaryID, db.ContainerID, db.Port, pgxmock.AnyArg(), db.ID, db.UserID).
+		WillReturnResult(pgxmock.NewResult("UPDATE", 1))
+
+	err = repo.Update(context.Background(), db)
+	assert.NoError(t, err)
+}
+
+func TestDatabaseRepository_Delete(t *testing.T) {
+	t.Parallel()
+	mock, err := pgxmock.NewPool()
+	assert.NoError(t, err)
+	defer mock.Close()
+
+	repo := NewDatabaseRepository(mock)
+	id := uuid.New()
+	userID := uuid.New()
+	ctx := appcontext.WithUserID(context.Background(), userID)
+
+	mock.ExpectExec("DELETE FROM databases WHERE id = \\$1 AND user_id = \\$2").
+		WithArgs(id, userID).
+		WillReturnResult(pgxmock.NewResult("DELETE", 1))
+
+	err = repo.Delete(ctx, id)
+	assert.NoError(t, err)
+}
