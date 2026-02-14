@@ -68,22 +68,22 @@ func (m *mockCompute) DeleteInstance(ctx context.Context, id string) error {
 	return m.Called(ctx, id).Error(0)
 }
 
-type mockVpcRepo struct {
+type mockDatabaseVpcRepo struct {
 	mock.Mock
 }
 
-func (m *mockVpcRepo) Create(ctx context.Context, vpc *domain.VPC) error { return nil }
-func (m *mockVpcRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.VPC, error) {
+func (m *mockDatabaseVpcRepo) Create(ctx context.Context, vpc *domain.VPC) error { return nil }
+func (m *mockDatabaseVpcRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.VPC, error) {
 	args := m.Called(ctx, id)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*domain.VPC), args.Error(1)
 }
-func (m *mockVpcRepo) GetByName(ctx context.Context, name string) (*domain.VPC, error) { return nil, nil }
-func (m *mockVpcRepo) List(ctx context.Context) ([]*domain.VPC, error)                { return nil, nil }
-func (m *mockVpcRepo) Delete(ctx context.Context, id uuid.UUID) error                 { return nil }
-func (m *mockVpcRepo) ListByUserID(ctx context.Context, userID uuid.UUID) ([]*domain.VPC, error) {
+func (m *mockDatabaseVpcRepo) GetByName(ctx context.Context, name string) (*domain.VPC, error) { return nil, nil }
+func (m *mockDatabaseVpcRepo) List(ctx context.Context) ([]*domain.VPC, error)                { return nil, nil }
+func (m *mockDatabaseVpcRepo) Delete(ctx context.Context, id uuid.UUID) error                 { return nil }
+func (m *mockDatabaseVpcRepo) ListByUserID(ctx context.Context, userID uuid.UUID) ([]*domain.VPC, error) {
 	return nil, nil
 }
 
@@ -112,7 +112,7 @@ func (m *mockAuditSvc) ListLogs(ctx context.Context, userID uuid.UUID, limit int
 func TestDatabaseService_Unit(t *testing.T) {
 	repo := new(mockDatabaseRepo)
 	compute := new(mockCompute)
-	vpcRepo := new(mockVpcRepo)
+	vpcRepo := new(mockDatabaseVpcRepo)
 	eventSvc := new(mockEventSvc)
 	auditSvc := new(mockAuditSvc)
 	logger := slog.Default()
