@@ -65,6 +65,7 @@ type Handlers struct {
 	GlobalLB      *httphandlers.GlobalLBHandler
 	SSHKey        *httphandlers.SSHKeyHandler
 	ElasticIP     *httphandlers.ElasticIPHandler
+	Log           *httphandlers.LogHandler
 	Ws            *ws.Handler
 }
 
