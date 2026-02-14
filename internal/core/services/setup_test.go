@@ -17,6 +17,9 @@ import (
 )
 
 func setupDB(t *testing.T) *pgxpool.Pool {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
 	ctx := context.Background()
 	dbURL := os.Getenv("DATABASE_URL")
 
