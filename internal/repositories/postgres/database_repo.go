@@ -62,6 +62,20 @@ func (r *DatabaseRepository) List(ctx context.Context) ([]*domain.Database, erro
 	return r.scanDatabases(rows)
 }
 
+func (r *DatabaseRepository) ListReplicas(ctx context.Context, primaryID uuid.UUID) ([]*domain.Database, error) {
+	query := `
+		SELECT id, user_id, name, engine, version, status, role, primary_id, vpc_id, COALESCE(container_id, ''), port, username, password, created_at, updated_at
+		FROM databases
+		WHERE primary_id = $1
+		ORDER BY created_at DESC
+	`
+	rows, err := r.db.Query(ctx, query, primaryID)
+	if err != nil {
+		return nil, errors.Wrap(errors.Internal, "failed to list replicas", err)
+	}
+	return r.scanDatabases(rows)
+}
+
 func (r *DatabaseRepository) scanDatabase(row pgx.Row) (*domain.Database, error) {
 	var db domain.Database
 	var engine, status, role string

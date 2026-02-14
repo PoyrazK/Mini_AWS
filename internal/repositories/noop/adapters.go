@@ -430,6 +430,9 @@ func (r *NoopDatabaseRepository) GetByID(ctx context.Context, id uuid.UUID) (*do
 func (r *NoopDatabaseRepository) List(ctx context.Context) ([]*domain.Database, error) {
 	return []*domain.Database{}, nil
 }
+func (r *NoopDatabaseRepository) ListReplicas(ctx context.Context, primaryID uuid.UUID) ([]*domain.Database, error) {
+	return []*domain.Database{}, nil
+}
 func (r *NoopDatabaseRepository) Update(ctx context.Context, db *domain.Database) error { return nil }
 func (r *NoopDatabaseRepository) Delete(ctx context.Context, id uuid.UUID) error        { return nil }
 

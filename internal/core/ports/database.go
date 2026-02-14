@@ -16,6 +16,8 @@ type DatabaseRepository interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.Database, error)
 	// List returns all database instances (typically filtered by current user context).
 	List(ctx context.Context) ([]*domain.Database, error)
+	// ListReplicas returns all replicas associated with a specific primary database.
+	ListReplicas(ctx context.Context, primaryID uuid.UUID) ([]*domain.Database, error)
 	// Update modifies an existing database's metadata or status.
 	Update(ctx context.Context, db *domain.Database) error
 	// Delete removes a database record from storage.
