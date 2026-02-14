@@ -5,6 +5,7 @@ import (
 	"context"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
@@ -277,12 +278,56 @@ type NoopStorageService struct{}
 func (s *NoopStorageService) Upload(ctx context.Context, bucket, key string, r io.Reader) (*domain.Object, error) {
 	return &domain.Object{Key: key}, nil
 }
-func (s *NoopStorageService) Download(ctx context.Context, bucket, key string) (io.ReadCloser, error) {
-	return io.NopCloser(strings.NewReader("data")), nil
+func (s *NoopStorageService) Download(ctx context.Context, bucket, key string) (io.ReadCloser, *domain.Object, error) {
+	return io.NopCloser(strings.NewReader("data")), &domain.Object{Bucket: bucket, Key: key}, nil
 }
-func (s *NoopStorageService) Delete(ctx context.Context, bucket, key string) error { return nil }
-func (s *NoopStorageService) CreateBucket(ctx context.Context, name string) error  { return nil }
-func (s *NoopStorageService) DeleteBucket(ctx context.Context, name string) error  { return nil }
+func (s *NoopStorageService) ListObjects(ctx context.Context, bucket string) ([]*domain.Object, error) {
+	return []*domain.Object{}, nil
+}
+func (s *NoopStorageService) DeleteObject(ctx context.Context, bucket, key string) error { return nil }
+func (s *NoopStorageService) DownloadVersion(ctx context.Context, bucket, key, versionID string) (io.ReadCloser, *domain.Object, error) {
+	return io.NopCloser(strings.NewReader("data")), &domain.Object{Bucket: bucket, Key: key, VersionID: versionID}, nil
+}
+func (s *NoopStorageService) ListVersions(ctx context.Context, bucket, key string) ([]*domain.Object, error) {
+	return []*domain.Object{}, nil
+}
+func (s *NoopStorageService) DeleteVersion(ctx context.Context, bucket, key, versionID string) error {
+	return nil
+}
+func (s *NoopStorageService) CreateBucket(ctx context.Context, name string, isPublic bool) (*domain.Bucket, error) {
+	return &domain.Bucket{Name: name, IsPublic: isPublic}, nil
+}
+func (s *NoopStorageService) GetBucket(ctx context.Context, name string) (*domain.Bucket, error) {
+	return &domain.Bucket{Name: name}, nil
+}
+func (s *NoopStorageService) DeleteBucket(ctx context.Context, name string) error { return nil }
+func (s *NoopStorageService) ListBuckets(ctx context.Context) ([]*domain.Bucket, error) {
+	return []*domain.Bucket{}, nil
+}
+func (s *NoopStorageService) SetBucketVersioning(ctx context.Context, name string, enabled bool) error {
+	return nil
+}
+func (s *NoopStorageService) GetClusterStatus(ctx context.Context) (*domain.StorageCluster, error) {
+	return &domain.StorageCluster{}, nil
+}
+func (s *NoopStorageService) CreateMultipartUpload(ctx context.Context, bucket, key string) (*domain.MultipartUpload, error) {
+	return &domain.MultipartUpload{Bucket: bucket, Key: key}, nil
+}
+func (s *NoopStorageService) UploadPart(ctx context.Context, uploadID uuid.UUID, partNumber int, r io.Reader) (*domain.Part, error) {
+	return &domain.Part{UploadID: uploadID, PartNumber: partNumber}, nil
+}
+func (s *NoopStorageService) CompleteMultipartUpload(ctx context.Context, uploadID uuid.UUID) (*domain.Object, error) {
+	return &domain.Object{}, nil
+}
+func (s *NoopStorageService) AbortMultipartUpload(ctx context.Context, uploadID uuid.UUID) error {
+	return nil
+}
+func (s *NoopStorageService) CleanupDeleted(ctx context.Context, limit int) (int, error) {
+	return 0, nil
+}
+func (s *NoopStorageService) GeneratePresignedURL(ctx context.Context, bucket, key, method string, expiry time.Duration) (*domain.PresignedURL, error) {
+	return &domain.PresignedURL{}, nil
+}
 
 // NoopLBService is a no-op LB service.
 type NoopLBService struct{}
@@ -504,6 +549,12 @@ func (r *NoopStorageRepository) GetMetaByVersion(ctx context.Context, bucket, ke
 }
 func (r *NoopStorageRepository) ListVersions(ctx context.Context, bucket, key string) ([]*domain.Object, error) {
 	return []*domain.Object{}, nil
+}
+func (r *NoopStorageRepository) ListDeleted(ctx context.Context, limit int) ([]*domain.Object, error) {
+	return []*domain.Object{}, nil
+}
+func (r *NoopStorageRepository) HardDelete(ctx context.Context, bucket, key, ver string) error {
+	return nil
 }
 func (r *NoopStorageRepository) CreateBucket(ctx context.Context, b *domain.Bucket) error { return nil }
 func (r *NoopStorageRepository) GetBucket(ctx context.Context, name string) (*domain.Bucket, error) {

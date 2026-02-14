@@ -55,7 +55,7 @@ func (r *StorageRepository) SaveMeta(ctx context.Context, obj *domain.Object) er
 func (r *StorageRepository) GetMeta(ctx context.Context, bucket, key string) (*domain.Object, error) {
 	userID := appcontext.UserIDFromContext(ctx)
 	query := `
-		SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, created_at
+		SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, created_at, deleted_at
 		FROM objects
 		WHERE bucket = $1 AND key = $2 AND deleted_at IS NULL AND user_id = $3 AND is_latest = TRUE
 	`
@@ -78,7 +78,7 @@ func (r *StorageRepository) DeleteVersion(ctx context.Context, bucket, key, vers
 func (r *StorageRepository) GetMetaByVersion(ctx context.Context, bucket, key, versionID string) (*domain.Object, error) {
 	userID := appcontext.UserIDFromContext(ctx)
 	query := `
-		SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, created_at
+		SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, created_at, deleted_at
 		FROM objects
 		WHERE bucket = $1 AND key = $2 AND version_id = $3 AND deleted_at IS NULL AND user_id = $4
 	`
@@ -88,7 +88,7 @@ func (r *StorageRepository) GetMetaByVersion(ctx context.Context, bucket, key, v
 func (r *StorageRepository) List(ctx context.Context, bucket string) ([]*domain.Object, error) {
 	userID := appcontext.UserIDFromContext(ctx)
 	query := `
-		SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, created_at
+		SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, created_at, deleted_at
 		FROM objects
 		WHERE bucket = $1 AND deleted_at IS NULL AND user_id = $2 AND is_latest = TRUE
 		ORDER BY created_at DESC
@@ -103,7 +103,7 @@ func (r *StorageRepository) List(ctx context.Context, bucket string) ([]*domain.
 func (r *StorageRepository) ListVersions(ctx context.Context, bucket, key string) ([]*domain.Object, error) {
 	userID := appcontext.UserIDFromContext(ctx)
 	query := `
-		SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, created_at
+		SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, created_at, deleted_at
 		FROM objects
 		WHERE bucket = $1 AND key = $2 AND deleted_at IS NULL AND user_id = $3
 		ORDER BY created_at DESC
@@ -115,10 +115,33 @@ func (r *StorageRepository) ListVersions(ctx context.Context, bucket, key string
 	return r.scanObjects(rows)
 }
 
+func (r *StorageRepository) ListDeleted(ctx context.Context, limit int) ([]*domain.Object, error) {
+	query := `
+		SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, created_at, deleted_at
+		FROM objects
+		WHERE deleted_at IS NOT NULL
+		LIMIT $1
+	`
+	rows, err := r.db.Query(ctx, query, limit)
+	if err != nil {
+		return nil, errors.Wrap(errors.Internal, "failed to list deleted objects", err)
+	}
+	return r.scanObjects(rows)
+}
+
+func (r *StorageRepository) HardDelete(ctx context.Context, bucket, key, versionID string) error {
+	query := `DELETE FROM objects WHERE bucket = $1 AND key = $2 AND version_id = $3`
+	_, err := r.db.Exec(ctx, query, bucket, key, versionID)
+	if err != nil {
+		return errors.Wrap(errors.Internal, "failed to hard delete object", err)
+	}
+	return nil
+}
+
 func (r *StorageRepository) scanObject(row pgx.Row) (*domain.Object, error) {
 	var obj domain.Object
 	err := row.Scan(
-		&obj.ID, &obj.UserID, &obj.ARN, &obj.Bucket, &obj.Key, &obj.VersionID, &obj.IsLatest, &obj.SizeBytes, &obj.ContentType, &obj.CreatedAt,
+		&obj.ID, &obj.UserID, &obj.ARN, &obj.Bucket, &obj.Key, &obj.VersionID, &obj.IsLatest, &obj.SizeBytes, &obj.ContentType, &obj.CreatedAt, &obj.DeletedAt,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {

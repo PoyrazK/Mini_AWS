@@ -434,6 +434,35 @@ func (s *StorageService) CompleteMultipartUpload(ctx context.Context, uploadID u
 	return obj, nil
 }
 
+// CleanupDeleted identifies and permanently removes soft-deleted objects.
+func (s *StorageService) CleanupDeleted(ctx context.Context, limit int) (int, error) {
+	// 1. Fetch deleted objects
+	deleted, err := s.repo.ListDeleted(ctx, limit)
+	if err != nil {
+		return 0, errors.Wrap(errors.Internal, "failed to list deleted objects", err)
+	}
+
+	deletedCount := 0
+	for _, obj := range deleted {
+		// 2. Delete from store
+		storeKey := obj.Key
+		if obj.VersionID != "null" {
+			storeKey = versionedStoreKey(obj.Key, obj.VersionID)
+		}
+
+		// We ignore error from store.Delete if it's already missing
+		_ = s.store.Delete(ctx, obj.Bucket, storeKey)
+
+		// 3. Permanent delete from DB
+		if err := s.repo.HardDelete(ctx, obj.Bucket, obj.Key, obj.VersionID); err != nil {
+			return deletedCount, errors.Wrap(errors.Internal, "failed to hard delete object", err)
+		}
+		deletedCount++
+	}
+
+	return deletedCount, nil
+}
+
 // AbortMultipartUpload cancels a multipart upload and cleans up parts.
 func (s *StorageService) AbortMultipartUpload(ctx context.Context, uploadID uuid.UUID) error {
 	// 1. Get upload

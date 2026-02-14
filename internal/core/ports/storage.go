@@ -26,6 +26,10 @@ type StorageRepository interface {
 	GetMetaByVersion(ctx context.Context, bucket, key, versionID string) (*domain.Object, error)
 	// ListVersions returns all versions of a specific object.
 	ListVersions(ctx context.Context, bucket, key string) ([]*domain.Object, error)
+	// ListDeleted returns a list of objects that have been marked as deleted.
+	ListDeleted(ctx context.Context, limit int) ([]*domain.Object, error)
+	// HardDelete permanently removes metadata for a specific object version.
+	HardDelete(ctx context.Context, bucket, key, versionID string) error
 
 	// Bucket operations
 	CreateBucket(ctx context.Context, bucket *domain.Bucket) error
@@ -89,6 +93,9 @@ type StorageService interface {
 	UploadPart(ctx context.Context, uploadID uuid.UUID, partNumber int, r io.Reader) (*domain.Part, error)
 	CompleteMultipartUpload(ctx context.Context, uploadID uuid.UUID) (*domain.Object, error)
 	AbortMultipartUpload(ctx context.Context, uploadID uuid.UUID) error
+
+	// Cleanup
+	CleanupDeleted(ctx context.Context, limit int) (int, error)
 
 	// Presigned URLs
 	GeneratePresignedURL(ctx context.Context, bucket, key, method string, expiry time.Duration) (*domain.PresignedURL, error)

@@ -456,6 +456,18 @@ func (m *MockStorageRepo) ListVersions(ctx context.Context, bucket, key string) 
 	return args.Get(0).([]*domain.Object), args.Error(1)
 }
 
+func (m *MockStorageRepo) ListDeleted(ctx context.Context, limit int) ([]*domain.Object, error) {
+	args := m.Called(ctx, limit)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Object), args.Error(1)
+}
+
+func (m *MockStorageRepo) HardDelete(ctx context.Context, bucket, key, versionID string) error {
+	return m.Called(ctx, bucket, key, versionID).Error(0)
+}
+
 func (m *MockStorageRepo) CreateBucket(ctx context.Context, bucket *domain.Bucket) error {
 	return m.Called(ctx, bucket).Error(0)
 }

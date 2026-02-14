@@ -71,10 +71,10 @@ func TestStorageRepository_GetMeta(t *testing.T) {
 		ctx := appcontext.WithUserID(context.Background(), userID)
 		now := time.Now()
 
-		mock.ExpectQuery("SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, created_at FROM objects").
+		mock.ExpectQuery("SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, created_at, deleted_at FROM objects").
 			WithArgs("mybucket", "mykey", userID).
-			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "arn", "bucket", "key", "version_id", "is_latest", "size_bytes", "content_type", "created_at"}).
-				AddRow(id, userID, "arn", "mybucket", "mykey", "v1", true, int64(1024), "text/plain", now))
+			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "arn", "bucket", "key", "version_id", "is_latest", "size_bytes", "content_type", "created_at", "deleted_at"}).
+				AddRow(id, userID, "arn", "mybucket", "mykey", "v1", true, int64(1024), "text/plain", now, nil))
 
 		obj, err := repo.GetMeta(ctx, "mybucket", "mykey")
 		assert.NoError(t, err)
@@ -134,10 +134,10 @@ func TestStorageRepository_List(t *testing.T) {
 		ctx := appcontext.WithUserID(context.Background(), userID)
 		now := time.Now()
 
-		mock.ExpectQuery("SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, created_at FROM objects").
+		mock.ExpectQuery("SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, created_at, deleted_at FROM objects").
 			WithArgs("mybucket", userID).
-			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "arn", "bucket", "key", "version_id", "is_latest", "size_bytes", "content_type", "created_at"}).
-				AddRow(uuid.New(), userID, "arn", "mybucket", "mykey", "v1", true, int64(1024), "text/plain", now))
+			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "arn", "bucket", "key", "version_id", "is_latest", "size_bytes", "content_type", "created_at", "deleted_at"}).
+				AddRow(uuid.New(), userID, "arn", "mybucket", "mykey", "v1", true, int64(1024), "text/plain", now, nil))
 
 		objects, err := repo.List(ctx, "mybucket")
 		assert.NoError(t, err)

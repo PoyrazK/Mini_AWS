@@ -454,4 +454,24 @@ func TestStorageService_Integration(t *testing.T) {
 		_, err = svc.GeneratePresignedURL(ctx, "ghost", "file.txt", "GET", 0)
 		assert.Error(t, err)
 	})
+
+	t.Run("CleanupDeleted", func(t *testing.T) {
+		bucketName := "cleanup-bucket"
+		_, _ = svc.CreateBucket(ctx, bucketName, false)
+
+		// 1. Upload and soft delete
+		key := "to-be-cleaned.txt"
+		_, _ = svc.Upload(ctx, bucketName, key, strings.NewReader("data"))
+		err := svc.DeleteObject(ctx, bucketName, key)
+		assert.NoError(t, err)
+
+		// 2. Run cleanup
+		count, err := svc.CleanupDeleted(ctx, 10)
+		assert.NoError(t, err)
+		assert.Equal(t, 1, count)
+
+		// 3. Verify it's gone from DB permanently (not even in ListVersions)
+		versions, _ := svc.ListVersions(ctx, bucketName, key)
+		assert.Empty(t, versions)
+	})
 }
