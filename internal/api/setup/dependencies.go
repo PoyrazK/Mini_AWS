@@ -302,6 +302,7 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 			AuditSvc:     auditSvc,
 			Logger:       c.Logger,
 		}),
+		IAM: iamSvc,
 	}
 
 	// 7. High Availability & Monitoring
