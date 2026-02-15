@@ -70,7 +70,7 @@ type Handlers struct {
 }
 
 // InitHandlers constructs HTTP handlers and websocket hub.
-func InitHandlers(svcs *Services, iamRepo ports.IAMRepository, cfg *platform.Config, logger *slog.Logger) *Handlers {
+func InitHandlers(svcs *Services, cfg *platform.Config, logger *slog.Logger) *Handlers {
 	hub := ws.NewHub(logger)
 	go hub.Run()
 
@@ -111,7 +111,7 @@ func InitHandlers(svcs *Services, iamRepo ports.IAMRepository, cfg *platform.Con
 		GlobalLB:      httphandlers.NewGlobalLBHandler(svcs.GlobalLB),
 		SSHKey:        httphandlers.NewSSHKeyHandler(svcs.SSHKey),
 		ElasticIP:     httphandlers.NewElasticIPHandler(svcs.ElasticIP),
-		IAM:           httphandlers.NewIAMHandler(iamRepo),
+		IAM:           httphandlers.NewIAMHandler(svcs.IAM),
 		Ws:            ws.NewHandler(hub, svcs.Identity, logger),
 	}
 }
@@ -208,7 +208,7 @@ func SetupRouter(cfg *platform.Config, logger *slog.Logger, handlers *Handlers, 
 
 func registerIAMRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 	iamGroup := r.Group("/iam")
-	iamGroup.Use(httputil.Auth(svcs.Identity, svcs.Tenant), httputil.Permission(svcs.RBAC, domain.PermissionFullAccess))
+	iamGroup.Use(httputil.Auth(svcs.Identity, svcs.Tenant), httputil.RequireTenant(), httputil.Permission(svcs.RBAC, domain.PermissionFullAccess))
 	{
 		iamGroup.POST("/policies", handlers.IAM.CreatePolicy)
 		iamGroup.GET("/policies", handlers.IAM.ListPolicies)
