@@ -26,8 +26,8 @@ const (
 	rbacRoleNamePrefix = "rbac:role:name:"
 )
 
-func rbacPermKey(userID uuid.UUID, permission domain.Permission) string {
-	return rbacPermPrefix + userID.String() + ":" + string(permission)
+func rbacPermKey(userID uuid.UUID, permission domain.Permission, resource string) string {
+	return rbacPermPrefix + userID.String() + ":" + string(permission) + ":" + resource
 }
 
 func rbacRoleIDKey(roleID uuid.UUID) string {
@@ -38,12 +38,12 @@ func rbacRoleNameKey(name string) string {
 	return rbacRoleNamePrefix + name
 }
 
-func (m *mockRBACService) Authorize(ctx context.Context, userID uuid.UUID, permission domain.Permission) error {
-	args := m.Called(ctx, userID, permission)
+func (m *mockRBACService) Authorize(ctx context.Context, userID uuid.UUID, permission domain.Permission, resource string) error {
+	args := m.Called(ctx, userID, permission, resource)
 	return args.Error(0)
 }
-func (m *mockRBACService) HasPermission(ctx context.Context, userID uuid.UUID, permission domain.Permission) (bool, error) {
-	args := m.Called(ctx, userID, permission)
+func (m *mockRBACService) HasPermission(ctx context.Context, userID uuid.UUID, permission domain.Permission, resource string) (bool, error) {
+	args := m.Called(ctx, userID, permission, resource)
 	return args.Bool(0), args.Error(1)
 }
 func (m *mockRBACService) CreateRole(ctx context.Context, role *domain.Role) error {
@@ -101,6 +101,11 @@ func (m *mockRBACService) ListRoleBindings(ctx context.Context) ([]*domain.User,
 	return args.Get(0).([]*domain.User), args.Error(1)
 }
 
+func (m *mockRBACService) EvaluatePolicy(ctx context.Context, userID uuid.UUID, action string, resource string, context map[string]interface{}) (bool, error) {
+	args := m.Called(ctx, userID, action, resource, context)
+	return args.Bool(0), args.Error(1)
+}
+
 func setupCachedRBACTest(t *testing.T) (*mockRBACService, *redis.Client, *miniredis.Miniredis) {
 	t.Helper()
 
@@ -138,9 +143,9 @@ func TestCachedRBACServiceAuthorizeDelegates(t *testing.T) {
 	svc := services.NewCachedRBACService(mockSvc, cache, logger)
 
 	userID := uuid.New()
-	mockSvc.On("Authorize", mock.Anything, userID, domain.PermissionInstanceRead).Return(nil).Once()
+	mockSvc.On("Authorize", mock.Anything, userID, domain.PermissionInstanceRead, "*").Return(nil).Once()
 
-	err := svc.Authorize(context.Background(), userID, domain.PermissionInstanceRead)
+	err := svc.Authorize(context.Background(), userID, domain.PermissionInstanceRead, "*")
 	assert.NoError(t, err)
 	mockSvc.AssertExpectations(t)
 }
@@ -155,13 +160,13 @@ func TestCachedRBACServiceHasPermissionCacheHit(t *testing.T) {
 
 	ctx := context.Background()
 	userID := uuid.New()
-	key := rbacPermKey(userID, domain.PermissionInstanceRead)
+	key := rbacPermKey(userID, domain.PermissionInstanceRead, "*")
 	cache.Set(ctx, key, "1", time.Minute)
 
-	allowed, err := svc.HasPermission(ctx, userID, domain.PermissionInstanceRead)
+	allowed, err := svc.HasPermission(ctx, userID, domain.PermissionInstanceRead, "*")
 	assert.NoError(t, err)
 	assert.True(t, allowed)
-	mockSvc.AssertNotCalled(t, "HasPermission", mock.Anything, mock.Anything, mock.Anything)
+	mockSvc.AssertNotCalled(t, "HasPermission", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 }
 
 func TestCachedRBACServiceHasPermissionCacheMiss(t *testing.T) {
@@ -176,13 +181,13 @@ func TestCachedRBACServiceHasPermissionCacheMiss(t *testing.T) {
 	userID := uuid.New()
 	permission := domain.PermissionInstanceRead
 
-	mockSvc.On("HasPermission", mock.Anything, userID, permission).Return(true, nil).Once()
+	mockSvc.On("HasPermission", mock.Anything, userID, permission, "*").Return(true, nil).Once()
 
-	allowed, err := svc.HasPermission(ctx, userID, permission)
+	allowed, err := svc.HasPermission(ctx, userID, permission, "*")
 	assert.NoError(t, err)
 	assert.True(t, allowed)
 
-	key := rbacPermKey(userID, permission)
+	key := rbacPermKey(userID, permission, "*")
 	assert.Equal(t, "1", cache.Get(ctx, key).Val())
 }
 
@@ -198,9 +203,9 @@ func TestCachedRBACServiceHasPermissionError(t *testing.T) {
 	userID := uuid.New()
 	permission := domain.PermissionInstanceRead
 
-	mockSvc.On("HasPermission", mock.Anything, userID, permission).Return(false, assert.AnError).Once()
+	mockSvc.On("HasPermission", mock.Anything, userID, permission, "*").Return(false, assert.AnError).Once()
 
-	allowed, err := svc.HasPermission(ctx, userID, permission)
+	allowed, err := svc.HasPermission(ctx, userID, permission, "*")
 	assert.Error(t, err)
 	assert.False(t, allowed)
 

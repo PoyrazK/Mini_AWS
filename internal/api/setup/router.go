@@ -66,6 +66,7 @@ type Handlers struct {
 	SSHKey        *httphandlers.SSHKeyHandler
 	ElasticIP     *httphandlers.ElasticIPHandler
 	Log           *httphandlers.LogHandler
+	IAM           *httphandlers.IAMHandler
 	Ws            *ws.Handler
 }
 
@@ -112,6 +113,7 @@ func InitHandlers(svcs *Services, cfg *platform.Config, logger *slog.Logger) *Ha
 		SSHKey:        httphandlers.NewSSHKeyHandler(svcs.SSHKey),
 		ElasticIP:     httphandlers.NewElasticIPHandler(svcs.ElasticIP),
 		Log:           httphandlers.NewLogHandler(svcs.Log),
+		IAM:           httphandlers.NewIAMHandler(svcs.IAM),
 		Ws:            ws.NewHandler(hub, svcs.Identity, logger),
 	}
 }
@@ -181,6 +183,7 @@ func SetupRouter(cfg *platform.Config, logger *slog.Logger, handlers *Handlers, 
 	registerDataRoutes(r, handlers, services)
 	registerDevOpsRoutes(r, handlers, services)
 	registerTenantRoutes(r, handlers, services)
+	registerIAMRoutes(r, handlers, services)
 	registerAdminRoutes(r, handlers, services)
 	registerLogRoutes(r, handlers, services)
 
@@ -204,6 +207,21 @@ func SetupRouter(cfg *platform.Config, logger *slog.Logger, handlers *Handlers, 
 	}
 
 	return r
+}
+
+func registerIAMRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
+	iamGroup := r.Group("/iam")
+	iamGroup.Use(httputil.Auth(svcs.Identity, svcs.Tenant), httputil.RequireTenant(), httputil.Permission(svcs.RBAC, domain.PermissionFullAccess))
+	{
+		iamGroup.POST("/policies", handlers.IAM.CreatePolicy)
+		iamGroup.GET("/policies", handlers.IAM.ListPolicies)
+		iamGroup.GET("/policies/:id", handlers.IAM.GetPolicyByID)
+		iamGroup.DELETE("/policies/:id", handlers.IAM.DeletePolicy)
+
+		iamGroup.POST("/users/:userId/policies/:policyId", handlers.IAM.AttachPolicyToUser)
+		iamGroup.DELETE("/users/:userId/policies/:policyId", handlers.IAM.DetachPolicyFromUser)
+		iamGroup.GET("/users/:userId/policies", handlers.IAM.GetUserPolicies)
+	}
 }
 
 func registerAuthRoutes(r *gin.Engine, handlers *Handlers, svcs *Services, cfg *platform.Config, logger *slog.Logger) {

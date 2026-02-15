@@ -30,12 +30,12 @@ type mockRBACService struct {
 	mock.Mock
 }
 
-func (m *mockRBACService) Authorize(ctx context.Context, userID uuid.UUID, permission domain.Permission) error {
-	args := m.Called(ctx, userID, permission)
+func (m *mockRBACService) Authorize(ctx context.Context, userID uuid.UUID, permission domain.Permission, resource string) error {
+	args := m.Called(ctx, userID, permission, resource)
 	return args.Error(0)
 }
-func (m *mockRBACService) HasPermission(ctx context.Context, userID uuid.UUID, permission domain.Permission) (bool, error) {
-	args := m.Called(ctx, userID, permission)
+func (m *mockRBACService) HasPermission(ctx context.Context, userID uuid.UUID, permission domain.Permission, resource string) (bool, error) {
+	args := m.Called(ctx, userID, permission, resource)
 	return args.Bool(0), args.Error(1)
 }
 func (m *mockRBACService) CreateRole(ctx context.Context, role *domain.Role) error {
@@ -87,6 +87,11 @@ func (m *mockRBACService) ListRoleBindings(ctx context.Context) ([]*domain.User,
 		return nil, args.Error(1)
 	}
 	return args.Get(0).([]*domain.User), args.Error(1)
+}
+
+func (m *mockRBACService) EvaluatePolicy(ctx context.Context, userID uuid.UUID, action string, resource string, context map[string]interface{}) (bool, error) {
+	args := m.Called(ctx, userID, action, resource, context)
+	return args.Bool(0), args.Error(1)
 }
 
 func setupRBACHandlerTest(_ *testing.T) (*mockRBACService, *RBACHandler, *gin.Engine) {
