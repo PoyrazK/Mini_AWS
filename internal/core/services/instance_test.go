@@ -520,7 +520,8 @@ func TestInstanceService_LifecycleMethods(t *testing.T) {
 		err := svc.StopInstance(ctx, inst.ID.String())
 		assert.NoError(t, err)
 		
-		dbInst, _ := repo.GetByID(ctx, inst.ID)
+		dbInst, err := repo.GetByID(ctx, inst.ID)
+		require.NoError(t, err)
 		assert.Equal(t, domain.StatusStopped, dbInst.Status)
 	})
 
@@ -528,7 +529,8 @@ func TestInstanceService_LifecycleMethods(t *testing.T) {
 		err := svc.StartInstance(ctx, inst.ID.String())
 		assert.NoError(t, err)
 		
-		dbInst, _ := repo.GetByID(ctx, inst.ID)
+		dbInst, err := repo.GetByID(ctx, inst.ID)
+		require.NoError(t, err)
 		assert.Equal(t, domain.StatusRunning, dbInst.Status)
 	})
 
@@ -554,7 +556,11 @@ func TestInstanceService_LifecycleMethods(t *testing.T) {
 	})
 
 	// Cleanup
-	_ = compute.DeleteInstance(ctx, inst.ContainerID)
+	// Refresh instance to get the latest container ID after provisioning/restarts
+	refreshInst, err := repo.GetByID(ctx, inst.ID)
+	if err == nil && refreshInst.ContainerID != "" {
+		_ = compute.DeleteInstance(ctx, refreshInst.ContainerID)
+	}
 }
 
 func TestLaunchInstanceWithOptions(t *testing.T) {
