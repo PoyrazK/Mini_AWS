@@ -28,6 +28,7 @@ type Statement struct {
 // Policy represents a JSON-based identity policy.
 type Policy struct {
 	ID          uuid.UUID   `json:"id"`
+	TenantID    uuid.UUID   `json:"tenant_id"`
 	Name        string      `json:"name"`
 	Description string      `json:"description,omitempty"`
 	Statements  []Statement `json:"statements"`
