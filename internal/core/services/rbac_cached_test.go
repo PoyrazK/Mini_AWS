@@ -143,9 +143,9 @@ func TestCachedRBACServiceAuthorizeDelegates(t *testing.T) {
 	svc := services.NewCachedRBACService(mockSvc, cache, logger)
 
 	userID := uuid.New()
-	mockSvc.On("Authorize", mock.Anything, userID, domain.PermissionInstanceRead).Return(nil).Once()
+	mockSvc.On("Authorize", mock.Anything, userID, domain.PermissionInstanceRead, "*").Return(nil).Once()
 
-	err := svc.Authorize(context.Background(), userID, domain.PermissionInstanceRead)
+	err := svc.Authorize(context.Background(), userID, domain.PermissionInstanceRead, "*")
 	assert.NoError(t, err)
 	mockSvc.AssertExpectations(t)
 }
@@ -163,10 +163,10 @@ func TestCachedRBACServiceHasPermissionCacheHit(t *testing.T) {
 	key := rbacPermKey(userID, domain.PermissionInstanceRead)
 	cache.Set(ctx, key, "1", time.Minute)
 
-	allowed, err := svc.HasPermission(ctx, userID, domain.PermissionInstanceRead)
+	allowed, err := svc.HasPermission(ctx, userID, domain.PermissionInstanceRead, "*")
 	assert.NoError(t, err)
 	assert.True(t, allowed)
-	mockSvc.AssertNotCalled(t, "HasPermission", mock.Anything, mock.Anything, mock.Anything)
+	mockSvc.AssertNotCalled(t, "HasPermission", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 }
 
 func TestCachedRBACServiceHasPermissionCacheMiss(t *testing.T) {
@@ -181,9 +181,9 @@ func TestCachedRBACServiceHasPermissionCacheMiss(t *testing.T) {
 	userID := uuid.New()
 	permission := domain.PermissionInstanceRead
 
-	mockSvc.On("HasPermission", mock.Anything, userID, permission).Return(true, nil).Once()
+	mockSvc.On("HasPermission", mock.Anything, userID, permission, "*").Return(true, nil).Once()
 
-	allowed, err := svc.HasPermission(ctx, userID, permission)
+	allowed, err := svc.HasPermission(ctx, userID, permission, "*")
 	assert.NoError(t, err)
 	assert.True(t, allowed)
 
@@ -203,9 +203,9 @@ func TestCachedRBACServiceHasPermissionError(t *testing.T) {
 	userID := uuid.New()
 	permission := domain.PermissionInstanceRead
 
-	mockSvc.On("HasPermission", mock.Anything, userID, permission).Return(false, assert.AnError).Once()
+	mockSvc.On("HasPermission", mock.Anything, userID, permission, "*").Return(false, assert.AnError).Once()
 
-	allowed, err := svc.HasPermission(ctx, userID, permission)
+	allowed, err := svc.HasPermission(ctx, userID, permission, "*")
 	assert.Error(t, err)
 	assert.False(t, allowed)
 
