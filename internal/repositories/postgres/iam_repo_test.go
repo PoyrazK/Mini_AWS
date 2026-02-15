@@ -39,15 +39,16 @@ func TestIAMRepository_Unit(t *testing.T) {
 	})
 
 	t.Run("GetPolicyByID", func(t *testing.T) {
-		statementsJSON, _ := json.Marshal(policy.Statements)
-		rows := pgxmock.NewRows([]string{"id", "name", "description", "statements"}).
-			AddRow(policy.ID, policy.Name, policy.Description, statementsJSON)
+		statementsJSON, err := json.Marshal(policy.Statements)
+		require.NoError(t, err)
+		rows := pgxmock.NewRows([]string{"id", "tenant_id", "name", "description", "statements"}).
+			AddRow(policy.ID, policy.TenantID, policy.Name, policy.Description, statementsJSON)
 
-		mock.ExpectQuery("SELECT id, name, description, statements FROM policies").
-			WithArgs(policy.ID).
+		mock.ExpectQuery("SELECT id, tenant_id, name, description, statements FROM policies").
+			WithArgs(policy.ID, policy.TenantID).
 			WillReturnRows(rows)
 
-		fetched, err := repo.GetPolicyByID(ctx, policy.ID)
+		fetched, err := repo.GetPolicyByID(ctx, policy.TenantID, policy.ID)
 		assert.NoError(t, err)
 		assert.Equal(t, policy.ID, fetched.ID)
 		assert.Equal(t, policy.Name, fetched.Name)
