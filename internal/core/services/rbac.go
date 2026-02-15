@@ -161,15 +161,20 @@ func (s *rbacService) ListRoleBindings(ctx context.Context) ([]*domain.User, err
 	return s.userRepo.List(ctx)
 }
 
-func (s *rbacService) EvaluatePolicy(ctx context.Context, userID uuid.UUID, action string, resource string, context map[string]interface{}) (bool, error) {
-	policies, err := s.iamRepo.GetPoliciesForUser(ctx, userID)
+func (s *rbacService) EvaluatePolicy(ctx context.Context, userID uuid.UUID, action string, resource string, evalCtx map[string]interface{}) (bool, error) {
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return false, err
+	}
+
+	policies, err := s.iamRepo.GetPoliciesForUser(ctx, user.TenantID, userID)
 	if err != nil {
 		return false, err
 	}
 	if len(policies) == 0 {
 		return false, nil
 	}
-	return s.evaluator.Evaluate(policies, action, resource, context)
+	return s.evaluator.Evaluate(ctx, policies, action, resource, evalCtx)
 }
 
 func (s *rbacService) hasDefaultPermission(roleName string, permission domain.Permission) (bool, error) {
