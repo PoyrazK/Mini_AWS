@@ -70,5 +70,5 @@ type RBACService interface {
 	ListRoleBindings(ctx context.Context) ([]*domain.User, error)
 
 	// IAM Policy Support
-	EvaluatePolicy(ctx context.Context, userID uuid.UUID, action string, resource string, context map[string]interface{}) (bool, error)
+	EvaluatePolicy(ctx context.Context, userID uuid.UUID, action string, resource string, evalCtx map[string]interface{}) (bool, error)
 }
