@@ -6,6 +6,7 @@ on:
     paths:
       - 'internal/core/services/database.go'
       - 'internal/repositories/postgres/database_repo.go'
+      - 'internal/repositories/postgres/migrations/*.sql'
       - 'internal/workers/database_failover_worker.go'
       - 'tests/database_replication_e2e_test.go'
       - '.github/workflows/database-replication.yml'
@@ -14,6 +15,7 @@ on:
     paths:
       - 'internal/core/services/database.go'
       - 'internal/repositories/postgres/database_repo.go'
+      - 'internal/repositories/postgres/migrations/*.sql'
       - 'internal/workers/database_failover_worker.go'
       - 'tests/database_replication_e2e_test.go'
       - '.github/workflows/database-replication.yml'
