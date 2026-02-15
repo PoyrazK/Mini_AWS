@@ -73,7 +73,7 @@ jobs:
       - name: Install Dependencies
         run: go mod download
 
-      - name: Wait for Database
+      - name: Wait for Services
         run: |
           until pg_isready -h localhost -p 5433 -U cloud; do
             echo "Waiting for primary postgres..."
@@ -83,12 +83,18 @@ jobs:
             echo "Waiting for replica postgres..."
             sleep 2
           done
+          until redis-cli ping; do
+            echo "Waiting for redis..."
+            sleep 2
+          done
 
-      - name: Run Database Migrations
+      - name: Reset Database
         env:
           DATABASE_URL: postgres://cloud:cloud@localhost:5433/cloud?sslmode=disable
         run: |
-          go run ./cmd/api -migrate-only
+          # Ensure a completely fresh database for the metadata
+          PGPASSWORD=cloud psql -h localhost -p 5433 -U cloud -d postgres -c "DROP DATABASE IF EXISTS cloud;"
+          PGPASSWORD=cloud psql -h localhost -p 5433 -U cloud -d postgres -c "CREATE DATABASE cloud;"
 
       - name: Start API Server
         env:
@@ -97,22 +103,19 @@ jobs:
           TEST_DOCKER_NETWORK: cloud-network
         run: |
           # Start the API server in the background
+          # The server will run migrations automatically on startup
           go run ./cmd/api > api.log 2>&1 &
           echo $! > api.pid
           
           # Wait for the server to be ready
           echo "Waiting for API server to start..."
-          timeout 30s bash -c 'until curl -s http://localhost:8080/health/live; do sleep 1; done' || (cat api.log && exit 1)
+          timeout 60s bash -c 'until curl -s http://localhost:8080/health/live; do sleep 1; done' || (cat api.log && exit 1)
           echo "API server started."
 
       - name: Run Replication E2E Tests
         env:
           DATABASE_URL: postgres://cloud:cloud@localhost:5433/cloud?sslmode=disable
           TEST_DOCKER_NETWORK: cloud-network
-          # In CI, we use the service name for container-to-container comms if using docker network,
-          # but here we run tests from host against exposed ports. 
-          # The API normally spawns docker containers.
-          # For this E2E test, we rely on the logic that spawns real docker containers.
         run: |
           # Create the network the API will use
           docker network create cloud-network || true
@@ -121,4 +124,4 @@ jobs:
           go test -v -timeout 5m -run TestDatabaseReplicationE2E ./tests/...
           
           # Cleanup
-          kill $(cat api.pid)
+          kill $(cat api.pid) || true
