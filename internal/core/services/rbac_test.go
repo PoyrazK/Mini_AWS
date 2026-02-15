@@ -55,7 +55,7 @@ func TestRBACService_Integration(t *testing.T) {
 		err = userRepo.Create(ctx, user)
 		require.NoError(t, err)
 
-		err = svc.Authorize(ctx, userID, domain.PermissionInstanceLaunch)
+		err = svc.Authorize(ctx, userID, domain.PermissionInstanceLaunch, "*")
 		assert.NoError(t, err)
 	})
 
@@ -70,7 +70,7 @@ func TestRBACService_Integration(t *testing.T) {
 		require.NoError(t, err)
 
 		// Viewer doesn't have launch permission by default even if role not in DB (fallback might allow read but not launch)
-		err = svc.Authorize(ctx, userID, domain.PermissionInstanceLaunch)
+		err = svc.Authorize(ctx, userID, domain.PermissionInstanceLaunch, "*")
 		assert.Error(t, err)
 	})
 
