@@ -745,6 +745,7 @@ definitions:
     - db:create
     - db:delete
     - db:read
+    - db:update
     - secret:create
     - secret:delete
     - secret:read
@@ -821,6 +822,7 @@ definitions:
     - PermissionDBCreate
     - PermissionDBDelete
     - PermissionDBRead
+    - PermissionDBUpdate
     - PermissionSecretCreate
     - PermissionSecretDelete
     - PermissionSecretRead
