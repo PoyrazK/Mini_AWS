@@ -20,7 +20,7 @@ func (e *iamEvaluator) Evaluate(ctx context.Context, policies []*domain.Policy, 
 	for _, policy := range policies {
 		for _, statement := range policy.Statements {
 			// Skip statements with conditions for now
-			if statement.Condition != nil && len(statement.Condition) > 0 {
+			if len(statement.Condition) > 0 {
 				continue
 			}
 
