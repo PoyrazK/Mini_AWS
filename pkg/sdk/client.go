@@ -49,7 +49,11 @@ type ErrorResponse struct {
 }
 
 // get performs a GET request against the API.
-func (c *Client) get(ctx context.Context, path string, result interface{}) error {
+func (c *Client) get(path string, result interface{}) error {
+	return c.getWithContext(context.Background(), path, result)
+}
+
+func (c *Client) getWithContext(ctx context.Context, path string, result interface{}) error {
 	resp, err := c.resty.R().
 		SetContext(ctx).
 		SetResult(result).
@@ -66,7 +70,11 @@ func (c *Client) get(ctx context.Context, path string, result interface{}) error
 	return nil
 }
 
-func (c *Client) post(ctx context.Context, path string, body interface{}, result interface{}) error {
+func (c *Client) post(path string, body interface{}, result interface{}) error {
+	return c.postWithContext(context.Background(), path, body, result)
+}
+
+func (c *Client) postWithContext(ctx context.Context, path string, body interface{}, result interface{}) error {
 	req := c.resty.R().SetContext(ctx)
 	if body != nil {
 		req.SetBody(body)
@@ -87,7 +95,11 @@ func (c *Client) post(ctx context.Context, path string, body interface{}, result
 	return nil
 }
 
-func (c *Client) delete(ctx context.Context, path string, result interface{}) error {
+func (c *Client) delete(path string, result interface{}) error {
+	return c.deleteWithContext(context.Background(), path, result)
+}
+
+func (c *Client) deleteWithContext(ctx context.Context, path string, result interface{}) error {
 	req := c.resty.R().SetContext(ctx)
 	if result != nil {
 		req.SetResult(result)
@@ -105,7 +117,11 @@ func (c *Client) delete(ctx context.Context, path string, result interface{}) er
 	return nil
 }
 
-func (c *Client) put(ctx context.Context, path string, body interface{}, result interface{}) error {
+func (c *Client) put(path string, body interface{}, result interface{}) error {
+	return c.putWithContext(context.Background(), path, body, result)
+}
+
+func (c *Client) putWithContext(ctx context.Context, path string, body interface{}, result interface{}) error {
 	req := c.resty.R().SetContext(ctx)
 	if body != nil {
 		req.SetBody(body)
@@ -126,7 +142,11 @@ func (c *Client) put(ctx context.Context, path string, body interface{}, result 
 	return nil
 }
 
-func (c *Client) patch(ctx context.Context, path string, body interface{}, result interface{}) error {
+func (c *Client) patch(path string, body interface{}, result interface{}) error {
+	return c.patchWithContext(context.Background(), path, body, result)
+}
+
+func (c *Client) patchWithContext(ctx context.Context, path string, body interface{}, result interface{}) error {
 	req := c.resty.R().SetContext(ctx)
 	if body != nil {
 		req.SetBody(body)

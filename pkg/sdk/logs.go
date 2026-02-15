@@ -1,6 +1,7 @@
 package sdk
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"strconv"
@@ -73,7 +74,7 @@ func (c *Client) SearchLogs(ctx context.Context, query LogQuery) (*LogSearchResp
 	}
 
 	var res Response[LogSearchResponse]
-	if err := c.get(ctx, path, &res); err != nil {
+	if err := c.getWithContext(ctx, path, &res); err != nil {
 		return nil, err
 	}
 	return &res.Data, nil
@@ -87,7 +88,7 @@ func (c *Client) GetLogsByResource(ctx context.Context, resourceID string, limit
 	}
 
 	var res Response[LogSearchResponse]
-	if err := c.get(ctx, path, &res); err != nil {
+	if err := c.getWithContext(ctx, path, &res); err != nil {
 		return nil, err
 	}
 	return &res.Data, nil
