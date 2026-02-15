@@ -327,7 +327,7 @@ func initIdentityServices(c ServiceConfig, audit ports.AuditService) ports.Ident
 }
 
 func initRBACServices(c ServiceConfig) ports.RBACService {
-	iamRepo := postgres.NewIAMRepository(c.DB)
+	iamRepo := c.Repos.IAM
 	evaluator := services.NewIAMEvaluator()
 	base := services.NewRBACService(c.Repos.User, c.Repos.RBAC, iamRepo, evaluator, c.Logger)
 	return services.NewCachedRBACService(base, c.RDB, c.Logger)
