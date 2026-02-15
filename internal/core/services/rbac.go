@@ -31,18 +31,18 @@ func NewRBACService(userRepo ports.UserRepository, roleRepo ports.RoleRepository
 	}
 }
 
-func (s *rbacService) Authorize(ctx context.Context, userID uuid.UUID, permission domain.Permission) error {
-	allowed, err := s.HasPermission(ctx, userID, permission)
+func (s *rbacService) Authorize(ctx context.Context, userID uuid.UUID, permission domain.Permission, resource string) error {
+	allowed, err := s.HasPermission(ctx, userID, permission, resource)
 	if err != nil {
 		return err
 	}
 	if !allowed {
-		return errors.New(errors.Forbidden, fmt.Sprintf("permission denied: %s", permission))
+		return errors.New(errors.Forbidden, fmt.Sprintf("permission denied: %s on %s", permission, resource))
 	}
 	return nil
 }
 
-func (s *rbacService) HasPermission(ctx context.Context, userID uuid.UUID, permission domain.Permission) (bool, error) {
+func (s *rbacService) HasPermission(ctx context.Context, userID uuid.UUID, permission domain.Permission, resource string) (bool, error) {
 	// 1. Get user
 	user, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
@@ -50,20 +50,27 @@ func (s *rbacService) HasPermission(ctx context.Context, userID uuid.UUID, permi
 		return false, fmt.Errorf("failed to get user: %w", err)
 	}
 
-	s.logger.Debug("IAM: checking permission", "user_id", userID, "user_role", user.Role, "permission", permission)
+	s.logger.Debug("IAM: checking permission", "user_id", userID, "user_role", user.Role, "permission", permission, "resource", resource)
 
 	// 2. Check Attached IAM Policies (New Logic)
-	policies, err := s.iamRepo.GetPoliciesForUser(ctx, userID)
-	if err == nil && len(policies) > 0 {
-		allowed, evalErr := s.evaluator.Evaluate(policies, string(permission), "*", nil)
-		if evalErr == nil {
-			if allowed {
-				return true, nil
-			}
-			// If policies exist and evaluation resulted in Deny (explicit or implicit),
-			// we do NOT fall through to legacy roles. Deny always wins.
-			return false, nil
+	policies, err := s.iamRepo.GetPoliciesForUser(ctx, user.TenantID, userID)
+	if err != nil {
+		s.logger.Error("IAM: failed to get policies for user", "user_id", userID, "error", err)
+		return false, err // Fail closed on error
+	}
+
+	if len(policies) > 0 {
+		allowed, evalErr := s.evaluator.Evaluate(ctx, policies, string(permission), resource, nil)
+		if evalErr != nil {
+			s.logger.Error("IAM: policy evaluation error", "user_id", userID, "error", evalErr)
+			return false, evalErr // Fail closed on error
 		}
+		if allowed {
+			return true, nil
+		}
+		// If policies exist and evaluation resulted in Deny (explicit or implicit),
+		// we do NOT fall through to legacy roles. Deny always wins.
+		return false, nil
 	}
 
 	// 3. Fallback to Role-based logic (Legacy/Compatibility)
