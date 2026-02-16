@@ -74,7 +74,11 @@ func DefaultDeps() AppDeps {
 		InitHandlers:       setup.InitHandlers,
 		SetupRouter:        setup.SetupRouter,
 		NewHTTPServer: func(addr string, handler http.Handler) *http.Server {
-			return &http.Server{Addr: addr, Handler: handler}
+			return &http.Server{
+				Addr:              addr,
+				Handler:           handler,
+				ReadHeaderTimeout: 10 * time.Second,
+			}
 		},
 		StartHTTPServer: func(s *http.Server) error {
 			return s.ListenAndServe()
