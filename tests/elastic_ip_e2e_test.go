@@ -150,7 +150,9 @@ func TestElasticIPE2E(t *testing.T) {
 			t.Logf("Instance %s did not become ready in time, skipping association test", instanceID)
 			// Still try to cleanup
 			termResp := deleteRequest(t, client, testutil.TestBaseURL+testutil.TestRouteInstances+"/"+instanceID, token)
-			closeResponse(t, termResp)
+			if termResp != nil {
+				_ = termResp.Body.Close()
+			}
 			t.SkipNow()
 		}
 
@@ -181,7 +183,9 @@ func TestElasticIPE2E(t *testing.T) {
 
 		// Cleanup: terminate instance
 		termResp := deleteRequest(t, client, testutil.TestBaseURL+testutil.TestRouteInstances+"/"+instanceID, token)
-		closeResponse(t, termResp)
+		if termResp != nil {
+			_ = termResp.Body.Close()
+		}
 	})
 
 	// 5. Release Elastic IP

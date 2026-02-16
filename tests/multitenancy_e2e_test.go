@@ -127,5 +127,8 @@ func deleteInstance(t *testing.T, client *http.Client, token, id string) {
 	req, _ := http.NewRequest("DELETE", fmt.Sprintf(instancePathFmt, testutil.TestBaseURL, id), nil)
 	req.Header.Set(testutil.TestHeaderAPIKey, token)
 	applyTenantHeader(t, req, token)
-	_, _ = client.Do(req)
+	resp, err := client.Do(req)
+	if err == nil {
+		defer func() { _ = resp.Body.Close() }()
+	}
 }
