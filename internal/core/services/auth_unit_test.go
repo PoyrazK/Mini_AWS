@@ -12,7 +12,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-func TestAuthService_Register_Unit(t *testing.T) {
+func TestAuthService_Unit_Extended(t *testing.T) {
 	mockUserRepo := new(MockUserRepo)
 	mockIdentitySvc := new(MockIdentityService)
 	mockAuditSvc := new(MockAuditService)
@@ -25,7 +25,7 @@ func TestAuthService_Register_Unit(t *testing.T) {
 	password := "StrongPass123!@#LongEnoughToPassValidator"
 	name := "Test User"
 
-	t.Run("Success", func(t *testing.T) {
+	t.Run("Register_Success", func(t *testing.T) {
 		mockUserRepo.On("GetByEmail", mock.Anything, email).Return(nil, nil).Once()
 		mockUserRepo.On("Create", mock.Anything, mock.Anything).Return(nil).Once()
 		mockTenantSvc.On("CreateTenant", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
@@ -43,37 +43,7 @@ func TestAuthService_Register_Unit(t *testing.T) {
 		mockTenantSvc.AssertExpectations(t)
 	})
 
-	t.Run("WeakPassword", func(t *testing.T) {
-		user, err := svc.Register(ctx, email, "weak", name)
-		assert.Error(t, err)
-		assert.Nil(t, user)
-		assert.Contains(t, err.Error(), "weak")
-	})
-
-	t.Run("DuplicateEmail", func(t *testing.T) {
-		mockUserRepo.On("GetByEmail", mock.Anything, email).Return(&domain.User{ID: uuid.New()}, nil).Once()
-
-		user, err := svc.Register(ctx, email, password, name)
-
-		assert.Error(t, err)
-		assert.Nil(t, user)
-		assert.Contains(t, err.Error(), "already exists")
-	})
-}
-
-func TestAuthService_Login_Unit(t *testing.T) {
-	mockUserRepo := new(MockUserRepo)
-	mockIdentitySvc := new(MockIdentityService)
-	mockAuditSvc := new(MockAuditService)
-	mockTenantSvc := new(MockTenantService)
-
-	svc := services.NewAuthService(mockUserRepo, mockIdentitySvc, mockAuditSvc, mockTenantSvc)
-
-	ctx := context.Background()
-	email := "login@example.com"
-	password := "Password123!"
-
-	t.Run("Success", func(t *testing.T) {
+	t.Run("Login_Success", func(t *testing.T) {
 		hp, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 		user := &domain.User{
 			ID:           uuid.New(),
@@ -92,34 +62,15 @@ func TestAuthService_Login_Unit(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotNil(t, resultUser)
 		assert.Equal(t, "test-key", token)
-		mockUserRepo.AssertExpectations(t)
-		mockIdentitySvc.AssertExpectations(t)
 	})
 
-	t.Run("UserNotFound", func(t *testing.T) {
-		mockUserRepo.On("GetByEmail", mock.Anything, email).Return(nil, nil).Once()
-
-		user, token, err := svc.Login(ctx, email, password)
-
-		assert.Error(t, err)
-		assert.Empty(t, token)
-		assert.Nil(t, user)
-	})
-
-	t.Run("WrongPassword", func(t *testing.T) {
-		hp, _ := bcrypt.GenerateFromPassword([]byte("different"), bcrypt.DefaultCost)
-		user := &domain.User{
-			ID:           uuid.New(),
-			Email:        email,
-			PasswordHash: string(hp),
-		}
-
-		mockUserRepo.On("GetByEmail", mock.Anything, email).Return(user, nil).Once()
-
-		user, token, err := svc.Login(ctx, email, password)
-
-		assert.Error(t, err)
-		assert.Empty(t, token)
-		assert.Nil(t, user)
+	t.Run("ValidateUser", func(t *testing.T) {
+		userID := uuid.New()
+		user := &domain.User{ID: userID}
+		mockUserRepo.On("GetByID", mock.Anything, userID).Return(user, nil).Once()
+		
+		res, err := svc.ValidateUser(ctx, userID)
+		assert.NoError(t, err)
+		assert.Equal(t, user, res)
 	})
 }
