@@ -5,6 +5,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	stdlib_errors "errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -234,7 +235,7 @@ func (s *FunctionService) captureInvocationResults(i *domain.Invocation, contain
 
 	if waitErr != nil {
 		i.Status = "FAILED"
-		if waitErr == context.DeadlineExceeded {
+		if stdlib_errors.Is(waitErr, context.DeadlineExceeded) {
 			i.Logs += "\nError: Execution timed out"
 		} else {
 			i.Logs += fmt.Sprintf("\nError: %v", waitErr)
@@ -336,7 +337,7 @@ func (s *FunctionService) extractZipFile(file *zip.File, tmpDir string) error {
 	// and check for excessive total size if needed.
 	const maxFileSize = 10 * 1024 * 1024
 	_, err = io.CopyN(dst, src, maxFileSize)
-	if err != nil && err != io.EOF {
+	if err != nil && !stdlib_errors.Is(err, io.EOF) {
 		return err
 	}
 	return nil
