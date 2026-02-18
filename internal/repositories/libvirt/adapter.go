@@ -327,7 +327,7 @@ func (a *LibvirtAdapter) StopInstance(ctx context.Context, id string) error {
 func (a *LibvirtAdapter) DeleteInstance(ctx context.Context, id string) error {
 	dom, err := a.client.DomainLookupByName(ctx, id)
 	if err != nil {
-		return nil
+		return nil //nolint:nilerr // idempotent: ignore if domain not found
 	}
 
 	a.stopDomainIfRunning(ctx, dom)

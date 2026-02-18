@@ -395,7 +395,7 @@ func (p *KubeadmProvisioner) GetHealth(ctx context.Context, cluster *domain.Clus
 
 	if err != nil {
 		health.Message = "API server is unreachable"
-		return health, nil
+		return health, nil //nolint:nilerr
 	}
 
 	// Get Node Status

@@ -23,7 +23,7 @@ func NewRPCServer(store *LocalStore, gossiper *GossipProtocol) *RPCServer {
 func (s *RPCServer) Store(ctx context.Context, req *pb.StoreRequest) (*pb.StoreResponse, error) {
 	err := s.store.Write(req.Bucket, req.Key, req.Data, req.Timestamp)
 	if err != nil {
-		return &pb.StoreResponse{Success: false, Error: err.Error()}, nil
+		return &pb.StoreResponse{Success: false, Error: err.Error()}, nil //nolint:nilerr
 	}
 	return &pb.StoreResponse{Success: true}, nil
 }
@@ -34,7 +34,7 @@ func (s *RPCServer) Retrieve(ctx context.Context, req *pb.RetrieveRequest) (*pb.
 		if os.IsNotExist(err) {
 			return &pb.RetrieveResponse{Found: false}, nil
 		}
-		return &pb.RetrieveResponse{Found: false, Error: err.Error()}, nil
+		return &pb.RetrieveResponse{Found: false, Error: err.Error()}, nil //nolint:nilerr
 	}
 	return &pb.RetrieveResponse{Data: data, Found: true, Timestamp: timestamp}, nil
 }
@@ -42,7 +42,7 @@ func (s *RPCServer) Retrieve(ctx context.Context, req *pb.RetrieveRequest) (*pb.
 func (s *RPCServer) Delete(ctx context.Context, req *pb.DeleteRequest) (*pb.DeleteResponse, error) {
 	err := s.store.Delete(req.Bucket, req.Key)
 	if err != nil && !os.IsNotExist(err) {
-		return &pb.DeleteResponse{Success: false, Error: err.Error()}, nil
+		return &pb.DeleteResponse{Success: false, Error: err.Error()}, nil //nolint:nilerr
 	}
 	return &pb.DeleteResponse{Success: true}, nil
 }

@@ -43,7 +43,7 @@ func (s *PasswordResetService) RequestReset(ctx context.Context, email string) e
 	if err != nil {
 		// Verify user existence but don't leak it to the caller (security best practice)
 		// Return nil effectively masking the error, or a generic "if email exists..." message
-		return nil
+		return nil //nolint:nilerr
 	}
 
 	// Generate secure random token
