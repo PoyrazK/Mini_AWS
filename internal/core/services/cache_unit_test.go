@@ -2,7 +2,9 @@ package services_test
 
 import (
 	"context"
+	"io"
 	"log/slog"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -98,5 +100,45 @@ func TestCacheService_Unit_Extended(t *testing.T) {
 
 		err := svc.DeleteCache(ctx, cacheID.String())
 		assert.NoError(t, err)
+	})
+
+	t.Run("GetConnectionString", func(t *testing.T) {
+		cacheID := uuid.New()
+		cache := &domain.Cache{
+			ID:       cacheID,
+			Password: "pass",
+			Port:     6379,
+		}
+		repo.On("GetByID", mock.Anything, cacheID).Return(cache, nil).Once()
+		
+		conn, err := svc.GetConnectionString(ctx, cacheID.String())
+		assert.NoError(t, err)
+		assert.Contains(t, conn, "redis://:pass@localhost:6379")
+	})
+
+	t.Run("FlushCache", func(t *testing.T) {
+		cacheID := uuid.New()
+		cache := &domain.Cache{ID: cacheID, ContainerID: "cid", UserID: userID, Status: domain.CacheStatusRunning}
+		repo.On("GetByID", mock.Anything, cacheID).Return(cache, nil).Once()
+		compute.On("Exec", mock.Anything, "cid", []string{"redis-cli", "FLUSHALL"}).Return("", nil).Once()
+		auditSvc.On("Log", mock.Anything, userID, "cache.flush", "cache", cacheID.String(), mock.Anything).Return(nil).Once()
+
+		err := svc.FlushCache(ctx, cacheID.String())
+		assert.NoError(t, err)
+	})
+
+	t.Run("GetCacheStats", func(t *testing.T) {
+		cacheID := uuid.New()
+		cache := &domain.Cache{ID: cacheID, ContainerID: "cid", Status: domain.CacheStatusRunning}
+		repo.On("GetByID", mock.Anything, cacheID).Return(cache, nil).Once()
+		
+		statsJSON := `{"memory_stats": {"usage": 1024, "limit": 2048}}`
+		compute.On("GetInstanceStats", mock.Anything, "cid").Return(io.NopCloser(strings.NewReader(statsJSON)), nil).Once()
+		compute.On("Exec", mock.Anything, "cid", mock.Anything).Return("connected_clients:1\r\ndb0:keys=5,expires=0,avg_ttl=0", nil).Once()
+
+		stats, err := svc.GetCacheStats(ctx, cacheID.String())
+		assert.NoError(t, err)
+		assert.NotNil(t, stats)
+		assert.Equal(t, int64(1024), stats.UsedMemoryBytes)
 	})
 }
