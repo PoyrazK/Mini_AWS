@@ -140,6 +140,20 @@ func TestDNSService_Unit_Extended(t *testing.T) {
 	userID := uuid.New()
 	ctx = appcontext.WithUserID(ctx, userID)
 
+	t.Run("CreateZone", func(t *testing.T) {
+		vpcID := uuid.New()
+		vpcRepo.On("GetByID", mock.Anything, vpcID).Return(&domain.VPC{ID: vpcID, Name: "test-vpc"}, nil).Once()
+		repo.On("GetZoneByVPC", mock.Anything, vpcID).Return(nil, nil).Once()
+		backend.On("CreateZone", mock.Anything, "example.com.", mock.Anything).Return(nil).Once()
+		repo.On("CreateZone", mock.Anything, mock.Anything).Return(nil).Once()
+		auditSvc.On("Log", mock.Anything, userID, "dns.zone.create", "dns_zone", mock.Anything, mock.Anything).Return(nil).Once()
+
+		zone, err := svc.CreateZone(ctx, vpcID, "example.com", "my zone")
+		assert.NoError(t, err)
+		assert.NotNil(t, zone)
+		assert.Equal(t, "example.com", zone.Name)
+	})
+
 	t.Run("DeleteZone", func(t *testing.T) {
 		zoneID := uuid.New()
 		zone := &domain.DNSZone{ID: zoneID, Name: "example.com", PowerDNSID: "example.com.", UserID: userID}
@@ -152,24 +166,49 @@ func TestDNSService_Unit_Extended(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
-	t.Run("ListRecords", func(t *testing.T) {
+	t.Run("CreateRecord", func(t *testing.T) {
 		zoneID := uuid.New()
-		repo.On("ListRecordsByZone", mock.Anything, zoneID).Return([]*domain.DNSRecord{}, nil).Once()
-		
-		res, err := svc.ListRecords(ctx, zoneID)
-		assert.NoError(t, err)
-		assert.NotNil(t, res)
-	})
-	
-	t.Run("RegisterInstance", func(t *testing.T) {
-		inst := &domain.Instance{ID: uuid.New(), Name: "web-1", VpcID: new(uuid.UUID)}
-		zone := &domain.DNSZone{ID: uuid.New(), Name: "cluster.local", PowerDNSID: "cluster.local."}
-		
-		repo.On("GetZoneByVPC", mock.Anything, *inst.VpcID).Return(zone, nil).Once()
-		backend.On("AddRecords", mock.Anything, "cluster.local.", mock.Anything).Return(nil).Once()
+		zone := &domain.DNSZone{ID: zoneID, Name: "example.com", PowerDNSID: "example.com."}
+		repo.On("GetZoneByID", mock.Anything, zoneID).Return(zone, nil).Once()
+		backend.On("AddRecords", mock.Anything, "example.com.", mock.Anything).Return(nil).Once()
 		repo.On("CreateRecord", mock.Anything, mock.Anything).Return(nil).Once()
+
+		record, err := svc.CreateRecord(ctx, zoneID, "www", domain.RecordTypeA, "1.2.3.4", 3600, nil)
+		assert.NoError(t, err)
+		assert.NotNil(t, record)
+		assert.Equal(t, "www", record.Name)
+	})
+
+	t.Run("UpdateRecord", func(t *testing.T) {
+		recordID := uuid.New()
+		zoneID := uuid.New()
+		record := &domain.DNSRecord{ID: recordID, ZoneID: zoneID, Name: "www", Type: domain.RecordTypeA, Content: "1.2.3.4"}
+		zone := &domain.DNSZone{ID: zoneID, Name: "example.com", PowerDNSID: "example.com."}
 		
-		err := svc.RegisterInstance(ctx, inst, "10.0.0.1")
+		repo.On("GetRecordByID", mock.Anything, recordID).Return(record, nil).Once()
+		repo.On("GetZoneByID", mock.Anything, zoneID).Return(zone, nil).Once()
+		backend.On("UpdateRecords", mock.Anything, "example.com.", mock.Anything).Return(nil).Once()
+		repo.On("UpdateRecord", mock.Anything, mock.Anything).Return(nil).Once()
+
+		updated, err := svc.UpdateRecord(ctx, recordID, "5.6.7.8", 3600, nil)
+		assert.NoError(t, err)
+		assert.Equal(t, "5.6.7.8", updated.Content)
+	})
+
+	t.Run("UnregisterInstance", func(t *testing.T) {
+		instID := uuid.New()
+		zoneID := uuid.New()
+		records := []*domain.DNSRecord{
+			{ID: uuid.New(), ZoneID: zoneID, Name: "web-1", Type: domain.RecordTypeA},
+		}
+		zone := &domain.DNSZone{ID: zoneID, Name: "example.com", PowerDNSID: "example.com."}
+		
+		repo.On("GetRecordsByInstance", mock.Anything, instID).Return(records, nil).Once()
+		repo.On("GetZoneByID", mock.Anything, zoneID).Return(zone, nil).Once()
+		backend.On("DeleteRecords", mock.Anything, "example.com.", "web-1.example.com.", "A").Return(nil).Once()
+		repo.On("DeleteRecordsByInstance", mock.Anything, instID).Return(nil).Once()
+
+		err := svc.UnregisterInstance(ctx, instID)
 		assert.NoError(t, err)
 	})
 }
