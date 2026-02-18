@@ -18,6 +18,7 @@ import (
 )
 
 const (
+	//nolint:gosec // G101: Test constant, not a credential
 	apiKeyHeader  = "X-API-Key"
 	protectedPath = "/protected"
 	tenantPath    = "/tenant"

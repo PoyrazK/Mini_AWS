@@ -14,7 +14,8 @@ import (
 const (
 	kubernetesTestContentType = "Content-Type"
 	kubernetesTestAppJSON     = "application/json"
-	kubernetesTestAPIKey      = "kube-test-key"
+	//nolint:gosec // G101: Test constant
+	kubernetesTestAPIKey = "kube-test-key"
 )
 
 func TestListClustersJSONOutput(t *testing.T) {

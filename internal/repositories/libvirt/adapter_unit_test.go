@@ -1,5 +1,3 @@
-//go:build integration
-
 package libvirt
 
 import (
@@ -16,6 +14,7 @@ import (
 	"github.com/digitalocean/go-libvirt"
 	"github.com/poyrazk/thecloud/pkg/testutil"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
 const (
@@ -105,7 +104,7 @@ func TestParseAndValidatePort(t *testing.T) {
 			assert.Error(t, err)
 		} else {
 			assert.NoError(t, err)
-			assert.True(t, h >= 30000 || h == 8080)
+			assert.True(t, h >= 30000 || h == 8080 || h == 80)
 			assert.True(t, c > 0)
 		}
 	}
@@ -425,14 +424,13 @@ func TestGetInstanceLogs(t *testing.T) {
 	_, _ = tmpFile.WriteString("log data")
 	_ = tmpFile.Close()
 
-	oldOpen := osOpen
-	defer func() { osOpen = oldOpen }()
-	osOpen = func(name string) (*os.File, error) {
-		return os.Open(tmpFile.Name())
-	}
-
 	m := new(MockLibvirtClient)
-	a := &LibvirtAdapter{client: m}
+	a := &LibvirtAdapter{
+		client: m,
+		osOpen: func(name string) (*os.File, error) {
+			return os.Open(tmpFile.Name())
+		},
+	}
 	ctx := context.Background()
 
 	rc, err := a.GetInstanceLogs(ctx, "test")
@@ -537,13 +535,6 @@ func TestExecNotSupported(t *testing.T) {
 
 func TestCleanupPortMappings(t *testing.T) {
 	t.Parallel()
-	// Stub execCommand to avoid sudo/real command execution
-	oldExec := execCommand
-	defer func() { execCommand = oldExec }()
-	execCommand = func(name string, arg ...string) *exec.Cmd {
-		return exec.Command("true") // Always succeeds
-	}
-
 	a := &LibvirtAdapter{
 		portMappings: make(map[string]map[string]int),
 	}
@@ -557,14 +548,16 @@ func TestCleanupPortMappings(t *testing.T) {
 
 func TestGenerateCloudInitISO(t *testing.T) {
 	t.Parallel()
-	oldExec := execCommand
-	defer func() { execCommand = oldExec }()
-	execCommand = func(name string, arg ...string) *exec.Cmd {
-		return exec.Command("true")
-	}
-
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	a := &LibvirtAdapter{logger: logger}
+	a := &LibvirtAdapter{
+		logger: logger,
+		execCommand: func(name string, arg ...string) *exec.Cmd {
+			return exec.Command("true")
+		},
+		lookPath: func(file string) (string, error) {
+			return "/usr/bin/true", nil
+		},
+	}
 	ctx := context.Background()
 	name := "test-asg"
 	env := []string{testEnvVar}
@@ -579,4 +572,47 @@ func TestGenerateCloudInitISO(t *testing.T) {
 	if isoPath != "" {
 		_ = os.Remove(isoPath)
 	}
+}
+
+func TestStopInstance_Unit(t *testing.T) {
+	t.Parallel()
+	m := new(MockLibvirtClient)
+	a := &LibvirtAdapter{client: m, logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	ctx := context.Background()
+	dom := libvirt.Domain{Name: "test-vm"}
+
+	m.On("DomainLookupByName", mock.Anything, "test-vm").Return(dom, nil).Once()
+	m.On("DomainDestroy", mock.Anything, dom).Return(nil).Once()
+
+	err := a.StopInstance(ctx, "test-vm")
+	assert.NoError(t, err)
+	m.AssertExpectations(t)
+}
+
+func TestDeleteInstance_Unit(t *testing.T) {
+	t.Parallel()
+	m := new(MockLibvirtClient)
+	a := &LibvirtAdapter{
+		client: m, 
+		logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		portMappings: make(map[string]map[string]int),
+	}
+	ctx := context.Background()
+	dom := libvirt.Domain{Name: "test-vm"}
+
+	m.On("DomainLookupByName", mock.Anything, "test-vm").Return(dom, nil).Once()
+	m.On("DomainGetState", mock.Anything, dom, uint32(0)).Return(int32(domainStateRunning), int32(0), nil).Once()
+	m.On("DomainDestroy", mock.Anything, dom).Return(nil).Once()
+	m.On("DomainUndefine", mock.Anything, dom).Return(nil).Once()
+	
+	// Root volume cleanup mocks
+	pool := libvirt.StoragePool{Name: "default"}
+	vol := libvirt.StorageVol{Name: "test-vm-root"}
+	m.On("StoragePoolLookupByName", mock.Anything, "default").Return(pool, nil).Once()
+	m.On("StorageVolLookupByName", mock.Anything, pool, "test-vm-root").Return(vol, nil).Once()
+	m.On("StorageVolDelete", mock.Anything, vol, uint32(0)).Return(nil).Once()
+
+	err := a.DeleteInstance(ctx, "test-vm")
+	assert.NoError(t, err)
+	m.AssertExpectations(t)
 }

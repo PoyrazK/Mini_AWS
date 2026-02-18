@@ -70,7 +70,10 @@ func TestSendMalformedJSON(t *testing.T) {
 	defer ts.Close()
 
 	client := &http.Client{}
-	SendMalformedJSON(t, client, ts.URL, "POST", "token")
+	resp := SendMalformedJSON(t, client, ts.URL, "POST", "token")
+	if resp != nil {
+		_ = resp.Body.Close()
+	}
 }
 
 func TestSendOversizedPayload(t *testing.T) {
@@ -81,7 +84,10 @@ func TestSendOversizedPayload(t *testing.T) {
 	defer ts.Close()
 
 	client := &http.Client{}
-	SendOversizedPayload(t, client, ts.URL, "POST", "token", 1)
+	resp := SendOversizedPayload(t, client, ts.URL, "POST", "token", 1)
+	if resp != nil {
+		_ = resp.Body.Close()
+	}
 }
 
 func TestSendWithContentType(t *testing.T) {
@@ -92,7 +98,10 @@ func TestSendWithContentType(t *testing.T) {
 	defer ts.Close()
 
 	client := &http.Client{}
-	SendWithContentType(t, client, ts.URL, "POST", "token", "text/plain", bytes.NewBufferString("data"))
+	resp := SendWithContentType(t, client, ts.URL, "POST", "token", "text/plain", bytes.NewBufferString("data"))
+	if resp != nil {
+		_ = resp.Body.Close()
+	}
 }
 
 func TestGetBaseURL(t *testing.T) {

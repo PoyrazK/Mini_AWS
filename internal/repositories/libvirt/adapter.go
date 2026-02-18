@@ -281,10 +281,16 @@ func (a *LibvirtAdapter) cleanupCreateFailure(ctx context.Context, vol libvirt.S
 func (a *LibvirtAdapter) waitInitialIP(ctx context.Context, id string) (string, error) {
 	ticker := time.NewTicker(a.ipWaitInterval)
 	defer ticker.Stop()
+	
+	// Safety limit: max 5 minutes regardless of context
+	timeout := time.After(5 * time.Minute)
+
 	for {
 		select {
 		case <-ctx.Done():
 			return "", ctx.Err()
+		case <-timeout:
+			return "", fmt.Errorf("timed out waiting for IP for instance %s", id)
 		case <-ticker.C:
 			ip, err := a.GetInstanceIP(ctx, id)
 			if err == nil && ip != "" {
@@ -844,12 +850,12 @@ func (a *LibvirtAdapter) writeCloudInitFiles(tmpDir, name string, env, cmd []str
 		return fmt.Errorf("failed to marshal metadata: %w", err)
 	}
 
-	if err := os.WriteFile(filepath.Join(tmpDir, metaDataFileName), metaDataBytes, 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, metaDataFileName), metaDataBytes, 0600); err != nil {
 		return err
 	}
 
 	userData := a.generateUserData(env, cmd, userDataRaw)
-	return os.WriteFile(filepath.Join(tmpDir, userDataFileName), userData, 0644)
+	return os.WriteFile(filepath.Join(tmpDir, userDataFileName), userData, 0600)
 }
 
 func (a *LibvirtAdapter) generateUserData(env, cmd []string, userDataRaw string) []byte {

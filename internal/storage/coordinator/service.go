@@ -4,11 +4,12 @@ package coordinator
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"fmt"
 	"io"
+	"math/big"
 	"sync"
 
-	"math/rand"
 	"time"
 
 	"github.com/poyrazk/thecloud/internal/core/domain"
@@ -61,11 +62,21 @@ func (c *Coordinator) startSyncLoop() {
 func (c *Coordinator) SyncClusterState() {
 	// Pick random node to query
 	var client pb.StorageNodeClient
+	if len(c.clients) == 0 {
+		return
+	}
+
+	// Convert map values to slice for random selection
+	var clients []pb.StorageNodeClient
 	for _, cl := range c.clients {
-		client = cl
-		if rand.Float32() < 0.5 {
-			break
-		}
+		clients = append(clients, cl)
+	}
+
+	n, err := rand.Int(rand.Reader, big.NewInt(int64(len(clients))))
+	if err != nil {
+		client = clients[0]
+	} else {
+		client = clients[n.Int64()]
 	}
 
 	if client == nil {

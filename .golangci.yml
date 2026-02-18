@@ -10,6 +10,8 @@ linters:
     - unused
     - ineffassign
     - gocyclo
+    - gosec
+    - bodyclose
 
 linters-settings:
   errcheck:
@@ -25,6 +27,10 @@ linters-settings:
       - (*github.com/spf13/cobra.Command).MarkFlagRequired
   staticcheck:
     checks: ["all", "-QF1008"]
+  gosec:
+    excludes:
+      - G101
+      - G106
 
 issues:
   exclude-rules:
@@ -32,8 +38,11 @@ issues:
       linters:
         - errcheck
     - path: pkg/sdk
-      linters:
+      linters: 
         - errcheck
     - path: internal/handlers/ws
       linters:
         - errcheck
+    - path: _test\.go
+      linters:
+        - gosec

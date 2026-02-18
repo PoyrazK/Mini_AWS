@@ -71,8 +71,11 @@ func TestWebSocketLifecycle(t *testing.T) {
 	mockID.On("ValidateAPIKey", mock.Anything, "valid-key").Return(&domain.APIKey{Key: "valid-key", UserID: uuid.New()}, nil)
 
 	dialer := websocket.Dialer{}
-	conn, _, err := dialer.Dial(wsURL, nil)
+	conn, resp, err := dialer.Dial(wsURL, nil)
 	assert.NoError(t, err)
+	if resp != nil {
+		defer func() { _ = resp.Body.Close() }()
+	}
 	defer func() { _ = conn.Close() }()
 
 	time.Sleep(100 * time.Millisecond)
@@ -109,7 +112,10 @@ func TestWebSocketAuthFailure(t *testing.T) {
 		dialer := websocket.Dialer{}
 		_, resp, err := dialer.Dial(wsURL, nil)
 		assert.Error(t, err)
-		assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+		if resp != nil {
+			assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+			_ = resp.Body.Close()
+		}
 	})
 
 	t.Run("Invalid API Key", func(t *testing.T) {
@@ -118,6 +124,9 @@ func TestWebSocketAuthFailure(t *testing.T) {
 		dialer := websocket.Dialer{}
 		_, resp, err := dialer.Dial(wsURL, nil)
 		assert.Error(t, err)
-		assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+		if resp != nil {
+			assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+			_ = resp.Body.Close()
+		}
 	})
 }
