@@ -1,6 +1,10 @@
 package errors
 
 import (
+	stdlib_errors "errors"
+)
+
+import (
 	"fmt"
 	"testing"
 
@@ -26,14 +30,16 @@ func TestError_Unwrap(t *testing.T) {
 	cause := fmt.Errorf("db error")
 	err := Wrap(Internal, "wrap error", cause)
 
-	e, ok := err.(Error)
+	var e Error
+	ok := stdlib_errors.As(err, &e)
 	assert.True(t, ok)
 	assert.Equal(t, cause, e.Unwrap())
 }
 
 func TestNew(t *testing.T) {
 	err := New(InvalidInput, "invalid name")
-	e, ok := err.(Error)
+	var e Error
+	ok := stdlib_errors.As(err, &e)
 	assert.True(t, ok)
 	assert.Equal(t, InvalidInput, e.Type)
 	assert.Equal(t, "invalid name", e.Message)
@@ -43,7 +49,8 @@ func TestNew(t *testing.T) {
 func TestWrap(t *testing.T) {
 	cause := fmt.Errorf("some error")
 	err := Wrap(Forbidden, "forbidden access", cause)
-	e, ok := err.(Error)
+	var e Error
+	ok := stdlib_errors.As(err, &e)
 	assert.True(t, ok)
 	assert.Equal(t, Forbidden, e.Type)
 	assert.Equal(t, "forbidden access", e.Message)
