@@ -17,7 +17,7 @@ func TestCronService_Unit(t *testing.T) {
 	eventSvc := new(MockEventService)
 	auditSvc := new(MockAuditService)
 	svc := services.NewCronService(repo, eventSvc, auditSvc)
-	
+
 	ctx := context.Background()
 	userID := uuid.New()
 	ctx = appcontext.WithUserID(ctx, userID)
@@ -27,33 +27,63 @@ func TestCronService_Unit(t *testing.T) {
 		eventSvc.On("RecordEvent", mock.Anything, "CRON_JOB_CREATED", mock.Anything, "CRON_JOB", mock.Anything).Return(nil).Once()
 		auditSvc.On("Log", mock.Anything, userID, "cron.job_create", "cron_job", mock.Anything, mock.Anything).Return(nil).Once()
 
-		job, err := svc.CreateJob(ctx, "test-job", "*/5 * * * *", "http://test.com", "POST", "{}")
+		job, err := svc.CreateJob(ctx, "test-job", "* * * * *", "http://example.com", "GET", "")
 		assert.NoError(t, err)
 		assert.NotNil(t, job)
+		assert.Equal(t, "test-job", job.Name)
 		repo.AssertExpectations(t)
 	})
 
-	t.Run("PauseResume", func(t *testing.T) {
+	t.Run("ListJobs", func(t *testing.T) {
+		expectedJobs := []*domain.CronJob{{ID: uuid.New(), Name: "job1"}}
+		repo.On("ListJobs", mock.Anything, userID).Return(expectedJobs, nil).Once()
+
+		jobs, err := svc.ListJobs(ctx)
+		assert.NoError(t, err)
+		assert.Len(t, jobs, 1)
+		assert.Equal(t, "job1", jobs[0].Name)
+	})
+
+	t.Run("GetJob", func(t *testing.T) {
 		jobID := uuid.New()
-		job := &domain.CronJob{ID: jobID, UserID: userID, Schedule: "*/5 * * * *"}
-		
-		repo.On("GetJobByID", mock.Anything, jobID, userID).Return(job, nil).Twice()
+		expectedJob := &domain.CronJob{ID: jobID, Name: "job1"}
+		repo.On("GetJobByID", mock.Anything, jobID, userID).Return(expectedJob, nil).Once()
+
+		job, err := svc.GetJob(ctx, jobID)
+		assert.NoError(t, err)
+		assert.Equal(t, jobID, job.ID)
+	})
+
+	t.Run("PauseJob", func(t *testing.T) {
+		jobID := uuid.New()
+		job := &domain.CronJob{ID: jobID, UserID: userID, Status: domain.CronStatusActive}
+		repo.On("GetJobByID", mock.Anything, jobID, userID).Return(job, nil).Once()
 		repo.On("UpdateJob", mock.Anything, mock.MatchedBy(func(j *domain.CronJob) bool {
 			return j.Status == domain.CronStatusPaused
 		})).Return(nil).Once()
-		repo.On("UpdateJob", mock.Anything, mock.MatchedBy(func(j *domain.CronJob) bool {
-			return j.Status == domain.CronStatusActive
-		})).Return(nil).Once()
+		auditSvc.On("Log", mock.Anything, userID, "cron.job_pause", "cron_job", jobID.String(), mock.Anything).Return(nil).Once()
 
 		err := svc.PauseJob(ctx, jobID)
 		assert.NoError(t, err)
-		err = svc.ResumeJob(ctx, jobID)
+	})
+
+	t.Run("ResumeJob", func(t *testing.T) {
+		jobID := uuid.New()
+		job := &domain.CronJob{ID: jobID, UserID: userID, Status: domain.CronStatusPaused, Schedule: "* * * * *"}
+		repo.On("GetJobByID", mock.Anything, jobID, userID).Return(job, nil).Once()
+		repo.On("UpdateJob", mock.Anything, mock.MatchedBy(func(j *domain.CronJob) bool {
+			return j.Status == domain.CronStatusActive
+		})).Return(nil).Once()
+		auditSvc.On("Log", mock.Anything, userID, "cron.job_resume", "cron_job", jobID.String(), mock.Anything).Return(nil).Once()
+
+		err := svc.ResumeJob(ctx, jobID)
 		assert.NoError(t, err)
 	})
 
 	t.Run("DeleteJob", func(t *testing.T) {
 		jobID := uuid.New()
-		repo.On("GetJobByID", mock.Anything, jobID, userID).Return(&domain.CronJob{ID: jobID}, nil).Once()
+		job := &domain.CronJob{ID: jobID, UserID: userID}
+		repo.On("GetJobByID", mock.Anything, jobID, userID).Return(job, nil).Once()
 		repo.On("DeleteJob", mock.Anything, jobID).Return(nil).Once()
 		auditSvc.On("Log", mock.Anything, userID, "cron.job_delete", "cron_job", jobID.String(), mock.Anything).Return(nil).Once()
 
