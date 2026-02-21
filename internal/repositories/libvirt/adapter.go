@@ -6,6 +6,7 @@ package libvirt
 import (
 	"bytes"
 	"context"
+	stdlib_errors "errors"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -327,7 +328,10 @@ func (a *LibvirtAdapter) StopInstance(ctx context.Context, id string) error {
 func (a *LibvirtAdapter) DeleteInstance(ctx context.Context, id string) error {
 	dom, err := a.client.DomainLookupByName(ctx, id)
 	if err != nil {
-		return nil
+		if a.isNotFound(err) {
+			return nil
+		}
+		return err
 	}
 
 	a.stopDomainIfRunning(ctx, dom)
@@ -650,7 +654,10 @@ func (a *LibvirtAdapter) CreateNetwork(ctx context.Context, name string) (string
 func (a *LibvirtAdapter) DeleteNetwork(ctx context.Context, id string) error {
 	net, err := a.client.NetworkLookupByName(ctx, id)
 	if err != nil {
-		return nil 
+		if a.isNotFound(err) {
+			return nil
+		}
+		return err
 	}
 
 	if err := a.client.NetworkDestroy(ctx, net); err != nil {
@@ -689,7 +696,10 @@ func (a *LibvirtAdapter) DeleteVolume(ctx context.Context, name string) error {
 
 	vol, err := a.client.StorageVolLookupByName(ctx, pool, name)
 	if err != nil {
-		return nil
+		if a.isNotFound(err) {
+			return nil
+		}
+		return err
 	}
 
 	if err := a.client.StorageVolDelete(ctx, vol, 0); err != nil {
@@ -1065,5 +1075,21 @@ func findFreePort() (int, error) {
 		return 0, err
 	}
 	defer func() { _ = l.Close() }()
-	return l.Addr().(*net.TCPAddr).Port, nil
+	tcpAddr, ok := l.Addr().(*net.TCPAddr)
+	if !ok {
+		return 0, stdlib_errors.New("failed to get TCP address")
+	}
+	return tcpAddr.Port, nil
+}
+
+func (a *LibvirtAdapter) isNotFound(err error) bool {
+	if err == nil {
+		return false
+	}
+	var libvirtErr libvirt.Error
+	if stdlib_errors.As(err, &libvirtErr) {
+		// 42: Domain not found, 43: Network not found, 45: Storage vol not found
+		return libvirtErr.Code == 42 || libvirtErr.Code == 43 || libvirtErr.Code == 45
+	}
+	return strings.Contains(strings.ToLower(err.Error()), "not found")
 }
