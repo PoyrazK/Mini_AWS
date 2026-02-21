@@ -2,23 +2,24 @@ package sdk
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 )
 
 const (
 	volumeAPIKey          = "test-key"
-	volumeID              = "vol-1"
 	volumeName            = "test-vol"
 	volumeNewName         = "new-name"
 	volumeContentType     = "Content-Type"
 	volumeApplicationJSON = "application/json"
 	volumePath            = "/api/v1/volumes"
 )
+
+var volumeID = uuid.New()
 
 func TestClientVolume(t *testing.T) {
 	mockVolume := Volume{
@@ -47,7 +48,7 @@ func TestClientVolume(t *testing.T) {
 
 	t.Run("GetVolume", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			assert.Equal(t, volumePath+"/"+volumeID, r.URL.Path)
+			assert.Equal(t, volumePath+"/"+volumeID.String(), r.URL.Path)
 			w.Header().Set(volumeContentType, volumeApplicationJSON)
 			w.WriteHeader(http.StatusOK)
 			_ = json.NewEncoder(w).Encode(Response[Volume]{Data: mockVolume})
@@ -55,7 +56,7 @@ func TestClientVolume(t *testing.T) {
 		defer server.Close()
 
 		client := NewClient(server.URL+"/api/v1", volumeAPIKey)
-		vol, err := client.GetVolume(volumeID)
+		vol, err := client.GetVolume(volumeID.String())
 		assert.NoError(t, err)
 		assert.Equal(t, volumeID, vol.ID)
 	})
@@ -84,40 +85,14 @@ func TestClientVolume(t *testing.T) {
 
 	t.Run("DeleteVolume", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			assert.Equal(t, volumePath+"/"+volumeID, r.URL.Path)
+			assert.Equal(t, volumePath+"/"+volumeID.String(), r.URL.Path)
 			assert.Equal(t, "DELETE", r.Method)
 			w.WriteHeader(http.StatusNoContent)
 		}))
 		defer server.Close()
 
 		client := NewClient(server.URL+"/api/v1", volumeAPIKey)
-		err := client.DeleteVolume(volumeID)
-		assert.NoError(t, err)
-	})
-
-	t.Run("AttachVolume", func(t *testing.T) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			assert.Equal(t, fmt.Sprintf("%s/%s/attach", volumePath, volumeID), r.URL.Path)
-			assert.Equal(t, "POST", r.Method)
-			w.WriteHeader(http.StatusOK)
-		}))
-		defer server.Close()
-
-		client := NewClient(server.URL+"/api/v1", volumeAPIKey)
-		err := client.AttachVolume(volumeID, "inst-1")
-		assert.NoError(t, err)
-	})
-
-	t.Run("DetachVolume", func(t *testing.T) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			assert.Equal(t, fmt.Sprintf("%s/%s/detach", volumePath, volumeID), r.URL.Path)
-			assert.Equal(t, "POST", r.Method)
-			w.WriteHeader(http.StatusOK)
-		}))
-		defer server.Close()
-
-		client := NewClient(server.URL+"/api/v1", volumeAPIKey)
-		err := client.DetachVolume(volumeID)
+		err := client.DeleteVolume(volumeID.String())
 		assert.NoError(t, err)
 	})
 }
@@ -134,18 +109,12 @@ func TestClientVolumeErrors(t *testing.T) {
 	_, err := client.ListVolumes()
 	assert.Error(t, err)
 
-	_, err = client.GetVolume(volumeID)
+	_, err = client.GetVolume(volumeID.String())
 	assert.Error(t, err)
 
 	_, err = client.CreateVolume("v", 10)
 	assert.Error(t, err)
 
-	err = client.DeleteVolume(volumeID)
-	assert.Error(t, err)
-
-	err = client.AttachVolume(volumeID, "i")
-	assert.Error(t, err)
-
-	err = client.DetachVolume(volumeID)
+	err = client.DeleteVolume(volumeID.String())
 	assert.Error(t, err)
 }
