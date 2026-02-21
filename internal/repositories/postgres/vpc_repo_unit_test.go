@@ -116,9 +116,9 @@ func TestVpcRepositoryGetByID(t *testing.T) {
 		assert.Error(t, err)
 		assert.Nil(t, vpc)
 		// Check if the error returned is of type errors.NotFound
-		theCloudErr, ok := err.(theclouderrors.Error)
-		if ok {
-			assert.Equal(t, theclouderrors.NotFound, theCloudErr.Type)
+		var target theclouderrors.Error
+		if errors.As(err, &target) {
+			assert.Equal(t, theclouderrors.NotFound, target.Type)
 		}
 		// If it's wrapped or directly the error we expect (but it seems the repo wraps it)
 		// The implementation: return nil, errors.New(errors.NotFound, fmt.Sprintf("vpc %s not found", id))
