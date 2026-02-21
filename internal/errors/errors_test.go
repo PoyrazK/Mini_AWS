@@ -2,9 +2,6 @@ package errors
 
 import (
 	stdlib_errors "errors"
-)
-
-import (
 	"fmt"
 	"testing"
 

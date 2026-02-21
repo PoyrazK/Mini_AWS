@@ -27,7 +27,8 @@ func (m *mockEventService) ListEvents(ctx context.Context, limit int) ([]*domain
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Event), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Event)
+	return r0, args.Error(1)
 }
 
 func setupEventHandlerTest(_ *testing.T) (*mockEventService, *EventHandler, *gin.Engine) {

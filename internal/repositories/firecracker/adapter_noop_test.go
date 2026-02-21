@@ -74,4 +74,56 @@ func TestFirecrackerAdapter_NoopMethods(t *testing.T) {
 		err := adapter.AttachVolume(ctx, "id", "path")
 		assert.Error(t, err)
 	})
+
+	t.Run("GetInstanceStats", func(t *testing.T) {
+		res, err := adapter.GetInstanceStats(ctx, "id")
+		assert.Error(t, err)
+		assert.Nil(t, res)
+	})
+
+	t.Run("GetInstancePort", func(t *testing.T) {
+		res, err := adapter.GetInstancePort(ctx, "id", "80")
+		assert.Error(t, err)
+		assert.Equal(t, 0, res)
+	})
+
+	t.Run("GetConsoleURL", func(t *testing.T) {
+		res, err := adapter.GetConsoleURL(ctx, "id")
+		assert.Error(t, err)
+		assert.Empty(t, res)
+	})
+
+	t.Run("Exec", func(t *testing.T) {
+		res, err := adapter.Exec(ctx, "id", []string{"ls"})
+		assert.Error(t, err)
+		assert.Empty(t, res)
+	})
+
+	t.Run("RunTask", func(t *testing.T) {
+		id, ips, err := adapter.RunTask(ctx, ports.RunTaskOptions{})
+		assert.Error(t, err)
+		assert.Empty(t, id)
+		assert.Empty(t, ips)
+	})
+
+	t.Run("WaitTask", func(t *testing.T) {
+		code, err := adapter.WaitTask(ctx, "id")
+		assert.Error(t, err)
+		assert.Equal(t, int64(-1), code)
+	})
+
+	t.Run("CreateNetwork", func(t *testing.T) {
+		_, err := adapter.CreateNetwork(ctx, "10.0.0.0/24")
+		assert.Error(t, err)
+	})
+
+	t.Run("DeleteNetwork", func(t *testing.T) {
+		err := adapter.DeleteNetwork(ctx, "id")
+		assert.NoError(t, err)
+	})
+
+	t.Run("DetachVolume", func(t *testing.T) {
+		err := adapter.DetachVolume(ctx, "id", "path")
+		assert.Error(t, err)
+	})
 }

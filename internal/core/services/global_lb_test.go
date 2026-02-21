@@ -23,7 +23,9 @@ func setupGlobalLBTest(t *testing.T) (*services.GlobalLBService, *mock.MockGloba
 	svc := services.NewGlobalLBService(services.GlobalLBServiceParams{
 		Repo: repo, LBRepo: lbRepo, GeoDNS: geoDNS, AuditSvc: audit, Logger: logger,
 	})
-	return svc, repo, lbRepo, geoDNS.(*mock.MockGeoDNS)
+	mockGeoDNS, ok := geoDNS.(*mock.MockGeoDNS)
+	require.True(t, ok)
+	return svc, repo, lbRepo, mockGeoDNS
 }
 
 func TestGlobalLBCreate(t *testing.T) {

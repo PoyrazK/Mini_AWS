@@ -3,6 +3,7 @@ package noop
 import (
 	"context"
 	"testing"
+	"github.com/stretchr/testify/require"
 
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
@@ -112,7 +113,7 @@ func TestNoopRepositoriesExtra(t *testing.T) {
 
 	t.Run("UserRepository", func(t *testing.T) {
 		repo := &NoopUserRepository{}
-		assert.NoError(t, repo.Create(ctx, &domain.User{}))
+		require.NoError(t, repo.Create(ctx, &domain.User{}))
 		user, err := repo.GetByEmail(ctx, "test@example.com")
 		assert.NoError(t, err)
 		assert.Nil(t, user)

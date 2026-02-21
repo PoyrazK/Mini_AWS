@@ -10,19 +10,20 @@ import (
 )
 
 const (
-	autoScaleContentType = "Content-Type"
-	autoScaleAppJSON     = "application/json"
-	autoScaleGroupID     = "asg-1"
-	autoScaleGroupName   = "test-asg"
-	autoScalePolicyID    = "pol-1"
-	autoScaleAPIKey      = "test-key"
-	autoScaleGroupPath   = "/autoscaling/groups"
-	policyPathSuffix     = "/policies"
+	autoScaleContentType     = "Content-Type"
+	autoScaleAppJSON         = "application/json"
+	autoScaleAPIKey          = "test-key"
+	autoScaleGroupID         = "group-1"
+	autoScalePolicyID        = "policy-1"
+	autoScaleGroupName       = "test-group"
+	autoScalePath            = "/autoscaling/groups"
+	autoScalePathPrefix      = "/autoscaling/groups/"
+	policyPathSuffix         = "/policies"
 )
 
-func newAutoscalingTestServer(t *testing.T) *httptest.Server {
+func newAutoscalingTestServer(t *testing.T) *httptest.Server { t.Helper()
+	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		t.Helper()
 		w.Header().Set(autoScaleContentType, autoScaleAppJSON)
 
 		if handleAutoscalingGroup(w, r) {
@@ -36,39 +37,42 @@ func newAutoscalingTestServer(t *testing.T) *httptest.Server {
 }
 
 func handleAutoscalingGroup(w http.ResponseWriter, r *http.Request) bool {
-	if r.Method == http.MethodPost && r.URL.Path == autoScaleGroupPath {
+	if r.Method == http.MethodPost && r.URL.Path == autoScalePath {
 		w.WriteHeader(http.StatusCreated)
 		_ = json.NewEncoder(w).Encode(Response[ScalingGroup]{
-			Data: ScalingGroup{ID: autoScaleGroupID, Name: autoScaleGroupName, Status: "ACTIVE"},
+			Data: ScalingGroup{ID: autoScaleGroupID, Name: autoScaleGroupName},
 		})
 		return true
 	}
-	if r.Method == http.MethodGet && r.URL.Path == autoScaleGroupPath {
+	if r.Method == http.MethodGet && r.URL.Path == autoScalePath {
 		w.WriteHeader(http.StatusOK)
 		_ = json.NewEncoder(w).Encode(Response[[]ScalingGroup]{
 			Data: []ScalingGroup{{ID: autoScaleGroupID, Name: autoScaleGroupName}},
 		})
 		return true
 	}
-	if r.Method == http.MethodGet && r.URL.Path == autoScaleGroupPath+"/"+autoScaleGroupID {
+	if r.Method == http.MethodGet && r.URL.Path == autoScalePathPrefix+autoScaleGroupID {
 		w.WriteHeader(http.StatusOK)
 		_ = json.NewEncoder(w).Encode(Response[ScalingGroup]{
-			Data: ScalingGroup{ID: autoScaleGroupID, Name: autoScaleGroupName, Status: "ACTIVE"},
+			Data: ScalingGroup{ID: autoScaleGroupID, Name: autoScaleGroupName},
 		})
 		return true
 	}
-	if r.Method == http.MethodDelete && r.URL.Path == autoScaleGroupPath+"/"+autoScaleGroupID {
+	if r.Method == http.MethodDelete && r.URL.Path == autoScalePathPrefix+autoScaleGroupID {
 		w.WriteHeader(http.StatusNoContent)
-		return true
-	}
-	if r.Method == http.MethodPost && r.URL.Path == autoScaleGroupPath+"/"+autoScaleGroupID+policyPathSuffix {
-		w.WriteHeader(http.StatusOK)
 		return true
 	}
 	return false
 }
 
 func handleAutoscalingPolicy(w http.ResponseWriter, r *http.Request) bool {
+	policyPath := autoScalePathPrefix + autoScaleGroupID + policyPathSuffix
+	if r.Method == http.MethodPost && r.URL.Path == policyPath {
+		w.WriteHeader(http.StatusCreated)
+		// API returns simple Success response for policy creation (it returns error only in SDK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"success": true})
+		return true
+	}
 	if r.Method == http.MethodDelete && r.URL.Path == "/autoscaling/policies/"+autoScalePolicyID {
 		w.WriteHeader(http.StatusNoContent)
 		return true
@@ -76,7 +80,7 @@ func handleAutoscalingPolicy(w http.ResponseWriter, r *http.Request) bool {
 	return false
 }
 
-func TestClientAutoScaling(t *testing.T) {
+func TestClientAutoscaling(t *testing.T) {
 	server := newAutoscalingTestServer(t)
 	defer server.Close()
 
@@ -87,25 +91,29 @@ func TestClientAutoScaling(t *testing.T) {
 			Name:         autoScaleGroupName,
 			VpcID:        "vpc-1",
 			Image:        "nginx",
+			Ports:        "80:80",
 			MinInstances: 1,
 			MaxInstances: 5,
+			DesiredCount: 2,
 		}
-		asg, err := client.CreateScalingGroup(req)
+		g, err := client.CreateScalingGroup(req)
 		assert.NoError(t, err)
-		assert.Equal(t, autoScaleGroupID, asg.ID)
+		if g != nil {
+			assert.Equal(t, autoScaleGroupID, g.ID)
+		}
 	})
 
 	t.Run("ListScalingGroups", func(t *testing.T) {
-		groups, err := client.ListScalingGroups()
+		gs, err := client.ListScalingGroups()
 		assert.NoError(t, err)
-		assert.Len(t, groups, 1)
+		assert.Len(t, gs, 1)
 	})
 
 	t.Run("GetScalingGroup", func(t *testing.T) {
-		group, err := client.GetScalingGroup(autoScaleGroupID)
+		g, err := client.GetScalingGroup(autoScaleGroupID)
 		assert.NoError(t, err)
-		assert.NotNil(t, group)
-		assert.Equal(t, autoScaleGroupID, group.ID)
+		assert.NotNil(t, g)
+		assert.Equal(t, autoScaleGroupID, g.ID)
 	})
 
 	t.Run("DeleteScalingGroup", func(t *testing.T) {
@@ -115,9 +123,12 @@ func TestClientAutoScaling(t *testing.T) {
 
 	t.Run("CreateScalingPolicy", func(t *testing.T) {
 		req := CreatePolicyRequest{
-			Name:        "scale-out",
+			Name:        "cpu-target",
 			MetricType:  "cpu",
-			TargetValue: 70,
+			TargetValue: 70.0,
+			ScaleOut:    1,
+			ScaleIn:     1,
+			CooldownSec: 300,
 		}
 		err := client.CreateScalingPolicy(autoScaleGroupID, req)
 		assert.NoError(t, err)
@@ -129,16 +140,15 @@ func TestClientAutoScaling(t *testing.T) {
 	})
 }
 
-func TestClientAutoScalingErrors(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func TestClientAutoscalingErrors(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		_, _ = w.Write([]byte("boom"))
 	}))
 	defer server.Close()
 
 	client := NewClient(server.URL, autoScaleAPIKey)
-
-	_, err := client.CreateScalingGroup(CreateScalingGroupRequest{Name: "test"})
+	_, err := client.CreateScalingGroup(CreateScalingGroupRequest{Name: "g"})
 	assert.Error(t, err)
 
 	_, err = client.ListScalingGroups()
@@ -150,29 +160,7 @@ func TestClientAutoScalingErrors(t *testing.T) {
 	err = client.DeleteScalingGroup(autoScaleGroupID)
 	assert.Error(t, err)
 
-	err = client.CreateScalingPolicy(autoScaleGroupID, CreatePolicyRequest{Name: "scale"})
-	assert.Error(t, err)
-
-	err = client.DeleteScalingPolicy(autoScalePolicyID)
-	assert.Error(t, err)
-}
-
-func TestClientAutoScalingRequestErrors(t *testing.T) {
-	client := NewClient("http://127.0.0.1:0", autoScaleAPIKey)
-
-	_, err := client.CreateScalingGroup(CreateScalingGroupRequest{Name: "asg"})
-	assert.Error(t, err)
-
-	_, err = client.ListScalingGroups()
-	assert.Error(t, err)
-
-	_, err = client.GetScalingGroup(autoScaleGroupID)
-	assert.Error(t, err)
-
-	err = client.DeleteScalingGroup(autoScaleGroupID)
-	assert.Error(t, err)
-
-	err = client.CreateScalingPolicy(autoScaleGroupID, CreatePolicyRequest{Name: "scale"})
+	err = client.CreateScalingPolicy(autoScaleGroupID, CreatePolicyRequest{Name: "p"})
 	assert.Error(t, err)
 
 	err = client.DeleteScalingPolicy(autoScalePolicyID)

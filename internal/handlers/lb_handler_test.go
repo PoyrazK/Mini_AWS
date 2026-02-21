@@ -30,12 +30,14 @@ func (m *mockLBService) Create(ctx context.Context, name string, vpcID uuid.UUID
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.LoadBalancer), args.Error(1)
+	r0, _ := args.Get(0).(*domain.LoadBalancer)
+	return r0, args.Error(1)
 }
 
 func (m *mockLBService) List(ctx context.Context) ([]*domain.LoadBalancer, error) {
 	args := m.Called(ctx)
-	return args.Get(0).([]*domain.LoadBalancer), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.LoadBalancer)
+	return r0, args.Error(1)
 }
 
 func (m *mockLBService) Get(ctx context.Context, idOrName string) (*domain.LoadBalancer, error) {
@@ -43,7 +45,8 @@ func (m *mockLBService) Get(ctx context.Context, idOrName string) (*domain.LoadB
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.LoadBalancer), args.Error(1)
+	r0, _ := args.Get(0).(*domain.LoadBalancer)
+	return r0, args.Error(1)
 }
 
 func (m *mockLBService) Delete(ctx context.Context, idOrName string) error {
@@ -63,7 +66,8 @@ func (m *mockLBService) RemoveTarget(ctx context.Context, lbID, instanceID uuid.
 
 func (m *mockLBService) ListTargets(ctx context.Context, lbID uuid.UUID) ([]*domain.LBTarget, error) {
 	args := m.Called(ctx, lbID)
-	return args.Get(0).([]*domain.LBTarget), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.LBTarget)
+	return r0, args.Error(1)
 }
 
 func setupLBHandlerTest(_ *testing.T) (*mockLBService, *LBHandler, *gin.Engine) {

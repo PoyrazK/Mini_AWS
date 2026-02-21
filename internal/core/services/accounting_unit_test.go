@@ -22,17 +22,13 @@ func (m *MockAccountingRepo) CreateRecord(ctx context.Context, record domain.Usa
 }
 func (m *MockAccountingRepo) ListRecords(ctx context.Context, userID uuid.UUID, start, end time.Time) ([]domain.UsageRecord, error) {
 	args := m.Called(ctx, userID, start, end)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).([]domain.UsageRecord), args.Error(1)
+	r0, _ := args.Get(0).([]domain.UsageRecord)
+	return r0, args.Error(1)
 }
 func (m *MockAccountingRepo) GetUsageSummary(ctx context.Context, userID uuid.UUID, start, end time.Time) (map[domain.ResourceType]float64, error) {
 	args := m.Called(ctx, userID, start, end)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(map[domain.ResourceType]float64), args.Error(1)
+	r0, _ := args.Get(0).(map[domain.ResourceType]float64)
+	return r0, args.Error(1)
 }
 
 func TestAccountingService_Unit(t *testing.T) {

@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"context"
+	"log/slog"
 	"testing"
 
 	"github.com/google/uuid"
@@ -14,7 +15,7 @@ import (
 func TestIdentityService_Unit(t *testing.T) {
 	mockRepo := new(MockIdentityRepo)
 	mockAuditSvc := new(MockAuditService)
-	svc := services.NewIdentityService(mockRepo, mockAuditSvc)
+	svc := services.NewIdentityService(mockRepo, mockAuditSvc, slog.Default())
 
 	ctx := context.Background()
 	userID := uuid.New()

@@ -38,7 +38,8 @@ func (m *mockAutoScalingService) CreateGroup(ctx context.Context, params ports.C
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.ScalingGroup), args.Error(1)
+	r0, _ := args.Get(0).(*domain.ScalingGroup)
+	return r0, args.Error(1)
 }
 
 func (m *mockAutoScalingService) ListGroups(ctx context.Context) ([]*domain.ScalingGroup, error) {
@@ -46,7 +47,8 @@ func (m *mockAutoScalingService) ListGroups(ctx context.Context) ([]*domain.Scal
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.ScalingGroup), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.ScalingGroup)
+	return r0, args.Error(1)
 }
 
 func (m *mockAutoScalingService) GetGroup(ctx context.Context, id uuid.UUID) (*domain.ScalingGroup, error) {
@@ -54,7 +56,8 @@ func (m *mockAutoScalingService) GetGroup(ctx context.Context, id uuid.UUID) (*d
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.ScalingGroup), args.Error(1)
+	r0, _ := args.Get(0).(*domain.ScalingGroup)
+	return r0, args.Error(1)
 }
 
 func (m *mockAutoScalingService) DeleteGroup(ctx context.Context, id uuid.UUID) error {
@@ -67,7 +70,8 @@ func (m *mockAutoScalingService) CreatePolicy(ctx context.Context, params ports.
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.ScalingPolicy), args.Error(1)
+	r0, _ := args.Get(0).(*domain.ScalingPolicy)
+	return r0, args.Error(1)
 }
 
 func (m *mockAutoScalingService) DeletePolicy(ctx context.Context, id uuid.UUID) error {

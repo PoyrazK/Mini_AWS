@@ -30,7 +30,8 @@ func (m *mockVpcService) CreateVPC(ctx context.Context, name, cidrBlock string) 
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.VPC), args.Error(1)
+	r0, _ := args.Get(0).(*domain.VPC)
+	return r0, args.Error(1)
 }
 
 func (m *mockVpcService) ListVPCs(ctx context.Context) ([]*domain.VPC, error) {
@@ -38,7 +39,8 @@ func (m *mockVpcService) ListVPCs(ctx context.Context) ([]*domain.VPC, error) {
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.VPC), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.VPC)
+	return r0, args.Error(1)
 }
 
 func (m *mockVpcService) GetVPC(ctx context.Context, idOrName string) (*domain.VPC, error) {
@@ -46,7 +48,8 @@ func (m *mockVpcService) GetVPC(ctx context.Context, idOrName string) (*domain.V
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.VPC), args.Error(1)
+	r0, _ := args.Get(0).(*domain.VPC)
+	return r0, args.Error(1)
 }
 
 func (m *mockVpcService) DeleteVPC(ctx context.Context, idOrName string) error {

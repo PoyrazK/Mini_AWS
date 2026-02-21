@@ -9,6 +9,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func setupGatewayServiceTest(t *testing.T) (*services.GatewayService, *postgres.PostgresGatewayRepository, context.Context) {
@@ -22,7 +23,9 @@ func setupGatewayServiceTest(t *testing.T) (*services.GatewayService, *postgres.
 	auditSvc := services.NewAuditService(auditRepo)
 
 	svc := services.NewGatewayService(repo, auditSvc)
-	return svc, repo.(*postgres.PostgresGatewayRepository), ctx
+	pgRepo, ok := repo.(*postgres.PostgresGatewayRepository)
+	require.True(t, ok)
+	return svc, pgRepo, ctx
 }
 
 func TestGatewayServiceCreateRoute(t *testing.T) {
@@ -91,4 +94,13 @@ func TestGatewayServiceGetProxyPattern(t *testing.T) {
 	assert.True(t, ok)
 	assert.NotNil(t, proxy)
 	assert.Equal(t, "123", paramsMap["id"])
+}
+
+func TestGatewayServiceRefreshRoutes(t *testing.T) {
+	svc, _, ctx := setupGatewayServiceTest(t)
+
+	// Create routes directly in DB to bypass in-memory sync
+	// Then call RefreshRoutes
+	err := svc.RefreshRoutes(ctx)
+	assert.NoError(t, err)
 }

@@ -25,14 +25,16 @@ func (m *MockIAMRepository) GetPolicyByID(ctx context.Context, tenantID, id uuid
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Policy), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Policy)
+	return r0, args.Error(1)
 }
 func (m *MockIAMRepository) ListPolicies(ctx context.Context, tenantID uuid.UUID) ([]*domain.Policy, error) {
 	args := m.Called(ctx, tenantID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Policy), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Policy)
+	return r0, args.Error(1)
 }
 func (m *MockIAMRepository) UpdatePolicy(ctx context.Context, tenantID uuid.UUID, policy *domain.Policy) error {
 	return m.Called(ctx, tenantID, policy).Error(0)
@@ -51,7 +53,8 @@ func (m *MockIAMRepository) GetPoliciesForUser(ctx context.Context, tenantID, us
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Policy), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Policy)
+	return r0, args.Error(1)
 }
 
 func TestIAMService_Unit(t *testing.T) {

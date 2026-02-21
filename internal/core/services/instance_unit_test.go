@@ -63,10 +63,8 @@ func (m *MockSSHKeyService) CreateKey(ctx context.Context, name, publicKey strin
 }
 func (m *MockSSHKeyService) GetKey(ctx context.Context, id uuid.UUID) (*domain.SSHKey, error) {
 	args := m.Called(ctx, id)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*domain.SSHKey), args.Error(1)
+	r0, _ := args.Get(0).(*domain.SSHKey)
+	return r0, args.Error(1)
 }
 func (m *MockSSHKeyService) ListKeys(ctx context.Context) ([]*domain.SSHKey, error) {
 	return nil, nil

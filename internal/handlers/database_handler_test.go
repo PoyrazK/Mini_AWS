@@ -38,7 +38,8 @@ func (m *mockDatabaseService) CreateDatabase(ctx context.Context, name, engine, 
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Database), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Database)
+	return r0, args.Error(1)
 }
 
 func (m *mockDatabaseService) CreateReplica(ctx context.Context, primaryID uuid.UUID, name string) (*domain.Database, error) {
@@ -46,7 +47,8 @@ func (m *mockDatabaseService) CreateReplica(ctx context.Context, primaryID uuid.
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Database), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Database)
+	return r0, args.Error(1)
 }
 
 func (m *mockDatabaseService) PromoteToPrimary(ctx context.Context, id uuid.UUID) error {
@@ -59,7 +61,8 @@ func (m *mockDatabaseService) ListDatabases(ctx context.Context) ([]*domain.Data
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Database), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Database)
+	return r0, args.Error(1)
 }
 
 func (m *mockDatabaseService) GetDatabase(ctx context.Context, id uuid.UUID) (*domain.Database, error) {
@@ -67,7 +70,8 @@ func (m *mockDatabaseService) GetDatabase(ctx context.Context, id uuid.UUID) (*d
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Database), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Database)
+	return r0, args.Error(1)
 }
 
 func (m *mockDatabaseService) DeleteDatabase(ctx context.Context, id uuid.UUID) error {

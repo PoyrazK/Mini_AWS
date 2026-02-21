@@ -11,6 +11,7 @@ import (
 
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -42,7 +43,11 @@ func TestPowerDNSCreateZone(t *testing.T) {
 			body, _ := io.ReadAll(r.Body)
 			var reqBody map[string]interface{}
 			_ = json.Unmarshal(body, &reqBody)
-			rrsets := reqBody["rrsets"].([]interface{})
+			rrsets, ok := reqBody["rrsets"].([]interface{})
+			if !ok {
+				t.Errorf("expected rrsets in request body")
+				return
+			}
 			assert.Len(t, rrsets, 1) // Expect SOA record
 
 			w.WriteHeader(http.StatusNoContent)
@@ -68,7 +73,11 @@ func TestPowerDNSAddRecords(t *testing.T) {
 
 		var reqBody map[string]interface{}
 		_ = json.NewDecoder(r.Body).Decode(&reqBody)
-		rrsets := reqBody["rrsets"].([]interface{})
+		rrsets, ok := reqBody["rrsets"].([]interface{})
+		if !ok {
+			t.Errorf("expected rrsets in request body")
+			return
+		}
 		assert.Len(t, rrsets, 1)
 
 		w.WriteHeader(http.StatusNoContent)
@@ -116,10 +125,18 @@ func TestPowerDNSUpdateRecords(t *testing.T) {
 
 		var reqBody map[string]interface{}
 		_ = json.NewDecoder(r.Body).Decode(&reqBody)
-		rrsets := reqBody["rrsets"].([]interface{})
+		rrsets, ok := reqBody["rrsets"].([]interface{})
+		if !ok {
+			t.Errorf("expected rrsets in request body")
+			return
+		}
 		assert.Len(t, rrsets, 1)
 
-		rrset := rrsets[0].(map[string]interface{})
+		rrset, ok := rrsets[0].(map[string]interface{})
+		if !ok {
+			t.Errorf("expected rrset to be map[string]interface{}")
+			return
+		}
 		assert.Equal(t, "REPLACE", rrset["changetype"])
 
 		w.WriteHeader(http.StatusNoContent)
@@ -150,10 +167,18 @@ func TestPowerDNSDeleteRecords(t *testing.T) {
 
 		var reqBody map[string]interface{}
 		_ = json.NewDecoder(r.Body).Decode(&reqBody)
-		rrsets := reqBody["rrsets"].([]interface{})
+		rrsets, ok := reqBody["rrsets"].([]interface{})
+		if !ok {
+			t.Errorf("expected rrsets in request body")
+			return
+		}
 		assert.Len(t, rrsets, 1)
 
-		rrset := rrsets[0].(map[string]interface{})
+		rrset, ok := rrsets[0].(map[string]interface{})
+		if !ok {
+			t.Errorf("expected rrset to be map[string]interface{}")
+			return
+		}
 		assert.Equal(t, "DELETE", rrset["changetype"])
 		assert.Equal(t, "www."+testPDNSZone, rrset["name"])
 

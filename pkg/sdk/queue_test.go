@@ -24,8 +24,8 @@ const (
 )
 
 func newQueueTestServer(t *testing.T) *httptest.Server {
+	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		t.Helper()
 		w.Header().Set(queueTestContentType, queueTestAppJSON)
 
 		if handleQueueBase(w, r) {
