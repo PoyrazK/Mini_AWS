@@ -73,7 +73,7 @@ func TestCacheSDK(t *testing.T) {
 	client := sdk.NewClient(ts.URL+"/api/v1", cacheTestAPIKey)
 
 	t.Run("CreateCache", func(t *testing.T) {
-		c, err := client.CreateCache(cacheTestName, "redis", 100)
+		c, err := client.CreateCache(cacheTestName, "redis", 100, nil)
 		assert.NoError(t, err)
 		if c != nil {
 			assert.Equal(t, cacheTestName, c.Name)
@@ -116,7 +116,7 @@ func TestCacheSDKErrors(t *testing.T) {
 
 	client := sdk.NewClient(server.URL+"/api/v1", cacheTestAPIKey)
 
-	_, err := client.CreateCache("c", "redis", 10)
+	_, err := client.CreateCache("c", "redis", 10, nil)
 	assert.Error(t, err)
 
 	_, err = client.ListCaches()
