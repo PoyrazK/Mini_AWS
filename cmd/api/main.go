@@ -298,17 +298,114 @@ func startWorker(ctx context.Context, wg *sync.WaitGroup, w runner) {
 }
 
 func runWorkers(ctx context.Context, wg *sync.WaitGroup, workers *setup.Workers) {
-	startWorker(ctx, wg, workers.LB)
-	startWorker(ctx, wg, workers.AutoScaling)
-	startWorker(ctx, wg, workers.Cron)
-	startWorker(ctx, wg, workers.Container)
-	startWorker(ctx, wg, workers.Provision)
-	startWorker(ctx, wg, workers.Accounting)
-	startWorker(ctx, wg, workers.Cluster)
-	startWorker(ctx, wg, workers.Lifecycle)
-	startWorker(ctx, wg, workers.ReplicaMonitor)
-	startWorker(ctx, wg, workers.ClusterReconciler)
-	startWorker(ctx, wg, workers.Healing)
-	startWorker(ctx, wg, workers.DatabaseFailover)
-	startWorker(ctx, wg, workers.Log)
+	if workers == nil {
+		return
+	}
+	if workers.LB != nil {
+		startWorker(ctx, wg, workers.LB)
+	}
+	if workers.AutoScaling != nil {
+		startWorker(ctx, wg, workers.AutoScaling)
+	}
+	if workers.Cron != nil {
+		startWorker(ctx, wg, workers.Cron)
+	}
+	if workers.Container != nil {
+		startWorker(ctx, wg, workers.Container)
+	}
+	if workers.Provision != nil {
+		startWorker(ctx, wg, workers.Provision)
+	}
+	if workers.Accounting != nil {
+		startWorker(ctx, wg, workers.Accounting)
+	}
+	if workers.Cluster != nil {
+		startWorker(ctx, wg, workers.Cluster)
+	}
+	if workers.Lifecycle != nil {
+		startWorker(ctx, wg, workers.Lifecycle)
+	}
+	if workers.ReplicaMonitor != nil {
+		startWorker(ctx, wg, workers.ReplicaMonitor)
+	}
+	if workers.ClusterReconciler != nil {
+		startWorker(ctx, wg, workers.ClusterReconciler)
+	}
+	if workers.Healing != nil {
+		startWorker(ctx, wg, workers.Healing)
+	}
+	if workers.DatabaseFailover != nil {
+		startWorker(ctx, wg, workers.DatabaseFailover)
+	}
+	if workers.Log != nil {
+		startWorker(ctx, wg, workers.Log)
+	}
+}
+
+func initTracing(logger *slog.Logger) *sdktrace.TracerProvider {
+	endpoint := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+	if endpoint == "" {
+		return nil
+	}
+
+	tp, err := tracing.InitTracer(context.Background(), "compute-api", endpoint)
+	if err != nil {
+		logger.Warn("failed to initialize tracing", "error", err)
+		return nil
+	}
+	return tp
+}
+
+func initInfrastructure(deps AppDeps, logger *slog.Logger, migrateOnly bool) (*platform.Config, postgres.DB, *redis.Client, error) {
+	cfg, err := deps.LoadConfig(logger)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to load config: %w", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), defaultDBInitTimeout)
+	defer cancel()
+
+	db, err := deps.InitDatabase(ctx, cfg, logger)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to init database: %w", err)
+	}
+
+	if err := deps.RunMigrations(ctx, db, logger); err != nil {
+		return nil, nil, nil, fmt.Errorf("migration failed: %w", err)
+	}
+
+	if migrateOnly {
+		db.Close()
+		return nil, nil, nil, ErrMigrationDone
+	}
+
+	rdb, err := deps.InitRedis(ctx, cfg, logger)
+	if err != nil {
+		db.Close()
+		return nil, nil, nil, fmt.Errorf("failed to init redis: %w", err)
+	}
+
+	return cfg, db, rdb, nil
+}
+
+func initBackends(deps AppDeps, cfg *platform.Config, logger *slog.Logger, db postgres.DB, rdb *redis.Client) (ports.ComputeBackend, ports.StorageBackend, ports.NetworkBackend, ports.LBProxyAdapter, error) {
+	compute, err := deps.InitComputeBackend(cfg, logger)
+	if err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("failed to init compute: %w", err)
+	}
+
+	storage, err := deps.InitStorageBackend(cfg, logger)
+	if err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("failed to init storage: %w", err)
+	}
+
+	network := deps.InitNetworkBackend(cfg, logger)
+
+	repos := deps.InitRepositories(db, rdb)
+	lbProxy, err := deps.InitLBProxy(cfg, compute, repos.Instance, repos.Vpc)
+	if err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("failed to init lb proxy: %w", err)
+	}
+
+	return compute, storage, network, lbProxy, nil
 }
