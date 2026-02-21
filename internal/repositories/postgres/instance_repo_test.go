@@ -116,9 +116,9 @@ func TestInstanceRepositoryGetByID(t *testing.T) {
 		inst, err := repo.GetByID(ctx, id)
 		assert.Error(t, err)
 		assert.Nil(t, inst)
-		theCloudErr, ok := err.(*theclouderrors.Error)
-		if ok {
-			assert.Equal(t, theclouderrors.NotFound, theCloudErr.Type)
+		var target *theclouderrors.Error
+		if errors.As(err, &target) {
+			assert.Equal(t, theclouderrors.NotFound, target.Type)
 		}
 	})
 }
@@ -167,9 +167,10 @@ func TestInstanceRepositoryGetByName(t *testing.T) {
 		inst, err := repo.GetByName(ctx, name)
 		assert.Error(t, err)
 		assert.Nil(t, inst)
-		theCloudErr, ok := err.(*theclouderrors.Error)
+		var target *theclouderrors.Error
+		ok := errors.As(err, &target)
 		if ok {
-			assert.Equal(t, theclouderrors.NotFound, theCloudErr.Type)
+			assert.Equal(t, theclouderrors.NotFound, target.Type)
 		}
 	})
 }
@@ -331,9 +332,10 @@ func TestInstanceRepositoryDelete(t *testing.T) {
 
 		err = repo.Delete(ctx, id)
 		assert.Error(t, err)
-		theCloudErr, ok := err.(*theclouderrors.Error)
+		var target *theclouderrors.Error
+		ok := errors.As(err, &target)
 		if ok {
-			assert.Equal(t, theclouderrors.NotFound, theCloudErr.Type)
+			assert.Equal(t, theclouderrors.NotFound, target.Type)
 		}
 	})
 }
