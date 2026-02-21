@@ -35,7 +35,8 @@ func (m *instanceServiceMock) LaunchInstance(ctx context.Context, params ports.L
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Instance), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Instance)
+	return r0, args.Error(1)
 }
 
 func (m *instanceServiceMock) LaunchInstanceWithOptions(ctx context.Context, opts ports.CreateInstanceOptions) (*domain.Instance, error) {
@@ -43,7 +44,8 @@ func (m *instanceServiceMock) LaunchInstanceWithOptions(ctx context.Context, opt
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Instance), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Instance)
+	return r0, args.Error(1)
 }
 
 func (m *instanceServiceMock) Provision(ctx context.Context, job domain.ProvisionJob) error {
@@ -60,7 +62,8 @@ func (m *instanceServiceMock) StopInstance(ctx context.Context, idOrName string)
 
 func (m *instanceServiceMock) ListInstances(ctx context.Context) ([]*domain.Instance, error) {
 	args := m.Called(ctx)
-	return args.Get(0).([]*domain.Instance), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Instance)
+	return r0, args.Error(1)
 }
 
 func (m *instanceServiceMock) GetInstance(ctx context.Context, idOrName string) (*domain.Instance, error) {
@@ -68,7 +71,8 @@ func (m *instanceServiceMock) GetInstance(ctx context.Context, idOrName string) 
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Instance), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Instance)
+	return r0, args.Error(1)
 }
 
 func (m *instanceServiceMock) GetInstanceLogs(ctx context.Context, idOrName string) (string, error) {
@@ -82,7 +86,8 @@ func (m *instanceServiceMock) GetInstanceStats(ctx context.Context, idOrName str
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.InstanceStats), args.Error(1)
+	r0, _ := args.Get(0).(*domain.InstanceStats)
+	return r0, args.Error(1)
 }
 
 func (m *instanceServiceMock) GetConsoleURL(ctx context.Context, idOrName string) (string, error) {

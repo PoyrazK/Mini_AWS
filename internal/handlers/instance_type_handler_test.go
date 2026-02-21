@@ -23,7 +23,8 @@ func (m *instanceTypeServiceMock) List(ctx context.Context) ([]*domain.InstanceT
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.InstanceType), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.InstanceType)
+	return r0, args.Error(1)
 }
 
 func TestInstanceTypeHandlerList(t *testing.T) {
