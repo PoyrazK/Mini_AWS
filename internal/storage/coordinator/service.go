@@ -150,11 +150,12 @@ func (c *Coordinator) Assemble(ctx context.Context, bucket, key string, parts []
 			})
 			mu.Lock()
 			defer mu.Unlock()
-			if err != nil {
+			switch {
+			case err != nil:
 				lastErr = err
-			} else if resp.Error != "" {
+			case resp.Error != "":
 				lastErr = fmt.Errorf("%s", resp.Error)
-			} else {
+			default:
 				successCount++
 				size = resp.Size
 			}
