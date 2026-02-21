@@ -126,7 +126,9 @@ func TestQueueServiceDeleteMessage(t *testing.T) {
 	err = svc.DeleteMessage(ctx, q.ID, receipt)
 	assert.NoError(t, err)
 
-	v, inv, err := repo.(*postgres.PostgresQueueRepository).GetQueueStats(ctx, q.ID)
+	postgresRepo, ok := repo.(*postgres.PostgresQueueRepository)
+	require.True(t, ok)
+	v, inv, err := postgresRepo.GetQueueStats(ctx, q.ID)
 	assert.NoError(t, err)
 	assert.Equal(t, 0, v)
 	assert.Equal(t, 0, inv)
@@ -145,7 +147,9 @@ func TestQueueServicePurgeQueue(t *testing.T) {
 	err = svc.PurgeQueue(ctx, q.ID)
 	assert.NoError(t, err)
 
-	v, inv, err := repo.(*postgres.PostgresQueueRepository).GetQueueStats(ctx, q.ID)
+	postgresRepo, ok := repo.(*postgres.PostgresQueueRepository)
+	require.True(t, ok)
+	v, inv, err := postgresRepo.GetQueueStats(ctx, q.ID)
 	assert.NoError(t, err)
 	assert.Equal(t, 0, v)
 	assert.Equal(t, 0, inv)
