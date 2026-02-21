@@ -112,7 +112,7 @@ func TestNoopRepositoriesExtra(t *testing.T) {
 
 	t.Run("UserRepository", func(t *testing.T) {
 		repo := &NoopUserRepository{}
-		assert.NoError(t, repo.Create(ctx, &domain.User{}))
+		require.NoError(t, repo.Create(ctx, &domain.User{}))
 		user, err := repo.GetByEmail(ctx, "test@example.com")
 		assert.NoError(t, err)
 		assert.Nil(t, user)

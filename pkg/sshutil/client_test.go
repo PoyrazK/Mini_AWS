@@ -21,7 +21,7 @@ import (
 )
 
 // generateTestKey generates a private key for testing
-func generateTestKey(t *testing.T) string {
+func generateTestKey(t *testing.T) string { t.Helper()
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	require.NoError(t, err)
 
@@ -226,10 +226,12 @@ func TestWriteFileScpError(t *testing.T) {
 }
 
 func startTestSSHServer(t *testing.T) (string, func()) {
+	t.Helper()
 	return startTestSSHServerWithHandler(t, handleExecCommand)
 }
 
 func startTestSSHServerWithHandler(t *testing.T, handler func(cmd string, ch ssh.Channel) error) (string, func()) {
+	t.Helper()
 	listener, err := net.Listen("tcp", testLoopbackAddr)
 	require.NoError(t, err)
 

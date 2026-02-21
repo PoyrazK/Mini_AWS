@@ -21,7 +21,7 @@ const (
 
 func newCacheTestServer(t *testing.T) *httptest.Server {
 	t.Helper()
-	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { t.Helper()
 		w.Header().Set(cacheTestContentType, cacheTestAppJSON)
 
 		switch {

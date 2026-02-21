@@ -21,7 +21,7 @@ const (
 	policyPathSuffix         = "/policies"
 )
 
-func newAutoscalingTestServer(t *testing.T) *httptest.Server {
+func newAutoscalingTestServer(t *testing.T) *httptest.Server { t.Helper()
 	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set(autoScaleContentType, autoScaleAppJSON)
