@@ -27,21 +27,24 @@ func (m *MockCacheRepository) GetByID(ctx context.Context, id uuid.UUID) (*domai
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Cache), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Cache)
+	return r0, args.Error(1)
 }
 func (m *MockCacheRepository) GetByName(ctx context.Context, userID uuid.UUID, name string) (*domain.Cache, error) {
 	args := m.Called(ctx, userID, name)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Cache), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Cache)
+	return r0, args.Error(1)
 }
 func (m *MockCacheRepository) List(ctx context.Context, userID uuid.UUID) ([]*domain.Cache, error) {
 	args := m.Called(ctx, userID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Cache), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Cache)
+	return r0, args.Error(1)
 }
 func (m *MockCacheRepository) Update(ctx context.Context, cache *domain.Cache) error {
 	return m.Called(ctx, cache).Error(0)

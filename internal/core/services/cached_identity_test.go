@@ -19,23 +19,20 @@ type mockIdentityService struct {
 
 func (m *mockIdentityService) CreateKey(ctx context.Context, userID uuid.UUID, name string) (*domain.APIKey, error) {
 	args := m.Called(ctx, userID, name)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*domain.APIKey), args.Error(1)
+	r0, _ := args.Get(0).(*domain.APIKey)
+	return r0, args.Error(1)
 }
 
 func (m *mockIdentityService) ValidateAPIKey(ctx context.Context, key string) (*domain.APIKey, error) {
 	args := m.Called(ctx, key)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*domain.APIKey), args.Error(1)
+	r0, _ := args.Get(0).(*domain.APIKey)
+	return r0, args.Error(1)
 }
 
 func (m *mockIdentityService) ListKeys(ctx context.Context, userID uuid.UUID) ([]*domain.APIKey, error) {
 	args := m.Called(ctx, userID)
-	return args.Get(0).([]*domain.APIKey), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.APIKey)
+	return r0, args.Error(1)
 }
 
 func (m *mockIdentityService) RevokeKey(ctx context.Context, userID uuid.UUID, id uuid.UUID) error {
@@ -44,10 +41,8 @@ func (m *mockIdentityService) RevokeKey(ctx context.Context, userID uuid.UUID, i
 
 func (m *mockIdentityService) RotateKey(ctx context.Context, userID uuid.UUID, id uuid.UUID) (*domain.APIKey, error) {
 	args := m.Called(ctx, userID, id)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*domain.APIKey), args.Error(1)
+	r0, _ := args.Get(0).(*domain.APIKey)
+	return r0, args.Error(1)
 }
 
 func setupCachedIdentityTest(t *testing.T) (*mockIdentityService, *redis.Client, *miniredis.Miniredis) {
