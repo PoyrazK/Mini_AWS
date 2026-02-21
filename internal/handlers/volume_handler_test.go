@@ -30,7 +30,8 @@ func (m *mockVolumeService) CreateVolume(ctx context.Context, name string, sizeG
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Volume), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Volume)
+	return r0, args.Error(1)
 }
 
 func (m *mockVolumeService) ListVolumes(ctx context.Context) ([]*domain.Volume, error) {
@@ -38,7 +39,8 @@ func (m *mockVolumeService) ListVolumes(ctx context.Context) ([]*domain.Volume, 
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Volume), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Volume)
+	return r0, args.Error(1)
 }
 
 func (m *mockVolumeService) GetVolume(ctx context.Context, idOrName string) (*domain.Volume, error) {
@@ -46,7 +48,8 @@ func (m *mockVolumeService) GetVolume(ctx context.Context, idOrName string) (*do
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Volume), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Volume)
+	return r0, args.Error(1)
 }
 
 func (m *mockVolumeService) DeleteVolume(ctx context.Context, idOrName string) error {
