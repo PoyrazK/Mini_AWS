@@ -35,7 +35,8 @@ func (m *mockFunctionService) CreateFunction(ctx context.Context, name, runtime,
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Function), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Function)
+	return r0, args.Error(1)
 }
 
 func (m *mockFunctionService) ListFunctions(ctx context.Context) ([]*domain.Function, error) {
@@ -43,7 +44,8 @@ func (m *mockFunctionService) ListFunctions(ctx context.Context) ([]*domain.Func
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Function), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Function)
+	return r0, args.Error(1)
 }
 
 func (m *mockFunctionService) GetFunction(ctx context.Context, id uuid.UUID) (*domain.Function, error) {
@@ -51,7 +53,8 @@ func (m *mockFunctionService) GetFunction(ctx context.Context, id uuid.UUID) (*d
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Function), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Function)
+	return r0, args.Error(1)
 }
 
 func (m *mockFunctionService) DeleteFunction(ctx context.Context, id uuid.UUID) error {
@@ -64,7 +67,8 @@ func (m *mockFunctionService) InvokeFunction(ctx context.Context, id uuid.UUID, 
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Invocation), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Invocation)
+	return r0, args.Error(1)
 }
 
 func (m *mockFunctionService) GetFunctionLogs(ctx context.Context, id uuid.UUID, limit int) ([]*domain.Invocation, error) {
@@ -72,7 +76,8 @@ func (m *mockFunctionService) GetFunctionLogs(ctx context.Context, id uuid.UUID,
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Invocation), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Invocation)
+	return r0, args.Error(1)
 }
 
 func setupFunctionHandlerTest(_ *testing.T) (*mockFunctionService, *FunctionHandler, *gin.Engine) {
