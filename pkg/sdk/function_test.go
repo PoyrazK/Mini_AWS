@@ -27,8 +27,8 @@ const (
 )
 
 func newFunctionTestServer(t *testing.T) *httptest.Server {
+	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		t.Helper()
 		w.Header().Set(functionContentType, functionApplicationJSON)
 
 		if handleFunctionCreate(w, r) {
