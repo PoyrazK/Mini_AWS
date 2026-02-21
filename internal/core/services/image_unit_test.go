@@ -26,14 +26,16 @@ func (m *MockImageRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.Imag
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Image), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Image)
+	return r0, args.Error(1)
 }
 func (m *MockImageRepo) List(ctx context.Context, userID uuid.UUID, includePublic bool) ([]*domain.Image, error) {
 	args := m.Called(ctx, userID, includePublic)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Image), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Image)
+	return r0, args.Error(1)
 }
 func (m *MockImageRepo) Update(ctx context.Context, img *domain.Image) error {
 	return m.Called(ctx, img).Error(0)
