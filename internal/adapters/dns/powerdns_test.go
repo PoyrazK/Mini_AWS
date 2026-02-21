@@ -44,7 +44,9 @@ func TestPowerDNSCreateZone(t *testing.T) {
 			var reqBody map[string]interface{}
 			_ = json.Unmarshal(body, &reqBody)
 			rrsets, ok := reqBody["rrsets"].([]interface{})
-			require.True(t, ok)
+			if !assert.True(t, ok, "rrsets must be present in request") {
+				return
+			}
 			assert.Len(t, rrsets, 1) // Expect SOA record
 
 			w.WriteHeader(http.StatusNoContent)
